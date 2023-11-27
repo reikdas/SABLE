@@ -58,11 +58,11 @@ def gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     print(M)
 
 def gen_random():
-    row_widths = [1, 2] # Rows are split equally into row_widths
-    col_widths = [1, 2] # Cols are split equally into col_widths
-    val = [1]*100
-    m = 10 # Number of rows
-    n = 10 # Number of columns
+    row_widths = [1, 2, 3] # Rows are split equally into row_widths
+    col_widths = [1, 2, 3] # Cols are split equally into col_widths
+    val = [1]*1000 # Adjust for larger m and n
+    m = 30 # Number of rows
+    n = 30 # Number of columns
     for row_width in row_widths:
         for col_width in col_widths:
             rpntr = [x for x in range(0, m+row_width, row_width)]
@@ -72,15 +72,16 @@ def gen_random():
             blocks_in_row = m//row_width
             blocks_in_col = n//col_width
             num_blocks = blocks_in_row * blocks_in_col
-            for num_dense in range(1, num_blocks//10):
+            for num_dense in range(1, num_blocks//5): # Only 20% of blocks can be dense
+                # Randomly choose dense blocks
                 dense_blocks = random.choices([x for x in range(num_blocks)], k=num_dense)
-                dense_blocks.sort()
+                dense_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
                 bindx = []
                 bpntrb = []
                 bpntre = []
                 curr_row = 0
                 for dense_block in dense_blocks:
-                    new_row = dense_block//blocks_in_row
+                    new_row = dense_block//blocks_in_col
                     if new_row != curr_row:
                         if curr_row == 0 and len(bpntrb) == 0:
                             for i in range(curr_row, new_row):
@@ -97,8 +98,7 @@ def gen_random():
                             bpntrb.append(len(bindx))
                     if (len(bpntrb) == 0):
                         bpntrb.append(0)
-                    bindx.append(dense_block%blocks_in_row)
-                    print(bindx, bpntrb, bpntre)
+                    bindx.append(dense_block%blocks_in_col)
                 bpntre.append(len(bindx))
                 while (len(bpntrb) < len(rpntr) -1):
                     bpntrb.append(-1)

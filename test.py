@@ -45,7 +45,7 @@ def write_mm_file(filename, M):
                     f.write(f"{i+1} {j+1} {M[i][j]}\n")
 
 def find_nonneg(l):
-    for i, ele in enumerate(l):
+    for _, ele in enumerate(l):
         if ele != -1:
             return ele
     assert(False)
@@ -69,11 +69,12 @@ def gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     return M
 
 def gen_random():
-    row_widths = [20] # Rows are split equally into row_widths
-    col_widths = [20] # Cols are split equally into col_widths
+    row_widths = [10] # Rows are split equally into row_widths
+    col_widths = [10] # Cols are split equally into col_widths
     m = 100 # Number of rows
     n = 100 # Number of columns
-    val = [1] * m * n
+    val = []
+    indx = [0]
     for row_width in row_widths:
         for col_width in col_widths:
             rpntr = [x for x in range(0, m+row_width, row_width)]
@@ -85,7 +86,7 @@ def gen_random():
             num_blocks = blocks_in_row * blocks_in_col
             for num_dense in range(1, num_blocks//5): # Only 20% of blocks can be dense
                 # Randomly choose dense blocks
-                dense_blocks = random.choices([x for x in range(num_blocks)], k=num_dense)
+                dense_blocks = random.sample([x for x in range(num_blocks)], num_dense)
                 dense_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
                 bindx = []
                 bpntrb = []
@@ -93,6 +94,15 @@ def gen_random():
                 curr_row = 0
                 for dense_block in dense_blocks:
                     new_row = dense_block//blocks_in_col
+                    col_idx = dense_block//blocks_in_row
+                    block_size = (rpntr[new_row+1] - rpntr[new_row]) * (cpntr[col_idx+1] - cpntr[col_idx])
+                    zeros = random.sample([x for x in range(block_size)], k=block_size//5) # Only 20% of elements can be zero
+                    for index in range(block_size):
+                        if index in zeros:
+                            val.append(0)
+                        else:
+                            val.append(1)
+                    indx.append(indx[-1] + block_size)
                     if new_row != curr_row:
                         if curr_row == 0 and len(bpntrb) == 0:
                             for i in range(curr_row, new_row):
@@ -113,10 +123,7 @@ def gen_random():
                 bpntre.append(len(bindx))
                 while (len(bpntrb) < len(rpntr) -1):
                     bpntrb.append(-1)
-                    bpntre.append(-1)
-                indx = [0]
-                for i in range(num_dense):
-                    indx.append((i+1)*(row_width * col_width))           
+                    bpntre.append(-1)        
                 # print("indx = ", indx)
                 # print("bindx = ", bindx)
                 # print("rpntr = ", rpntr)
@@ -127,7 +134,7 @@ def gen_random():
                 M = gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
                 # print(M)
                 # print("--------------------")
-                write_mm_file(f"Matrix_{row_width}_{col_width}_{num_dense}.mtx", M)
+                write_mm_file(f"Matrix_{row_width}_{col_width}_{num_dense}_{len(zeros)}nz.mtx", M)
 
 def numpy_to_csr(matrix):
     # Convert the list of lists to a CSR matrix
@@ -155,8 +162,8 @@ def sparskit_mat():
     cpntr = [0, 2, 5, 6, 9, 11]
     bpntrb = [0, 3, 5, 9, 11]
     bpntre = [3, 5, 9, 11, 13]
-    # codegen([1]*11, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
-    gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
+    codegen([1]*11, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
+    # gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
 
 if __name__ == "__main__":
     # sparskit_mat()

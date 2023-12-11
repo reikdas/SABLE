@@ -1,6 +1,7 @@
 import random
 import numpy
 import sys
+import os
 
 def codegen(x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     print("#include <stdio.h>\n")
@@ -34,6 +35,15 @@ def codegen(x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     print("\tprintf(\"\\n\");\n")
     print("}\n")
 
+def write_mm_file(filename, M):
+    with open(os.path.join("Generated_Matrices", filename), 'w') as f:
+        f.write("%%MatrixMarket matrix coordinate real general\n")
+        f.write(f"{M.shape[0]} {M.shape[1]} {numpy.count_nonzero(M)}\n")
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                if M[i][j] != 0:
+                    f.write(f"{i+1} {j+1} {M[i][j]}\n")
+
 def find_nonneg(l):
     for i, ele in enumerate(l):
         if ele != -1:
@@ -55,14 +65,15 @@ def gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
                         M[i][j] = val[indx[count]+count2]
                         count2 += 1
                 count += 1
-    print(M)
+    # print(M)
+    return M
 
 def gen_random():
-    row_widths = [1, 2, 3] # Rows are split equally into row_widths
-    col_widths = [1, 2, 3] # Cols are split equally into col_widths
-    val = [1]*1000 # Adjust for larger m and n
-    m = 30 # Number of rows
-    n = 30 # Number of columns
+    row_widths = [20] # Rows are split equally into row_widths
+    col_widths = [20] # Cols are split equally into col_widths
+    m = 100 # Number of rows
+    n = 100 # Number of columns
+    val = [1] * m * n
     for row_width in row_widths:
         for col_width in col_widths:
             rpntr = [x for x in range(0, m+row_width, row_width)]
@@ -105,16 +116,23 @@ def gen_random():
                     bpntre.append(-1)
                 indx = [0]
                 for i in range(num_dense):
-                    indx.append((i+1)*(row_width * col_width))
-                print("indx = ", indx)
-                print("bindx = ", bindx)
-                print("rpntr = ", rpntr)
-                print("cpntr = ", cpntr)
-                print("bpntrb = ", bpntrb)
-                print("bpntre = ", bpntre)
-                print("Dense blocks = ", dense_blocks)
-                gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
-                print("--------------------")
+                    indx.append((i+1)*(row_width * col_width))           
+                # print("indx = ", indx)
+                # print("bindx = ", bindx)
+                # print("rpntr = ", rpntr)
+                # print("cpntr = ", cpntr)
+                # print("bpntrb = ", bpntrb)
+                # print("bpntre = ", bpntre)
+                # print("Dense blocks = ", dense_blocks)
+                M = gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
+                # print(M)
+                # print("--------------------")
+                write_mm_file(f"Matrix_{row_width}_{col_width}_{num_dense}.mtx", M)
+
+def numpy_to_csr(matrix):
+    # Convert the list of lists to a CSR matrix
+    csr_matrix_representation = csr_matrix(matrix)
+    return csr_matrix_representation.tocsr()
                 
 def sparskit_mat():
     """

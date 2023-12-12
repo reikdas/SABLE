@@ -2,41 +2,87 @@ import random
 import numpy
 import sys
 import os
+from typing import Annotated
+from annotated_types import Gt
 
-def codegen(x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
-    print("#include <stdio.h>\n")
-    print("int main() {")
-    print(f"\tint y[{len(x)}] = {{0}};")
-    print(f"\tint x[] = {{{','.join(map(str, x))}}};")
-    print(f"\tint val[] = {{{','.join(map(str, val))}}};")
-    print(f"\tint indx[] = {{{','.join(map(str, indx))}}};")
-    print(f"\tint bindx[] = {{{','.join(map(str, bindx))}}};")
-    print(f"\tint rpntr[] = {{{','.join(map(str, rpntr))}}};")
-    print(f"\tint cpntr[] = {{{','.join(map(str, cpntr))}}};")
-    print(f"\tint bpntrb[] = {{{','.join(map(str, bpntrb))}}};")
-    print(f"\tint bpntre[] = {{{','.join(map(str, bpntre))}}};")
-    print("\tint count = 0;\n")
-    count = 0
-    for a in range(len(rpntr)-1):
-        valid_cols = bindx[bpntrb[a]-bpntrb[0]:bpntre[a]-bpntrb[0]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                print("\tcount = 0;")
-                print(f"\tfor (int j = {cpntr[b]}; j < {cpntr[b+1]}; j++) {{")
-                print(f"\t\tfor (int i = {rpntr[a]}; i < {rpntr[a+1]}; i++) {{")
-                print(f"\t\t\ty[i] += val[{indx[count]}+count] * x[j];")
-                print("\t\t\tcount++;")
-                print("\t\t}")
-                print("\t}")
-                count+=1
-    print(f"\tfor (int i=0; i<{len(x)}; i++) {{")
-    print("\t\tprintf(\"%d \", y[i]);")
-    print("\t}\n")
-    print("\tprintf(\"\\n\");\n")
-    print("}\n")
+def codegen(filename, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
+    dir_name = "Generated_SpMV"
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(os.path.join(dir_name, filename+".data"), "w") as f:
+        f.write(f"x=[{','.join(map(str, x))}]\n")
+        f.write(f"val=[{','.join(map(str, val))}]\n")
+        f.write(f"indx=[{','.join(map(str, indx))}]\n")
+        f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
+        f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
+        f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
+        f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
+        f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.write("#include <stdio.h>\n")
+        f.write("#include <time.h>\n")
+        f.write("#include <assert.h>\n")
+        f.write("int main() {\n")
+        f.write(f"\tint y[{len(x)}] = {{0}};\n")
+        f.write(f"\tFILE *file = fopen(\"{filename}.data\", \"r\");\n")
+        f.write("if (file == NULL) { printf(\"Error opening file\"); return 1; }\n")
+        f.write(f"\tint x[{len(x)+1}];\n")
+        f.write(f"\tint val[{len(val)+1}];\n")
+        f.write(f"\tint indx[{len(indx)+1}];\n")
+        f.write(f"\tint bindx[{len(bindx)+1}];\n")
+        f.write(f"\tint rpntr[{len(rpntr)+1}];\n")
+        f.write(f"\tint cpntr[{len(cpntr)+1}];\n")
+        f.write(f"\tint bpntrb[{len(bpntrb)+1}];\n")
+        f.write(f"\tint bpntre[{len(bpntre)+1}];\n")
+        f.write("\tchar c;\n")
+        f.write(f"\tint x_size=0, val_size=0, indx_size=0, bindx_size=0, rpntr_size=0, cpntr_size=0, bpntrb_size=0, bpntre_size=0;\n")
+        for variable in ["x", "val", "indx", "bindx", "rpntr", "cpntr", "bpntrb", "bpntre"]:
+            f.write('''
+    assert(fscanf(file, "{0}=[%d", &{0}[{0}_size]) == 1);
+    {0}_size++;
+    while (1) {{
+        assert(fscanf(file, \"%c\", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file, \"%d\", &{0}[{0}_size]) == 1);
+            {0}_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    fscanf(file, \"%c\", &c);
+    assert(c=='\\n');\n'''.format(variable))
+        f.write("\tfclose(file);\n")
+        f.write("\tint count = 0;\n")
+        f.write("\tclock_t t; t = clock();\n")
+        count = 0
+        for a in range(len(rpntr)-1):
+            valid_cols = bindx[bpntrb[a]-bpntrb[0]:bpntre[a]-bpntrb[0]]
+            for b in range(len(cpntr)-1):
+                if b in valid_cols:
+                    f.write("\tcount = 0;\n")
+                    f.write(f"\tfor (int j = {cpntr[b]}; j < {cpntr[b+1]}; j++) {{\n")
+                    f.write(f"\t\tfor (int i = {rpntr[a]}; i < {rpntr[a+1]}; i++) {{\n")
+                    f.write(f"\t\t\ty[i] += val[{indx[count]}+count] * x[j];\n")
+                    f.write("\t\t\tcount++;\n")
+                    f.write("\t\t}\n")
+                    f.write("\t}\n")
+                    count+=1
+        f.write("\tt=clock()-t;\n")
+        f.write("\tdouble time_taken = ((double)t)/CLOCKS_PER_SEC;\n")
+        f.write(f"\tfor (int i=0; i<{len(x)}; i++) {{\n")
+        f.write("\t\tprintf(\"%d \", y[i]);\n")
+        f.write("\t}\n")
+        f.write("\tprintf(\"\\n\");\n")
+        f.write("\tprintf(\"{0} = %f\\n\", time_taken);\n".format(filename))
+        f.write("}\n")
 
 def write_mm_file(filename, M):
-    with open(os.path.join("Generated_Matrices", filename), 'w') as f:
+    dir_name = "Generated_Matrices"
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(os.path.join(dir_name, filename), 'w') as f:
         f.write("%%MatrixMarket matrix coordinate real general\n")
         f.write(f"{M.shape[0]} {M.shape[1]} {numpy.count_nonzero(M)}\n")
         for i in range(M.shape[0]):
@@ -68,11 +114,11 @@ def gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     # print(M)
     return M
 
-def gen_random():
-    row_widths = [10] # Rows are split equally into row_widths
-    col_widths = [10] # Cols are split equally into col_widths
-    m = 100 # Number of rows
-    n = 100 # Number of columns
+def gen_random() -> None:
+    row_widths: list[Annotated[int, Gt(0)]] = [10,20,40,50,100] # Rows are split equally into row_widths
+    col_widths: list[int] = [10, 20, 40, 50, 100] # Cols are split equally into col_widths
+    m = 1000 # Number of rows
+    n = 1000 # Number of columns
     val = []
     indx = [0]
     for row_width in row_widths:
@@ -88,9 +134,9 @@ def gen_random():
                 # Randomly choose dense blocks
                 dense_blocks = random.sample([x for x in range(num_blocks)], num_dense)
                 dense_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
-                bindx = []
-                bpntrb = []
-                bpntre = []
+                bindx: list[int] = []
+                bpntrb: list[int] = []
+                bpntre: list[int] = []
                 curr_row = 0
                 for dense_block in dense_blocks:
                     new_row = dense_block//blocks_in_col
@@ -131,15 +177,17 @@ def gen_random():
                 # print("bpntrb = ", bpntrb)
                 # print("bpntre = ", bpntre)
                 # print("Dense blocks = ", dense_blocks)
+                filename = f"Matrix_{row_width}_{col_width}_{num_dense}_{len(zeros)}nz"
+                codegen(filename, [1]*(m+col_width+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
                 M = gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
                 # print(M)
                 # print("--------------------")
-                write_mm_file(f"Matrix_{row_width}_{col_width}_{num_dense}_{len(zeros)}nz.mtx", M)
+                write_mm_file(filename + ".mtx", M)
 
-def numpy_to_csr(matrix):
-    # Convert the list of lists to a CSR matrix
-    csr_matrix_representation = csr_matrix(matrix)
-    return csr_matrix_representation.tocsr()
+# def numpy_to_csr(matrix):
+#     # Convert the list of lists to a CSR matrix
+#     csr_matrix_representation = csr_matrix(matrix)
+#     return csr_matrix_representation.tocsr()
                 
 def sparskit_mat():
     """

@@ -20,12 +20,16 @@ double* loadMatrixMarket(const char *filename, int *rows, int *cols) {
     // printf("Matrix size: %d x %d %d\n", *rows, *cols, nnz);
 
     double* values = (double *)calloc((*rows) * (*cols), sizeof(double));
+    if (values == NULL) {
+        fprintf(stderr, "Memory allocation error.\n");
+        exit(1);
+    }
 
     int x, y;
     double val;
-    while (fscanf(file, "%d %d %lf\n", &x, &y, &val) != EOF) {
-        // printf("%d %d %lf\n", x, y, val);
-        values[(x * (*cols)) + y] = val;
+    while (fscanf(file, "%d %d %lf\n", &x, &y, &val) == 3) {
+        printf("%d %d %lf\n", x, y, val);
+        values[((x-1) * ((*cols) - 1)) + y] = val;
     }
 
     fclose(file);
@@ -37,7 +41,7 @@ int main() {
     double *vector, *result;
 
     // Replace "your_matrix_market_file.mtx" with the actual file name
-    double *matrix = loadMatrixMarket("Generated_Matrices/Matrix_50_50_20_10000z.mtx", &rows, &cols);
+    double *matrix = loadMatrixMarket("Generated_Matrices/Matrix_50_50_2000_1000000z.mtx", &rows, &cols);
 
     // Create a vector (array of size number of columns of the matrix)
     vector = (double *)malloc(cols * sizeof(double));
@@ -65,10 +69,10 @@ int main() {
     cblas_dgemv(CblasRowMajor, CblasNoTrans, rows, cols, 1.0, matrix, cols, vector, 1, 0.0, result, 1);
 
     // Print the result vector
-    printf("Result vector:\n");
-    for (int i = 0; i < rows; i++) {
-        printf("%lf\n", result[i]);
-    }
+    // printf("Result vector:\n");
+    // for (int i = 0; i < rows; i++) {
+    //     printf("%lf\n", result[i]);
+    // }
 
     // Free allocated memory
     free(matrix);

@@ -2,8 +2,6 @@ import random
 import numpy
 import sys
 import os
-from typing import Annotated
-from annotated_types import Gt
 
 def codegen(filename, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     dir_name = "Generated_SpMV"
@@ -20,20 +18,21 @@ def codegen(filename, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
         f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.write("#include <stdio.h>\n")
-        f.write("#include <time.h>\n")
-        f.write("#include <assert.h>\n")
+        f.write("#include <sys/time.h>\n")
+        f.write("#include <stdlib.h>\n")
+        f.write("#include <assert.h>\n\n")
         f.write("int main() {\n")
-        f.write(f"\tint y[{len(x)}] = {{0}};\n")
         f.write(f"\tFILE *file = fopen(\"{filename}.data\", \"r\");\n")
-        f.write("if (file == NULL) { printf(\"Error opening file\"); return 1; }\n")
-        f.write(f"\tint x[{len(x)+1}];\n")
-        f.write(f"\tint val[{len(val)+1}];\n")
-        f.write(f"\tint indx[{len(indx)+1}];\n")
-        f.write(f"\tint bindx[{len(bindx)+1}];\n")
-        f.write(f"\tint rpntr[{len(rpntr)+1}];\n")
-        f.write(f"\tint cpntr[{len(cpntr)+1}];\n")
-        f.write(f"\tint bpntrb[{len(bpntrb)+1}];\n")
-        f.write(f"\tint bpntre[{len(bpntre)+1}];\n")
+        f.write("\tif (file == NULL) { printf(\"Error opening file\"); return 1; }\n")
+        f.write(f"\tint* y = (int*)calloc({len(x)}, sizeof(int));\n")
+        f.write(f"\tint* x = (int*)calloc({len(x) + 1}, sizeof(int));\n")
+        f.write(f"\tint* val = (int*)calloc({len(val) + 1}, sizeof(int));\n")
+        f.write(f"\tint* indx = (int*)calloc({len(indx) + 1}, sizeof(int));\n")
+        f.write(f"\tint* bindx = (int*)calloc({len(bindx) + 1}, sizeof(int));\n")
+        f.write(f"\tint* rpntr = (int*)calloc({len(rpntr) + 1}, sizeof(int));\n")
+        f.write(f"\tint* cpntr = (int*)calloc({len(cpntr) + 1}, sizeof(int));\n")
+        f.write(f"\tint* bpntrb = (int*)calloc({len(bpntrb) + 1}, sizeof(int));\n")
+        f.write(f"\tint* bpntre = (int*)calloc({len(bpntre) + 1}, sizeof(int));\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0, indx_size=0, bindx_size=0, rpntr_size=0, cpntr_size=0, bpntrb_size=0, bpntre_size=0;\n")
         for variable in ["x", "val", "indx", "bindx", "rpntr", "cpntr", "bpntrb", "bpntre"]:
@@ -55,7 +54,9 @@ def codegen(filename, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     assert(c=='\\n');\n'''.format(variable))
         f.write("\tfclose(file);\n")
         f.write("\tint count = 0;\n")
-        f.write("\tclock_t t; t = clock();\n")
+        f.write("\tstruct timeval t1;\n")
+        f.write("\tgettimeofday(&t1, NULL);\n")
+        f.write("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
         count = 0
         for a in range(len(rpntr)-1):
             valid_cols = bindx[bpntrb[a]-bpntrb[0]:bpntre[a]-bpntrb[0]]
@@ -69,13 +70,14 @@ def codegen(filename, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
                     f.write("\t\t}\n")
                     f.write("\t}\n")
                     count+=1
-        f.write("\tt=clock()-t;\n")
-        f.write("\tdouble time_taken = ((double)t)/CLOCKS_PER_SEC;\n")
+        f.write("\tstruct timeval t2;\n")
+        f.write("\tgettimeofday(&t2, NULL);\n")
+        f.write("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
         f.write(f"\tfor (int i=0; i<{len(x)}; i++) {{\n")
         f.write("\t\tprintf(\"%d \", y[i]);\n")
         f.write("\t}\n")
         f.write("\tprintf(\"\\n\");\n")
-        f.write("\tprintf(\"{0} = %f\\n\", time_taken);\n".format(filename))
+        f.write("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
         f.write("}\n")
 
 def write_mm_file(filename, M):
@@ -115,10 +117,10 @@ def gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     return M
 
 def gen_random() -> None:
-    row_widths: list[Annotated[int, Gt(0)]] = [10,20,40,50,100] # Rows are split equally into row_widths
-    col_widths: list[int] = [10, 20, 40, 50, 100] # Cols are split equally into col_widths
-    m = 1000 # Number of rows
-    n = 1000 # Number of columns
+    row_widths = [50, 100] # Rows are split equally into row_widths
+    col_widths = [50, 100] # Cols are split equally into col_widths
+    m = 500 # Number of rows
+    n = 500 # Number of columns
     val = []
     indx = [0]
     for row_width in row_widths:
@@ -130,19 +132,22 @@ def gen_random() -> None:
             blocks_in_row = m//row_width
             blocks_in_col = n//col_width
             num_blocks = blocks_in_row * blocks_in_col
-            for num_dense in range(1, num_blocks//5): # Only 20% of blocks can be dense
+            #for num_dense in range(1, num_blocks//5): # Only 20% of blocks can be dense
+            for num_dense in [num_blocks//5]:
                 # Randomly choose dense blocks
                 dense_blocks = random.sample([x for x in range(num_blocks)], num_dense)
                 dense_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
-                bindx: list[int] = []
-                bpntrb: list[int] = []
-                bpntre: list[int] = []
+                bindx = []
+                bpntrb = []
+                bpntre = []
                 curr_row = 0
+                nzeros = 0
                 for dense_block in dense_blocks:
                     new_row = dense_block//blocks_in_col
                     col_idx = dense_block//blocks_in_row
                     block_size = (rpntr[new_row+1] - rpntr[new_row]) * (cpntr[col_idx+1] - cpntr[col_idx])
                     zeros = random.sample([x for x in range(block_size)], k=block_size//5) # Only 20% of elements can be zero
+                    nzeros += (len(zeros))
                     for index in range(block_size):
                         if index in zeros:
                             val.append(0)
@@ -177,7 +182,7 @@ def gen_random() -> None:
                 # print("bpntrb = ", bpntrb)
                 # print("bpntre = ", bpntre)
                 # print("Dense blocks = ", dense_blocks)
-                filename = f"Matrix_{row_width}_{col_width}_{num_dense}_{len(zeros)}nz"
+                filename = f"Matrix_{row_width}_{col_width}_{num_dense}_{nzeros}z"
                 codegen(filename, [1]*(m+col_width+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
                 M = gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
                 # print(M)
@@ -210,7 +215,7 @@ def sparskit_mat():
     cpntr = [0, 2, 5, 6, 9, 11]
     bpntrb = [0, 3, 5, 9, 11]
     bpntre = [3, 5, 9, 11, 13]
-    codegen([1]*11, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
+    codegen("foo.c", [1]*11, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
     # gen_matrix(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
 
 if __name__ == "__main__":

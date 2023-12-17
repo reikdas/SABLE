@@ -2,6 +2,7 @@ import random
 import numpy
 import sys
 import os
+from pathlib import Path
 
 def datagen(filename, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     dir_name = "Generated_Data"
@@ -35,7 +36,8 @@ def spmv_codegen():
         os.makedirs(dir_name)
     for filename in os.listdir("Generated_Data"):
         assert(filename.endswith(".data"))
-        x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_data(os.path.join("Generated_Data", filename))
+        rel_path = os.path.join("Generated_Data", filename)
+        x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_data(rel_path)
         filename = filename[:-5]
         with open(os.path.join(dir_name, filename+".c"), "w") as f:
             f.write("#include <stdio.h>\n")
@@ -43,7 +45,7 @@ def spmv_codegen():
             f.write("#include <stdlib.h>\n")
             f.write("#include <assert.h>\n\n")
             f.write("int main() {\n")
-            f.write(f"\tFILE *file = fopen(\"{filename}.data\", \"r\");\n")
+            f.write(f"\tFILE *file = fopen(\"{os.path.abspath(rel_path)}\", \"r\");\n")
             f.write("\tif (file == NULL) { printf(\"Error opening file\"); return 1; }\n")
             f.write(f"\tint* y = (int*)calloc({len(x)}, sizeof(int));\n")
             f.write(f"\tint* x = (int*)calloc({len(x) + 1}, sizeof(int));\n")
@@ -80,7 +82,9 @@ def spmv_codegen():
             f.write("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
             count = 0
             for a in range(len(rpntr)-1):
-                valid_cols = bindx[bpntrb[a]-bpntrb[0]:bpntre[a]-bpntrb[0]]
+                if bpntrb[a] == -1:
+                    continue
+                valid_cols = bindx[bpntrb[a]:bpntre[a]]
                 for b in range(len(cpntr)-1):
                     if b in valid_cols:
                         f.write("\tcount = 0;\n")
@@ -94,11 +98,10 @@ def spmv_codegen():
             f.write("\tstruct timeval t2;\n")
             f.write("\tgettimeofday(&t2, NULL);\n")
             f.write("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-            f.write(f"\tfor (int i=0; i<{len(x)}; i++) {{\n")
-            f.write("\t\tprintf(\"%d \", y[i]);\n")
-            f.write("\t}\n")
-            f.write("\tprintf(\"\\n\");\n")
             f.write("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+            f.write(f"\tfor (int i=0; i<{len(x)}; i++) {{\n")
+            f.write("\t\tprintf(\"%d\\n\", y[i]);\n")
+            f.write("\t}\n")
             f.write("}\n")
 
 def write_mm_file(filename, M):
@@ -141,10 +144,10 @@ def mtx_gen():
         write_mm_file(os.path.join(dir_name, filename + ".mtx"), M)
 
 def gen_data() -> None:
-    row_widths = [100] # Rows are split equally into row_widths
-    col_widths = [100] # Cols are split equally into col_widths
-    m = 500 # Number of rows
-    n = 500 # Number of columns
+    row_widths = [50, 100] # Rows are split equally into row_widths
+    col_widths = [50, 100] # Cols are split equally into col_widths
+    m = 5000 # Number of rows
+    n = 5000 # Number of columns
     val = []
     indx = [0]
     for row_width in row_widths:

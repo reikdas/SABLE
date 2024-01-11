@@ -1,6 +1,15 @@
 import subprocess
 import os
 import numpy
+from interpreter import interpret
+import ast
+
+def is_valid_list_string(s):
+    try:
+        ast.literal_eval(s)
+        return True
+    except (ValueError, SyntaxError):
+        return False
 
 def load_mtx(mtx_file):
     with open(mtx_file, "r") as f:
@@ -25,7 +34,13 @@ def cmp_file(file1, file2):
                 line1 = line1.strip()
                 line2 = line2.strip()
                 count += 1
-                if int(float(line1)) != int(float(line2)):
+                if is_valid_list_string(line1):
+                    line1 = ast.literal_eval(line1)
+                    line2 = ast.literal_eval(line2)
+                else:
+                    line1 = int(float(line1))
+                    line2 = int(float(line2))
+                if line1 != line2:
                     print(count, ": ", line1, " ", line2)
                     return False
     return True
@@ -50,6 +65,11 @@ if __name__ == "__main__":
         with open(os.path.join(dir_name, mtx_file[:-4]+"_my.txt"), "w") as f:
             for line in output:
                 f.write(line+"\n")
+        # Interpreter
+        with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
+            y = interpret(os.path.join("Generated_Data", mtx_file[:-4]+".data"))
+            for elem in y:
+                f.write(str(int(elem))+"\n")
         # CBLAS
         # subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], "dense.c", "-lcblas"])
         # output = subprocess.run(["./"+mtx_file[:-4], os.path.join("Generated_Matrix", mtx_file)], capture_output=True)
@@ -64,5 +84,7 @@ if __name__ == "__main__":
             assert(cmp_file(os.path.join(dir_name, filename), os.path.join(dir_name, filename[:-6]+"canon.txt")))
             # Compare cblas with canon
             # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"dense.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
+            # Compare interp with canon
+            assert(cmp_file(os.path.join(dir_name, filename[:-6]+"interp.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
         
         

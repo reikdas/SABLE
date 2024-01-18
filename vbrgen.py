@@ -174,12 +174,11 @@ def gen_data() -> None:
                     rpntr = cumsum_list(random_splits(m-1, row_split))
                     cpntr = cumsum_list(random_splits(n-1, col_split))
                     num_blocks = row_split * col_split
-                    #for num_dense in range(1, num_blocks//5): # Only 20% of blocks can be dense
-                    for num_dense in [num_blocks//5]:
+                    for num_dense in [(num_blocks*20)//100, (num_blocks*15)//100, (num_blocks*10)//100, (num_blocks*5)//100, (num_blocks*1)//100]:
                         # Randomly choose dense blocks
                         dense_blocks = random.sample([x for x in range(num_blocks)], num_dense)
                         dense_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
-                        for perc_zeros in [20, 0]: # 20% or 0% zeros in dense blocks
+                        for perc_zeros in [50, 40, 30, 20, 10, 0]:
                             val = []
                             indx = [0]
                             bindx = []
@@ -227,7 +226,7 @@ def gen_data() -> None:
                             # print("bpntrb = ", bpntrb)
                             # print("bpntre = ", bpntre)
                             # print("Dense blocks = ", dense_blocks)
-                            filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_zeros}_{len(zeros)}z"
+                            filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_zeros}z"
                             datagen(filename, [1]*(m+col_split+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
 
 if __name__ == "__main__":

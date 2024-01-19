@@ -2,6 +2,7 @@ import random
 import numpy
 import sys
 import os
+import time
 
 def datagen(filename, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
     dir_name = "Generated_Data"
@@ -29,15 +30,18 @@ def read_data(filename):
         bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
     return x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
 
-def spmv_codegen():
+def spmv_codegen(bench=False):
     dir_name = "Generated_SpMV"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
+    d = {}
     for filename in os.listdir("Generated_Data"):
         assert(filename.endswith(".data"))
         rel_path = os.path.join("Generated_Data", filename)
         x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_data(rel_path)
         filename = filename[:-5]
+        if bench:
+            time1 = time.time_ns() // 1_000_000
         with open(os.path.join(dir_name, filename+".c"), "w") as f:
             f.write("#include <stdio.h>\n")
             f.write("#include <sys/time.h>\n")
@@ -100,6 +104,11 @@ def spmv_codegen():
             f.write("\t\tprintf(\"%d\\n\", y[i]);\n")
             f.write("\t}\n")
             f.write("}\n")
+        if bench:
+            time2 = time.time_ns() // 1_000_000
+            d[filename] = time2-time1
+    if bench:
+        return d
 
 def write_mm_file(filename, M):
     with open(filename, 'w') as f:
@@ -236,5 +245,4 @@ def gen_data() -> None:
 
 if __name__ == "__main__":
     gen_data()
-    spmv_codegen()
     mtx_gen()

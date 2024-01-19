@@ -3,6 +3,7 @@ import os
 import numpy
 from interpreter import interpret
 import ast
+from vbrgen import spmv_codegen
 
 def is_valid_list_string(s):
     try:
@@ -59,6 +60,7 @@ if __name__ == "__main__":
             for elem in output:
                 f.write(str(int(elem))+"\n")
         # VBR-Codegen
+        spmv_codegen()
         subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")
         output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV")
         output = output.stdout.decode("utf-8").split("\n")[1:]

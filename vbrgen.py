@@ -90,9 +90,11 @@ def spmv_codegen(bench=False):
                 valid_cols = bindx[bpntrb[a]:bpntre[a]]
                 for b in range(len(cpntr)-1):
                     if b in valid_cols:
-                        f.write(f"\tfor (int i = {rpntr[a]}; i < {rpntr[a+1]}; i++) {{\n")
-                        f.write(f"\t\tfor (int j = {cpntr[b]}; j < {cpntr[b+1]}; j++) {{\n")
-                        f.write(f"\t\t\ty[i] += val[{indx[count]}+(j-{cpntr[b]})*{rpntr[a+1]} + i] * x[j];\n")
+                        f.write("\tcount = 0;\n")
+                        f.write(f"\tfor (int j = {cpntr[b]}; j < {cpntr[b+1]}; j++) {{\n")
+                        f.write(f"\t\tfor (int i = {rpntr[a]}; i < {rpntr[a+1]}; i++) {{\n")
+                        f.write(f"\t\t\ty[i] += val[{indx[count]}+count] * x[j];\n")
+                        f.write("\t\t\tcount++;\n")
                         f.write("\t\t}\n")
                         f.write("\t}\n")
                         count+=1

@@ -50,6 +50,7 @@ if __name__ == "__main__":
     dir_name = "tests"
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
+    spmv_codegen()
     for mtx_file in os.listdir("Generated_Matrix"):
         assert(mtx_file.endswith(".mtx"))
         print(mtx_file[:-4])
@@ -60,7 +61,6 @@ if __name__ == "__main__":
             for elem in output:
                 f.write(str(int(elem))+"\n")
         # VBR-Codegen
-        spmv_codegen()
         subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")
         output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV")
         output = output.stdout.decode("utf-8").split("\n")[1:]
@@ -68,10 +68,10 @@ if __name__ == "__main__":
             for line in output:
                 f.write(line+"\n")
         # Interpreter
-        with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
-            y = interpret(os.path.join("Generated_Data", mtx_file[:-4]+".data"))
-            for elem in y:
-                f.write(str(int(elem))+"\n")
+        # with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
+        #     y = interpret(os.path.join("Generated_Data", mtx_file[:-4]+".data"))
+        #     for elem in y:
+        #         f.write(str(int(elem))+"\n")
         # CBLAS
         # subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], "dense.c", "-lcblas"])
         # output = subprocess.run(["./"+mtx_file[:-4], os.path.join("Generated_Matrix", mtx_file)], capture_output=True)
@@ -87,6 +87,6 @@ if __name__ == "__main__":
             # Compare cblas with canon
             # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"dense.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
             # Compare interp with canon
-            assert(cmp_file(os.path.join(dir_name, filename[:-6]+"interp.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
+            # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"interp.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
         
         

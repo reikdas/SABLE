@@ -4,31 +4,8 @@ import sys
 import os
 import time
 
-def datagen(filename, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):
-    dir_name = "Generated_Data"
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    with open(os.path.join(dir_name, filename+".data"), "w") as f:
-        f.write(f"x=[{','.join(map(str, x))}]\n")
-        f.write(f"val=[{','.join(map(str, val))}]\n")
-        f.write(f"indx=[{','.join(map(str, indx))}]\n")
-        f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
-        f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
-        f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
-        f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
-        f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
-
-def read_data(filename):
-    with open(filename, "r") as f:
-        x = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        val = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        indx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bindx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        rpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        cpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bpntrb = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-    return x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
+from src.fileio import read_data
+from src.gen_vbr_matrices import generate_vbr_matrices
 
 def spmv_codegen(bench=False):
     dir_name = "Generated_SpMV"
@@ -163,88 +140,7 @@ def random_splits(n, a):
 
     return differences
 
-def cumsum_list(l):
-    l2 = [0]
-    for elem in l:
-        l2.append(l2[-1] + elem)
-    return l2
-
-def gen_data() -> None:
-    num_row_splits = [50, 100]
-    num_col_splits = [50, 100]
-    rows = [5000] # Number of rows
-    cols = [5000] # Number of columns
-    for m in rows:
-        for n in cols:
-            for partitioning in ["uniform", "nonuniform"]:
-                for row_split in num_row_splits:
-                    for col_split in num_col_splits:
-                        assert(m%row_split == 0)
-                        assert(n%col_split == 0)
-                        if partitioning == "nonuniform":
-                            rpntr = cumsum_list(random_splits(m-1, row_split))
-                            cpntr = cumsum_list(random_splits(n-1, col_split))
-                        elif partitioning == "uniform":
-                            rpntr = [x for x in range(0, m+row_split, m//row_split)]
-                            cpntr = [x for x in range(0, n+col_split, n//col_split)]
-                        else:
-                            assert(False)
-                        num_blocks = row_split * col_split
-                        for num_dense in [(num_blocks*20)//100, (num_blocks*15)//100, (num_blocks*10)//100, (num_blocks*5)//100, (num_blocks*1)//100]:
-                            # Randomly choose dense blocks
-                            dense_blocks = random.sample([x for x in range(num_blocks)], num_dense)
-                            dense_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
-                            for perc_zeros in [50, 40, 30, 20, 10, 0]:
-                                val = []
-                                indx = [0]
-                                bindx = []
-                                bpntrb = []
-                                bpntre = []
-                                curr_row = 0
-                                numzeros = 0
-                                for dense_block in dense_blocks:
-                                    new_row = dense_block//col_split
-                                    col_idx = dense_block%col_split
-                                    block_size = (rpntr[new_row+1] - rpntr[new_row]) * (cpntr[col_idx+1] - cpntr[col_idx])
-                                    zeros = random.sample([x for x in range(block_size)], (block_size * perc_zeros) // 100)
-                                    numzeros += len(zeros)
-                                    for index in range(block_size):
-                                        if index in zeros:
-                                            val.append(0)
-                                        else:
-                                            val.append(1)
-                                    indx.append(indx[-1] + block_size)
-                                    if new_row != curr_row:
-                                        if curr_row == 0 and len(bpntrb) == 0:
-                                            for _ in range(curr_row, new_row):
-                                                bpntrb.append(-1)
-                                                bpntre.append(-1)
-                                        else:
-                                            if (len(bpntrb) > 0):
-                                                bpntre.append(len(bindx))
-                                            for _ in range(curr_row+1, new_row):
-                                                bpntrb.append(-1)
-                                                bpntre.append(-1)
-                                        curr_row = new_row
-                                        if (len(bpntrb) > 0):
-                                            bpntrb.append(len(bindx))
-                                    if (len(bpntrb) == 0):
-                                        bpntrb.append(0)
-                                    bindx.append(dense_block%col_split)
-                                bpntre.append(len(bindx))
-                                while (len(bpntrb) < len(rpntr) -1):
-                                    bpntrb.append(-1)
-                                    bpntre.append(-1)        
-                                # print("indx = ", indx)
-                                # print("bindx = ", bindx)
-                                # print("rpntr = ", rpntr)
-                                # print("cpntr = ", cpntr)
-                                # print("bpntrb = ", bpntrb)
-                                # print("bpntre = ", bpntre)
-                                # print("Dense blocks = ", dense_blocks)
-                                filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_zeros}_{partitioning}"
-                                datagen(filename, [1]*(m+col_split+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
 
 if __name__ == "__main__":
-    gen_data()
+    generate_vbr_matrices()
     mtx_gen()

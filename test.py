@@ -62,11 +62,12 @@ if __name__ == "__main__":
                 f.write(str(int(elem))+"\n")
         # VBR-Codegen
         subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")
-        output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV")
-        output = output.stdout.decode("utf-8").split("\n")[1:]
-        with open(os.path.join(dir_name, mtx_file[:-4]+"_my.txt"), "w") as f:
-            for line in output:
-                f.write(line+"\n")
+        for thread in [1, 2, 4, 8, 16]:
+            output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV", env=os.environ | {"OMP_NUM_THREADS": str(thread)})
+            output = output.stdout.decode("utf-8").split("\n")[1:]
+            with open(os.path.join(dir_name, mtx_file[:-4]+f"_{thread}_my.txt"), "w") as f:
+                for line in output:
+                    f.write(line+"\n")
         # Interpreter
         # with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
         #     y = interpret(os.path.join("Generated_Data", mtx_file[:-4]+".data"))
@@ -83,10 +84,13 @@ if __name__ == "__main__":
         if filename.endswith("_my.txt"):
             print(f"Comparing {filename[:-7]}")
             # Compare mine with canon
-            assert(cmp_file(os.path.join(dir_name, filename), os.path.join(dir_name, filename[:-6]+"canon.txt")))
+            print("Comparing mine with canon")
+            parts = filename.split('_')
+            assert(cmp_file(os.path.join(dir_name, filename), os.path.join(dir_name, '_'.join(parts[:-2])+"_canon.txt")))
             # Compare cblas with canon
             # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"dense.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
             # Compare interp with canon
+            # print("Comparing interpreter with canon")
             # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"interp.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
         
         

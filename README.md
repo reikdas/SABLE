@@ -6,7 +6,7 @@ python -m pip install -r requirements.txt
 
 # File structure
 
-* Synthesizing VBR matrices - `src/gen_vbr_matrices.py`'s `gen_vbr_matrix()` function. See Generating VBR matrices for commands to generate the matrices and save them in VBR format.
+* Synthesizing VBR matrices - `src/vbr_matrices_gen.py`'s `vbr_matrix_gen()` function. See Generating VBR matrices for commands to generate the matrices and save them in VBR format.
 * Generating Matrix market files - `vbrgen.py`'s `mtx_gen()` function (Depends on `gen_data()` having been executed)
 * Generating C code that performs SpMV over synthesized VBR matrices - `vbrgen.py`'s `spmv_codegen()` function (Depends on `gen_data()` having been executed)
 * `bench.py` - Benchmarks (other than partially-strided-codelets) (Run after `vbrgen.py`)
@@ -18,7 +18,7 @@ python -m pip install -r requirements.txt
 The script that generates VBR matrices is generate_vbr_matrices.sh. To generate all the default VBR matrices run the below command
 
 ```bash
-nohup ./scripts/generate_vbr_matrices.sh &> timed_log.txt &
+nohup ./scripts/generate_vbr_matrices.sh &> timed_log5000.txt &
 ```
 
 The individual VBR matrices can be generated using the below command

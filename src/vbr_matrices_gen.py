@@ -26,7 +26,7 @@ def random_splits(n, a):
 
     return differences
 
-def gen_vbr_matrices():
+def vbr_matrices_gen():
     rows = [5000] # Number of rows
     cols = [5000] # Number of columns
     partition_types = ["uniform", "nonuniform"]
@@ -43,9 +43,9 @@ def gen_vbr_matrices():
                         num_blocks = row_split * col_split
                         for num_dense in [(percentage*num_blocks)//100 for percentage in percentage_of_dense_blocks]:
                             for perc_zeros in percentage_of_zeros:
-                                gen_vbr_matrix(m, n, partition_type, row_split, col_split, num_dense, perc_zeros)
+                                vbr_matrix_gen(m, n, partition_type, row_split, col_split, num_dense, perc_zeros)
 
-def gen_vbr_matrix(m: int, n: int, partitioning: int, row_split: int, col_split: int, num_dense: int, perc_zeros: int) -> None:
+def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split: int, num_dense: int, perc_zeros: int) -> None:
 
     assert(m%row_split == 0)
     assert(n%col_split == 0)

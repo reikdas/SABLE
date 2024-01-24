@@ -5,7 +5,7 @@ import os
 import time
 
 from src.fileio import read_data
-from src.gen_vbr_matrices import gen_vbr_matrices
+from src.vbr_matrices_gen import vbr_matrices_gen
 
 def spmv_codegen(bench=False):
     dir_name = "Generated_SpMV"
@@ -130,5 +130,5 @@ def mtx_gen():
 
 
 if __name__ == "__main__":
-    gen_vbr_matrices()
+    vbr_matrices_gen()
     mtx_gen()

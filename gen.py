@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from enum import Enum
 
-from src.gen_vbr_matrices import gen_vbr_matrix
+from src.vbr_matrices_gen import vbr_matrix_gen
 
 class PartitionType(Enum):
     uniform = 'uniform'
@@ -35,5 +35,5 @@ if __name__ == '__main__':
         
     partition_type = "uniform" if args.partition_type == PartitionType.uniform else "nonuniform"
     
-    gen_vbr_matrix(args.num_rows, args.num_cols, partition_type, args.row_split, args.col_split, num_dense, args.percentage_of_zeros)
+    vbr_matrix_gen(args.num_rows, args.num_cols, partition_type, args.row_split, args.col_split, num_dense, args.percentage_of_zeros)
     

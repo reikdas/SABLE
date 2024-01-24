@@ -83,15 +83,13 @@ def gen_vbr_matrix(m: int, n: int, partitioning: int, row_split: int, col_split:
         indx.append(indx[-1] + block_size)
         if new_row != curr_row:
             if curr_row == 0 and len(bpntrb) == 0:
-                for _ in range(curr_row, new_row):
-                    bpntrb.append(-1)
-                    bpntre.append(-1)
+                bpntrb.extend([-1 for _ in range(curr_row, new_row)])
+                bpntre.extend([-1 for _ in range(curr_row, new_row)])
             else:
                 if (len(bpntrb) > 0):
                     bpntre.append(len(bindx))
-                for _ in range(curr_row+1, new_row):
-                    bpntrb.append(-1)
-                    bpntre.append(-1)
+                bpntrb.extend([-1 for _ in range(curr_row+1, new_row)])
+                bpntre.extend([-1 for _ in range(curr_row+1, new_row)])
             curr_row = new_row
             if (len(bpntrb) > 0):
                 bpntrb.append(len(bindx))

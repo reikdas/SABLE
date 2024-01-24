@@ -75,21 +75,27 @@ def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split:
         col_idx = dense_block%col_split
         block_size = (rpntr[new_row+1] - rpntr[new_row]) * (cpntr[col_idx+1] - cpntr[col_idx])
         zeros = sample([x for x in range(block_size)], (block_size * perc_zeros) // 100)
-        zeros = set(zeros)
+
         numzeros += len(zeros)
         
-        val.extend([0 if index in zeros else 1 for index in range(block_size)])
+        for index in range(block_size):
+            if index in zeros:
+                val.append(0)
+            else:
+                val.append(1)
         
         indx.append(indx[-1] + block_size)
         if new_row != curr_row:
             if curr_row == 0 and len(bpntrb) == 0:
-                bpntrb.extend([-1 for _ in range(curr_row, new_row)])
-                bpntre.extend([-1 for _ in range(curr_row, new_row)])
+                for _ in range(curr_row, new_row):
+                    bpntrb.append(-1)
+                    bpntre.append(-1)
             else:
                 if (len(bpntrb) > 0):
                     bpntre.append(len(bindx))
-                bpntrb.extend([-1 for _ in range(curr_row+1, new_row)])
-                bpntre.extend([-1 for _ in range(curr_row+1, new_row)])
+                for _ in range(curr_row+1, new_row):
+                    bpntrb.append(-1)
+                    bpntre.append(-1)
             curr_row = new_row
             if (len(bpntrb) > 0):
                 bpntrb.append(len(bindx))

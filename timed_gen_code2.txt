@@ -1,3 +1,0 @@
-nohup: ignoring input
-Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=50, percentage_of_zeros=50, operation=<Operation.vbr_to_code: 'vbr_to_code'>)
-Runtime was 74.479181425

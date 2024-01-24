@@ -3,7 +3,8 @@ import os
 import numpy
 from interpreter import interpret
 import ast
-from vbrgen import spmv_codegen
+
+from src.spmv_codegen import spmv_codegen
 
 def is_valid_list_string(s):
     try:

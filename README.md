@@ -29,3 +29,15 @@ python gen.py --help
 # To generate a VBR matrix with given arguments
 python gen.py --num-rows 1000 --num-cols 1000 --partition-type uniform --row-split 50 --col-split 50 --percentage-of-blocks 20 --percentage-of-zeros 50
 ```
+
+# Running tests
+```bash
+# run an entire file
+pytest test/test_sample.py
+
+# run all tests in a file with verbose
+pytest test/test_sample.py -s
+
+# run specific test with verbose
+pytest test/test_sample.py::test_val_array_append -s
+```

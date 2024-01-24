@@ -1,7 +1,8 @@
 import subprocess
 import os
-from vbrgen import spmv_codegen
 import time
+
+from src.spmv_codegen import spmv_codegen
 
 if __name__ == "__main__":
     d = spmv_codegen(bench=True)

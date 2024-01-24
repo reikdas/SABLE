@@ -1,12 +1,7 @@
-import random
-import numpy
-import sys
 import os
 import time
 
 from src.fileio import read_data
-from src.mtx_matrices_gen import convert_all_vbr_to_mtx
-from src.vbr_matrices_gen import vbr_matrices_gen
 
 def spmv_codegen(bench=False):
     dir_name = "Generated_SpMV"
@@ -89,7 +84,3 @@ def spmv_codegen(bench=False):
             d[filename] = time2-time1
     if bench:
         return d
-
-if __name__ == "__main__":
-    vbr_matrices_gen()
-    convert_all_vbr_to_mtx()

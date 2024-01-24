@@ -26,7 +26,7 @@ def random_splits(n, a):
 
     return differences
 
-def generate_vbr_matrices():
+def gen_vbr_matrices():
     rows = [5000] # Number of rows
     cols = [5000] # Number of columns
     partition_types = ["uniform", "nonuniform"]
@@ -114,4 +114,3 @@ def gen_vbr_matrix(m: int, n: int, partitioning: int, row_split: int, col_split:
     
     vbr_matrix = VBR([1]*(m+col_split+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
     write_vbr_matrix(filename, vbr_matrix)
-

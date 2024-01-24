@@ -37,5 +37,3 @@ if __name__ == '__main__':
     
     gen_vbr_matrix(args.num_rows, args.num_cols, partition_type, args.row_split, args.col_split, num_dense, args.percentage_of_zeros)
     
-    
-    

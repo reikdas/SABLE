@@ -5,7 +5,7 @@ import os
 import time
 
 from src.fileio import read_data
-from src.gen_vbr_matrices import generate_vbr_matrices
+from src.gen_vbr_matrices import gen_vbr_matrices
 
 def spmv_codegen(bench=False):
     dir_name = "Generated_SpMV"
@@ -142,5 +142,5 @@ def random_splits(n, a):
 
 
 if __name__ == "__main__":
-    generate_vbr_matrices()
+    gen_vbr_matrices()
     mtx_gen()

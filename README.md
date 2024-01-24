@@ -18,7 +18,7 @@ python -m pip install -r requirements.txt
 The script that generates VBR matrices is generate_vbr_matrices.sh. To generate all the default VBR matrices run the below command
 
 ```bash
-nohup ./generate_vbr_matrices.sh &> timed_log.txt
+nohup ./scripts/generate_vbr_matrices.sh &> timed_log.txt &
 ```
 
 The individual VBR matrices can be generated using the below command

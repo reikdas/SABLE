@@ -47,15 +47,3 @@ Execute scripts/generate_spmv_code.sh script to generate code for all the `.vbr`
 nohup ./scripts/generate_spmv_code.sh &> timed_gen_code.txt &
 python gen.py -o vbr_to_code
 ```
-
-# Running tests
-```bash
-# run an entire file
-pytest test/test_sample.py
-
-# run all tests in a file with verbose
-pytest test/test_sample.py -s
-
-# run specific test with verbose
-pytest test/test_sample.py::test_val_array_append -s
-```

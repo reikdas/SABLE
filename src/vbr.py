@@ -1,3 +1,7 @@
+'''
+Defined the VBR class to store the VBR matrix data.
+'''
+
 class VBR:
     # TODO provide descriptions for each of the parameters
     def __init__(self, x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre):

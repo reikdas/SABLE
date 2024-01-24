@@ -3,6 +3,11 @@ from os import makedirs
 from os.path import exists, join
 from src.vbr import VBR
 
+'''
+This file contains functionality to write/read VBR matrices to/from files,
+write matrices in Matrix Market format to files.
+'''
+
 def write_vbr_matrix(filename: str, vbr_matrix: VBR):
     
     assert(type(vbr_matrix) == VBR)

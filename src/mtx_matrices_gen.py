@@ -3,6 +3,10 @@ import numpy
 
 from src.fileio import read_data, write_mm_file
 
+'''
+This file contains functionality to convert VBR matrices to Matrix Market format.
+'''
+
 def find_nonneg(l):
     for _, ele in enumerate(l):
         if ele != -1:

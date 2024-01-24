@@ -3,6 +3,10 @@ import time
 
 from src.fileio import read_data
 
+'''
+This file contains functionality to generate C code for SpMV for the VBR matrices.
+'''
+
 def spmv_codegen(bench=False):
     dir_name = "Generated_SpMV"
     if not os.path.exists(dir_name):

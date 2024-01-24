@@ -1,0 +1,746 @@
+nohup: ignoring input
+3934189
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3934191
+3934192
+3934193
+3934194
+3934195
+3934196
+3934197
+3934199
+3934200
+3934201
+3934202
+3934204
+3934205
+3934206
+3934208
+3934209
+3934211
+3934212
+3934213
+3934215
+3934217
+3934218
+3934220
+3934221
+3934222
+3934223
+3934224
+3934225
+3934226
+0
+YAY!
+Done with 1000 1000 uniform 50 50
+3935264
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3935265
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3935267
+3935268
+3935269
+3935270
+3935271
+3935272
+3935273
+3935274
+3935275
+3935276
+3935278
+3935279
+3935280
+3935281
+3935282
+3935284
+3935285
+3935286
+3935287
+3935288
+3935289
+3935290
+3935291
+3935292
+3935293
+3935294
+3935295
+3935296
+0
+YAY!
+Done with 1000 1000 uniform 50 100
+3936387
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3936388
+3936389
+3936390
+3936391
+3936392
+3936394
+3936395
+3936396
+3936397
+3936398
+3936399
+3936400
+3936402
+3936403
+3936404
+3936405
+3936406
+3936407
+3936408
+3936409
+3936410
+3936411
+3936412
+3936413
+3936414
+3936415
+3936416
+3936417
+3936418
+0
+YAY!
+Done with 1000 1000 uniform 100 50
+3937384
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.uniform: 'uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3937385
+3937386
+3937388
+3937389
+3937391
+3937392
+3937394
+3937395
+3937396
+3937397
+3937398
+3937399
+3937400
+3937401
+3937402
+3937403
+3937404
+3937405
+3937406
+3937407
+3937408
+3937410
+3937411
+3937412
+3937413
+3937414
+3937415
+3937416
+3937417
+0
+YAY!
+Done with 1000 1000 uniform 100 100
+3938522
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=5, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=10, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=1, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=15, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=50, percentage_of_blocks=20, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3938523
+3938524
+3938525
+3938526
+3938527
+3938528
+3938529
+3938530
+3938531
+3938532
+3938533
+3938534
+3938535
+3938536
+3938537
+3938538
+3938539
+3938540
+3938541
+3938542
+3938543
+3938544
+3938545
+3938546
+3938547
+3938549
+3938550
+3938551
+3938552
+0
+YAY!
+Done with 1000 1000 non-uniform 50 50
+3939523
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=10, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=5, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=1, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=15, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3939524
+3939525
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=50, col_split=100, percentage_of_blocks=20, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3939527
+3939528
+3939529
+3939530
+3939531
+3939532
+3939533
+3939534
+3939536
+3939537
+3939538
+3939539
+3939540
+3939541
+3939542
+3939543
+3939544
+3939545
+3939546
+3939547
+3939548
+3939549
+3939550
+3939551
+3939552
+3939553
+3939554
+0
+YAY!
+Done with 1000 1000 non-uniform 50 100
+3940583
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=1, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=20, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=5, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=15, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=50, percentage_of_blocks=10, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3940584
+3940585
+3940586
+3940587
+3940588
+3940589
+3940590
+3940591
+3940592
+3940593
+3940594
+3940596
+3940597
+3940598
+3940599
+3940600
+3940601
+3940602
+3940603
+3940604
+3940605
+3940606
+3940607
+3940608
+3940609
+3940610
+3940611
+3940612
+3940613
+0
+YAY!
+Done with 1000 1000 non-uniform 100 50
+3941563
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=20, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=20, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=50, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3941565
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=5, percentage_of_zeros=30, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=1, percentage_of_zeros=0, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=10, percentage_of_zeros=40, operation=<Operation.vbr: 'vbr'>)
+WRONG
+Namespace(num_rows=1000, num_cols=1000, partition_type=<PartitionType.non_uniform: 'non-uniform'>, row_split=100, col_split=100, percentage_of_blocks=15, percentage_of_zeros=10, operation=<Operation.vbr: 'vbr'>)
+WRONG
+3941566
+3941567
+3941568
+3941569
+3941570
+3941571
+3941572
+3941573
+3941575
+3941576
+3941578
+3941579
+3941580
+3941581
+3941583
+3941584
+3941586
+3941587
+3941588
+3941589
+3941591
+3941593
+3941595
+3941596
+3941597
+3941598
+3941599
+3941600
+0
+YAY!
+Done with 1000 1000 non-uniform 100 100
+Runtime was 4.674253120

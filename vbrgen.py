@@ -128,18 +128,6 @@ def mtx_gen():
                     count += 1
         write_mm_file(os.path.join(dir_name, filename + ".mtx"), M)
 
-def random_splits(n, a):
-    if n <= 0 or a <= 0:
-        raise ValueError("Both n and a must be positive integers.")
-
-    # Generate a list of 'a-1' random numbers between 1 and n-1
-    split_numbers = sorted(random.sample(range(1, n), a - 1))
-
-    # Calculate the differences between consecutive split numbers
-    differences = [split_numbers[0]] + [split_numbers[i] - split_numbers[i - 1] for i in range(1, a - 1)] + [n - split_numbers[-1]]
-
-    return differences
-
 
 if __name__ == "__main__":
     gen_vbr_matrices()

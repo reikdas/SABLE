@@ -1,3 +1,4 @@
+from numpy import count_nonzero
 from os import makedirs
 from os.path import exists, join
 from src.vbr import VBR
@@ -40,3 +41,12 @@ def read_data(filename):
         bpntrb = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
     return x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
+
+def write_mm_file(filename, M):
+    with open(filename, 'w') as f:
+        f.write("%%MatrixMarket matrix coordinate real general\n")
+        f.write(f"{M.shape[0]} {M.shape[1]} {count_nonzero(M)}\n")
+        for i in range(M.shape[0]):
+            for j in range(M.shape[1]):
+                if M[i][j] != 0:
+                    f.write(f"{i+1} {j+1} {M[i][j]}\n")

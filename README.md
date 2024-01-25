@@ -6,13 +6,23 @@ python -m pip install -r requirements.txt
 
 ## File structure
 
-* `src/vbr_matrices_gen.py` — generating synthetic VBR[^1] matrices. Entry point: `vbr_matrix_gen`. See “Generating VBR matrices” below for more details.
+* `src/vbr_matrices_gen.py` — generating synthetic VBR[^1] matrices.
+  - Entry point: `vbr_matrix_gen`
+  - Output: `./Generated_Data`
+  - See “Generating VBR matrices” below for details.
 
 All scripts below depend on the results from the script above.
 
-* `src/mtx_matrices_gen.py` — generating Matrix market (`*.mtx`) files[^2]. Entry point: `convert_all_vbr_to_mtx()`. See “Converting VBR Matrices to MTX Format” below for more details.
+* `src/mtx_matrices_gen.py` — generating Matrix market (`*.mtx`) files[^2].
+  - Entry point: `convert_all_vbr_to_mtx()`.
+  - Output: `./Generated_Matrix`
+  - See “Converting VBR Matrices to MTX Format” below for details.
 
-* `src/spmv_codegen.py` — generating C code that performs SpMV over synthesized VBR matrices. Entry point: `spmv_codegen`. 
+* `src/spmv_codegen.py` — generating C code that performs SpMV over synthesized VBR matrices.
+  - Entry point: `spmv_codegen`.
+  - Output: `./Generated_Code`
+
+* `gen.py` — CLI for generators above.
 
 * `bench.py` — benchmarks other than partially-strided codelets.
 

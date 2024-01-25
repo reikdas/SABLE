@@ -1,11 +1,15 @@
 import os
 import numpy
+from math import ceil
+from multiprocessing import Process
 
 from src.fileio import read_data, write_mm_file
 
 '''
 This file contains functionality to convert VBR matrices to Matrix Market format.
 '''
+
+NUM_PROCS = 30
 
 def find_nonneg(l):
     for _, ele in enumerate(l):
@@ -18,10 +22,25 @@ def convert_all_vbr_to_mtx():
     dir_name = "Generated_Matrix"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    for filename in os.listdir("Generated_Data"):
-        vbr_to_mtx(dir_name, filename)
+    file_names = os.listdir("Generated_Data")
+    n = len(file_names)
+    procs = [-1 for _ in range(n)]
+    
+    for i in range(ceil(n / NUM_PROCS)):
+        s = i * NUM_PROCS
+        e = min((i + 1) * NUM_PROCS, n)
+        
+        for j in range(s, e):
+            filename = file_names[j]
+            p = Process(target=vbr_to_mtx, args=(filename, dir_name))
+            procs[j] = p
+            procs[j].start()
+            
+        for j in range(s, e):
+            procs[j].join()
+            print(f'{j}: Process {j} joined')
 
-def vbr_to_mtx(dir_name: str, filename: str):
+def vbr_to_mtx(filename: str, dir_name: str = "Generated_Matrix"):
     assert(filename.endswith(".data"))
     x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_data(os.path.join("Generated_Data", filename))
     filename = filename[:-5]

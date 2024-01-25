@@ -45,10 +45,9 @@ if __name__ == '__main__':
         spmv_codegen()
         exit(0)
     
-    num_blocks = args.row_split * args.col_splitg
+    num_blocks = args.row_split * args.col_split
     num_dense = (args.percentage_of_blocks*num_blocks)//100
         
     partition_type = "uniform" if args.partition_type == PartitionType.uniform else "nonuniform"
     
     vbr_matrix_gen(args.num_rows, args.num_cols, partition_type, args.row_split, args.col_split, num_dense, args.percentage_of_zeros)
-    

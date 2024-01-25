@@ -8,13 +8,15 @@ python -m pip install -r requirements.txt
 
 * `src/vbr_matrices_gen.py` — generating synthetic VBR[^1] matrices. Entry point: `vbr_matrix_gen`. See “Generating VBR matrices” below for more details.
 
-* `src/mtx_matrices_gen.py` — generating Matrix market (`*.mtx`) files[^2]. Entry point: `convert_all_vbr_to_mtx()`. Depends on the previous step. See “Converting VBR Matrices to MTX Format” below for more details.
+All scripts below depend on the results from the script above.
 
-* `src/spmv_codegen.py` — generating C code that performs SpMV over synthesized VBR matrices. Entry point: `spmv_codegen`. Depends on the first step of generating VBR matrices.
+* `src/mtx_matrices_gen.py` — generating Matrix market (`*.mtx`) files[^2]. Entry point: `convert_all_vbr_to_mtx()`. See “Converting VBR Matrices to MTX Format” below for more details.
 
-* `bench.py` — benchmarks (other than partially-strided-codelets) (Run after `vbrgen.py`)
+* `src/spmv_codegen.py` — generating C code that performs SpMV over synthesized VBR matrices. Entry point: `spmv_codegen`. 
 
-* `test.py` — test correctness of `spmv_codegen`. Run after `vbrgen.py`.
+* `bench.py` — benchmarks other than partially-strided codelets.
+
+* `test.py` — test correctness of `spmv_codegen`.
 
 [^1]: https://arxiv.org/abs/2005.12414
 [^2]: https://math.nist.gov/MatrixMarket/formats.html

@@ -8,7 +8,7 @@ BENCHMARK_FREQ = 5
 
 if __name__ == "__main__":
 
-    vbr_files = set(os.listdir("Generated_Data"))
+    vbr_files = os.listdir("Generated_Data")
     
     with open("benchmarks_my.txt", "w") as fMy:
         with open("benchmarks_dense.txt", "w") as fDense:

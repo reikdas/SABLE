@@ -59,7 +59,7 @@ def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV"):
             assert(0);
         }}
     }}
-    fscanf(file, \"%c\", &c);
+    if(fscanf(file, \"%c\", &c));
     assert(c=='\\n');\n'''.format(variable))
         f.write("\tfclose(file);\n")
         f.write("\tint count = 0;\n")

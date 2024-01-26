@@ -3,7 +3,7 @@ from enum import Enum
 
 from src.mtx_matrices_gen import convert_all_vbr_to_mtx
 from src.vbr_matrices_gen import vbr_matrix_gen
-from src.spmv_codegen import spmv_codegen
+from src.spmv_codegen import vbr_spmv_codegen_for_all
 
 class PartitionType(Enum):
     uniform = 'uniform'
@@ -42,7 +42,7 @@ if __name__ == '__main__':
         convert_all_vbr_to_mtx()
         exit(0)
     elif (args.operation == Operation.vbr_to_code):
-        spmv_codegen()
+        vbr_spmv_codegen_for_all()
         exit(0)
     
     num_blocks = args.row_split * args.col_split

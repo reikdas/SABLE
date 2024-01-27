@@ -4,7 +4,7 @@ import numpy
 from interpreter import interpret
 import ast
 
-from src.spmv_codegen import spmv_codegen
+from src.spmv_codegen import vbr_spmv_codegen_for_all
 
 def is_valid_list_string(s):
     try:
@@ -51,7 +51,7 @@ if __name__ == "__main__":
     dir_name = "tests"
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
-    spmv_codegen()
+    vbr_spmv_codegen_for_all()
     for mtx_file in os.listdir("Generated_Matrix"):
         assert(mtx_file.endswith(".mtx"))
         print(mtx_file[:-4])

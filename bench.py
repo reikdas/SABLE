@@ -37,12 +37,7 @@ if __name__ == "__main__":
                     p = f"{fname},{','.join([str(x) for x in inspector_times])}\n"
                     print(p, flush = True)
                     fInspector.write(p)
-                        
-                    # execute the generated code for SpMV operation, and measure the execution time
-                    # first call is executed to bring the code into memory
-                    # TODO - I think subprocesses are fresh executions, and this call here does not 
-                    # persist the code in memory. Maybe remove this call and just run the loop below
-                    subprocess.call(["./"+fname], stdout=subprocess.PIPE, cwd="Generated_SpMV")
+                    
                     execution_times = []
                     for i in range(BENCHMARK_FREQ):
                         output = subprocess.run(["./"+fname], capture_output=True, cwd="Generated_SpMV")

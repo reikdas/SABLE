@@ -30,15 +30,9 @@ def spmv_codegen(bench=False):
             f.write(f"\tint* y = (int*)calloc({len(x)}, sizeof(int));\n")
             f.write(f"\tint* x = (int*)calloc({len(x) + 1}, sizeof(int));\n")
             f.write(f"\tint* val = (int*)calloc({len(val) + 1}, sizeof(int));\n")
-            f.write(f"\tint* indx = (int*)calloc({len(indx) + 1}, sizeof(int));\n")
-            f.write(f"\tint* bindx = (int*)calloc({len(bindx) + 1}, sizeof(int));\n")
-            f.write(f"\tint* rpntr = (int*)calloc({len(rpntr) + 1}, sizeof(int));\n")
-            f.write(f"\tint* cpntr = (int*)calloc({len(cpntr) + 1}, sizeof(int));\n")
-            f.write(f"\tint* bpntrb = (int*)calloc({len(bpntrb) + 1}, sizeof(int));\n")
-            f.write(f"\tint* bpntre = (int*)calloc({len(bpntre) + 1}, sizeof(int));\n")
             f.write("\tchar c;\n")
-            f.write(f"\tint x_size=0, val_size=0, indx_size=0, bindx_size=0, rpntr_size=0, cpntr_size=0, bpntrb_size=0, bpntre_size=0;\n")
-            for variable in ["x", "val", "indx", "bindx", "rpntr", "cpntr", "bpntrb", "bpntre"]:
+            f.write(f"\tint x_size=0, val_size=0;\n")
+            for variable in ["x", "val"]:
                 f.write('''
         assert(fscanf(file, "{0}=[%d", &{0}[{0}_size]) == 1);
         {0}_size++;

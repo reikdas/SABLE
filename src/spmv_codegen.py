@@ -19,31 +19,40 @@ def vbr_spmv_codegen_for_all(bench=False):
         
     return runtimes
         
-def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV"):
+def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV", threads=16):
     rel_path = os.path.join("Generated_Data", filename)
     x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_data(rel_path)
     filename = filename[:-5]
-
     time1 = time.time_ns() // 1_000
-    # Find size of auxillary array
-    largest_diff = rpntr[1] - rpntr[0]
-    for a in range(len(rpntr)-1):
-        current_diff = rpntr[a+1] - rpntr[a]
-        if current_diff > largest_diff:
-            largest_diff = current_diff
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.write("#include <stdio.h>\n")
         f.write("#include <sys/time.h>\n")
         f.write("#include <stdlib.h>\n")
         f.write("#include <assert.h>\n")
-        f.write("#include <string.h>\n")
-        f.write("#include <omp.h>\n\n")
+        f.write("#include <pthread.h>\n\n")
+        f.write("float *x, *val, *y;\n\n")
+        funcount = 0
+        for a in range(len(rpntr) - 1):
+            if bpntrb[a] == -1:
+                continue
+            valid_cols = bindx[bpntrb[a]:bpntre[a]]
+            for b in range(len(cpntr)-1):
+                if b in valid_cols:
+                    f.write(f"void *func{funcount}(){{\n")
+                    f.write(f"\tfor (int j = {cpntr[b]}; j < {cpntr[b+1]}; j++) {{\n")
+                    f.write(f"\t\tfor (int i = {rpntr[a]}; i < {rpntr[a+1]}; i++) {{\n")
+                    f.write(f"\t\t\ty[i] += val[{indx[funcount]}+(j-{cpntr[b]})*({rpntr[a+1]} - {rpntr[a]}) + (i-{rpntr[a]})] * x[j];\n")
+                    f.write("\t\t}\n")
+                    f.write("\t}\n")
+                    f.write("}\n")
+                    funcount += 1
+        f.write("\n")
         f.write("int main() {\n")
         f.write(f"\tFILE *file = fopen(\"{os.path.abspath(rel_path)}\", \"r\");\n")
         f.write("\tif (file == NULL) { printf(\"Error opening file\"); return 1; }\n")
-        f.write(f"\tfloat* y = (float*)calloc({len(x)}, sizeof(float));\n")
-        f.write(f"\tfloat* x = (float*)calloc({len(x) + 1}, sizeof(float));\n")
-        f.write(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
+        f.write(f"\ty = (float*)calloc({len(x)}, sizeof(float));\n")
+        f.write(f"\tx = (float*)calloc({len(x) + 1}, sizeof(float));\n")
+        f.write(f"\tval = (float*)calloc({len(val) + 1}, sizeof(float));\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
         for variable in ["x", "val"]:
@@ -67,30 +76,40 @@ def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV"):
         f.write("\tstruct timeval t1;\n")
         f.write("\tgettimeofday(&t1, NULL);\n")
         f.write("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-        f.write("\tint n = omp_get_max_threads();\n")
-        f.write("\tint thread_id;\n")
-        f.write(f"\tint aux[{largest_diff}*n];\n")
+        f.write(f"\tpthread_t tid[{threads}];\n")
+        new_thread_id = threads - 1
+        assgn = [-1] * (len(rpntr)-1)
         count = 0
-        for a in range(len(rpntr)-1):
-            if bpntrb[a] == -1:
-                continue
-            valid_cols = bindx[bpntrb[a]:bpntre[a]]
-            for b in range(len(cpntr)-1):
+        thread_list = []
+        for b in range(len(cpntr) - 1):
+            for a in range(len(rpntr)-1):
+                if bpntrb[a] == -1:
+                    continue
+                valid_cols = bindx[bpntrb[a]:bpntre[a]]
                 if b in valid_cols:
-                    f.write(f"\tmemset(aux, 0, sizeof(aux));\n")
-                    f.write(f"\t#pragma omp parallel for\n")
-                    f.write(f"\tfor (int j = {cpntr[b]}; j < {cpntr[b+1]}; j++) {{\n")
-                    f.write(f"\t\tthread_id = omp_get_thread_num();\n")
-                    f.write(f"\t\tfor (int i = {rpntr[a]}; i < {rpntr[a+1]}; i++) {{\n")
-                    f.write(f"\t\t\taux[(i-{rpntr[a]}) + ({rpntr[a+1]} - {rpntr[a]})*thread_id] += val[{indx[count]}+(j-{cpntr[b]})*({rpntr[a+1]} - {rpntr[a]}) + (i-{rpntr[a]})] * x[j];\n")
-                    f.write("\t\t}\n")
-                    f.write("\t}\n")
-                    f.write(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
-                    f.write(f"\t\tfor (int j=0; j<n; j++) {{\n")
-                    f.write(f"\t\t\ty[i] += aux[(i-{rpntr[a]})+({rpntr[a+1]} - {rpntr[a]})*j];\n")
-                    f.write("\t\t}\n")
-                    f.write("\t}\n")
+                    if assgn[a] == -1:
+                        if new_thread_id < 0:
+                            assgn_thread = thread_list[0]
+                            f.write(f"\tpthread_join(tid[{assgn_thread}], NULL);\n")
+                            f.write(f"\tpthread_create(&tid[{assgn_thread}], NULL, &func{count}, NULL);\n")
+                            assgn[assgn.index(assgn_thread)] = -1
+                            assgn[a] = assgn_thread
+                            thread_list.pop(0)
+                            thread_list.append(assgn_thread)
+                        else:
+                            f.write(f"\tpthread_create(&tid[{new_thread_id}], NULL, &func{count}, NULL);\n")
+                            assgn[a] = new_thread_id
+                            thread_list.append(new_thread_id)
+                            new_thread_id -= 1
+                    else:
+                        f.write(f"\tpthread_join(tid[{assgn[a]}], NULL);\n")
+                        f.write(f"\tpthread_create(&tid[{assgn[a]}], NULL, &func{count}, NULL);\n")
+                        thread_list.remove(assgn[a])
+                        thread_list.append(assgn[a])
                     count+=1
+        for a in range(len(assgn)):
+            if assgn[a] != -1:
+                f.write(f"\tpthread_join(tid[{assgn[a]}], NULL);\n")
         f.write("\tstruct timeval t2;\n")
         f.write("\tgettimeofday(&t2, NULL);\n")
         f.write("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")

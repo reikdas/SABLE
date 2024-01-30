@@ -66,7 +66,7 @@ if __name__ == "__main__":
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
     vbr_spmv_codegen_for_all(threads=16)
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(max_workers=8) as executor:
         for mtx_file in os.listdir("Generated_Matrix"):
             assert(mtx_file.endswith(".mtx"))
             print(mtx_file[:-4])

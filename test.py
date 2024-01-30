@@ -55,18 +55,17 @@ def write_canon(mtx_file):
         f.writelines(str(elem)+"\n" for elem in output)
 
 def write_vbr(mtx_file):
-    subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")
-    for thread in [1, 2, 4, 8, 16]:
-        output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV", env=os.environ | {"OMP_NUM_THREADS": str(thread)})
-        output = output.stdout.decode("utf-8").split("\n")[1:]
-        with open(os.path.join(dir_name, mtx_file[:-4]+f"_{thread}_my.txt"), "w") as f:
-            f.writelines(line+"\n" for line in output)
+    subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")
+    output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV")
+    output = output.stdout.decode("utf-8").split("\n")[1:]
+    with open(os.path.join(dir_name, mtx_file[:-4]+f"_16_my.txt"), "w") as f:
+        f.writelines(line+"\n" for line in output)
 
 if __name__ == "__main__":
     dir_name = "tests"
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
-    vbr_spmv_codegen_for_all()
+    vbr_spmv_codegen_for_all(threads=16)
     with ThreadPoolExecutor() as executor:
         for mtx_file in os.listdir("Generated_Matrix"):
             assert(mtx_file.endswith(".mtx"))

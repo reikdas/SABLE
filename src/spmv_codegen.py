@@ -33,19 +33,19 @@ def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV"):
         f.write("int main() {\n")
         f.write(f"\tFILE *file = fopen(\"{os.path.abspath(rel_path)}\", \"r\");\n")
         f.write("\tif (file == NULL) { printf(\"Error opening file\"); return 1; }\n")
-        f.write(f"\tint* y = (int*)calloc({len(x)}, sizeof(int));\n")
-        f.write(f"\tint* x = (int*)calloc({len(x) + 1}, sizeof(int));\n")
-        f.write(f"\tint* val = (int*)calloc({len(val) + 1}, sizeof(int));\n")
+        f.write(f"\tfloat* y = (float*)calloc({len(x)}, sizeof(float));\n")
+        f.write(f"\tfloat* x = (float*)calloc({len(x) + 1}, sizeof(float));\n")
+        f.write(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
         for variable in ["x", "val"]:
             f.write('''
-    assert(fscanf(file, "{0}=[%d", &{0}[{0}_size]) == 1);
+    assert(fscanf(file, "{0}=[%f", &{0}[{0}_size]) == 1.0);
     {0}_size++;
     while (1) {{
         assert(fscanf(file, \"%c\", &c) == 1);
         if (c == ',') {{
-            assert(fscanf(file, \"%d\", &{0}[{0}_size]) == 1);
+            assert(fscanf(file, \"%f\", &{0}[{0}_size]) == 1.0);
             {0}_size++;
         }} else if (c == ']') {{
             break;
@@ -79,7 +79,7 @@ def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV"):
         f.write("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
         f.write("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
         f.write(f"\tfor (int i=0; i<{len(x)}; i++) {{\n")
-        f.write("\t\tprintf(\"%d\\n\", y[i]);\n")
+        f.write("\t\tprintf(\"%.2f\\n\", y[i]);\n")
         f.write("\t}\n")
         f.write("}\n")
 

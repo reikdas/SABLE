@@ -41,8 +41,8 @@ def cmp_file(file1, file2):
                     line1 = ast.literal_eval(line1)
                     line2 = ast.literal_eval(line2)
                 else:
-                    line1 = int(float(line1))
-                    line2 = int(float(line2))
+                    line1 = float(line1)
+                    line2 = float(line2)
                 if line1 != line2:
                     print(count, ": ", line1, " ", line2)
                     return False
@@ -52,7 +52,7 @@ def write_canon(mtx_file):
     M = load_mtx(os.path.join("Generated_Matrix", mtx_file))
     output = M.dot([1] * M.shape[1])
     with open(os.path.join(dir_name, mtx_file[:-4]+"_canon.txt"), "w") as f:
-        f.writelines(str(int(elem))+"\n" for elem in output)
+        f.writelines(str(elem)+"\n" for elem in output)
 
 def write_vbr(mtx_file):
     subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")

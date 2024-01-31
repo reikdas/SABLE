@@ -86,7 +86,7 @@ def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split:
             if index in zeros:
                 val.append(0)
             else:
-                val.append(1)
+                val.append(1.0)
         
         indx.append(indx[-1] + block_size)
         if new_row != curr_row:
@@ -119,5 +119,5 @@ def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split:
     # print("Dense blocks = ", dense_blocks)
     filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_zeros}_{partitioning}"
     
-    vbr_matrix = VBR([1]*(m+col_split+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
+    vbr_matrix = VBR([1.0]*(m+col_split+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
     write_vbr_matrix(filename, vbr_matrix)

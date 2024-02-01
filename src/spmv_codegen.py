@@ -41,9 +41,9 @@ def gen_single_threaded(x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_n
     assert(fscanf(file, "{0}=[%f", &{0}[{0}_size]) == 1);
     {0}_size++;
     while (1) {{
-        assert(fscanf(file, \"%c\", &c) == 1);
+        assert(fscanf(file, \"%c\", &c) == 1.0);
         if (c == ',') {{
-            assert(fscanf(file, \"%f\", &{0}[{0}_size]) == 1);
+            assert(fscanf(file, \"%f\", &{0}[{0}_size]) == 1.0);
             {0}_size++;
         }} else if (c == ']') {{
             break;

@@ -1,6 +1,5 @@
 import os
 import time
-import math
 
 from src.fileio import read_data
 

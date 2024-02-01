@@ -31,9 +31,9 @@ def gen_single_threaded(x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_n
         f.write("int main() {\n")
         f.write(f"\tFILE *file = fopen(\"{os.path.abspath(rel_path)}\", \"r\");\n")
         f.write("\tif (file == NULL) { printf(\"Error opening file\"); return 1; }\n")
-        f.write(f"\tfloat* y = (float*)calloc({len(x)}, sizeof(int));\n")
-        f.write(f"\tfloat* x = (float*)calloc({len(x) + 1}, sizeof(int));\n")
-        f.write(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(int));\n")
+        f.write(f"\tfloat* y = (float*)calloc({len(x)}, sizeof(float));\n")
+        f.write(f"\tfloat* x = (float*)calloc({len(x) + 1}, sizeof(float));\n")
+        f.write(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
         for variable in ["x", "val"]:

@@ -37,8 +37,8 @@ def write_vbr_matrix(filename: str, vbr_matrix: VBR):
 
 def read_data(filename):
     with open(filename, "r") as f:
-        x = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        val = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        x = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
+        val = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
         indx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         bindx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         rpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))

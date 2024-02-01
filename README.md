@@ -65,3 +65,10 @@ Execute `scripts/generate_spmv_code.sh` to generate code for all the `.vbr` form
 nohup ./scripts/generate_spmv_code.sh &> timed_gen_code.txt &
 python gen.py -o vbr_to_code
 ```
+
+## Benchmarking the implementation
+
+Execute the `bench.py`
+```
+nohup python bench.py &> bench.txt &
+```

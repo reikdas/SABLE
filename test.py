@@ -1,10 +1,11 @@
 import subprocess
 import os
 import numpy
-from interpreter import interpret
+# from interpreter import interpret
 import ast
+from concurrent.futures import ThreadPoolExecutor
 
-from src.spmv_codegen import spmv_codegen
+from src.spmv_codegen import vbr_spmv_codegen_for_all
 
 def is_valid_list_string(s):
     try:
@@ -40,47 +41,52 @@ def cmp_file(file1, file2):
                     line1 = ast.literal_eval(line1)
                     line2 = ast.literal_eval(line2)
                 else:
-                    line1 = int(float(line1))
-                    line2 = int(float(line2))
+                    line1 = float(line1)
+                    line2 = float(line2)
                 if line1 != line2:
                     print(count, ": ", line1, " ", line2)
                     return False
     return True
 
+def write_canon(mtx_file):
+    M = load_mtx(os.path.join("Generated_Matrix", mtx_file))
+    output = M.dot([1] * M.shape[1])
+    with open(os.path.join(dir_name, mtx_file[:-4]+"_canon.txt"), "w") as f:
+        f.writelines(str(elem)+"\n" for elem in output)
+
+def write_vbr(mtx_file):
+    subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")
+    for thread in [1, 2, 4, 8, 16]:
+        output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV", env=os.environ | {"OMP_NUM_THREADS": str(thread)})
+        output = output.stdout.decode("utf-8").split("\n")[1:]
+        with open(os.path.join(dir_name, mtx_file[:-4]+f"_{thread}_my.txt"), "w") as f:
+            f.writelines(line+"\n" for line in output)
+
 if __name__ == "__main__":
     dir_name = "tests"
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
-    spmv_codegen()
-    for mtx_file in os.listdir("Generated_Matrix"):
-        assert(mtx_file.endswith(".mtx"))
-        print(mtx_file[:-4])
-        # Python canonical
-        M = load_mtx(os.path.join("Generated_Matrix", mtx_file))
-        output = M.dot([1] * M.shape[1])
-        with open(os.path.join(dir_name, mtx_file[:-4]+"_canon.txt"), "w") as f:
-            for elem in output:
-                f.write(str(int(elem))+"\n")
-        # VBR-Codegen
-        subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")
-        for thread in [1, 2, 4, 8, 16]:
-            output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV", env=os.environ | {"OMP_NUM_THREADS": str(thread)})
-            output = output.stdout.decode("utf-8").split("\n")[1:]
-            with open(os.path.join(dir_name, mtx_file[:-4]+f"_{thread}_my.txt"), "w") as f:
-                for line in output:
-                    f.write(line+"\n")
-        # Interpreter
-        # with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
-        #     y = interpret(os.path.join("Generated_Data", mtx_file[:-4]+".data"))
-        #     for elem in y:
-        #         f.write(str(int(elem))+"\n")
-        # CBLAS
-        # subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], "dense.c", "-lcblas"])
-        # output = subprocess.run(["./"+mtx_file[:-4], os.path.join("Generated_Matrix", mtx_file)], capture_output=True)
-        # output = output.stdout.decode("utf-8").split("\n")[1:]
-        # with open(os.path.join(dir_name, mtx_file[:-4]+"_dense.txt"), "w") as f:
-        #     for line in output:
-        #         f.write(line+"\n")
+    vbr_spmv_codegen_for_all()
+    with ThreadPoolExecutor() as executor:
+        for mtx_file in os.listdir("Generated_Matrix"):
+            assert(mtx_file.endswith(".mtx"))
+            print(mtx_file[:-4])
+            # Python canonical
+            executor.submit(write_canon, mtx_file)
+            # VBR-Codegen
+            executor.submit(write_vbr, mtx_file)
+            # Interpreter
+            # with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
+            #     y = interpret(os.path.join("Generated_Data", mtx_file[:-4]+".data"))
+            #     for elem in y:
+            #         f.write(str(int(elem))+"\n")
+            # CBLAS
+            # subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], "dense.c", "-lcblas"])
+            # output = subprocess.run(["./"+mtx_file[:-4], os.path.join("Generated_Matrix", mtx_file)], capture_output=True)
+            # output = output.stdout.decode("utf-8").split("\n")[1:]
+            # with open(os.path.join(dir_name, mtx_file[:-4]+"_dense.txt"), "w") as f:
+            #     for line in output:
+            #         f.write(line+"\n")
     for filename in os.listdir(dir_name):
         if filename.endswith("_my.txt"):
             print(f"Comparing {filename[:-7]}")

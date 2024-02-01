@@ -38,10 +38,10 @@ def gen_single_threaded(x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_n
         f.write(f"\tint x_size=0, val_size=0;\n")
         for variable in ["x", "val"]:
             f.write('''
-    assert(fscanf(file, "{0}=[%f", &{0}[{0}_size]) == 1);
+    assert(fscanf(file, "{0}=[%f", &{0}[{0}_size]) == 1.0);
     {0}_size++;
     while (1) {{
-        assert(fscanf(file, \"%c\", &c) == 1.0);
+        assert(fscanf(file, \"%c\", &c) == 1);
         if (c == ',') {{
             assert(fscanf(file, \"%f\", &{0}[{0}_size]) == 1.0);
             {0}_size++;

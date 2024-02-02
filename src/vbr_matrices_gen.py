@@ -1,11 +1,7 @@
 from random import sample
 
-from src.fileio import write_vbr_matrix
+from src.fileio import write_vbr_matrix, write_dense_matrix, write_dense_vector
 from src.vbr import VBR
-
-'''
-This file contains functionality to generate VBR matrices.
-'''
 
 def cumsum_list(l):
     '''
@@ -57,8 +53,8 @@ def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split:
         rpntr = cumsum_list(random_splits(m-1, row_split))
         cpntr = cumsum_list(random_splits(n-1, col_split))
     elif partitioning == "uniform":
-        rpntr = [x for x in range(0, m+row_split, m//row_split)]
-        cpntr = [x for x in range(0, n+col_split, n//col_split)]
+        rpntr = [x for x in range(0, m+1, m//row_split)]
+        cpntr = [x for x in range(0, n+1, n//col_split)]
     else:
         assert(False)
     num_blocks = row_split * col_split
@@ -119,5 +115,7 @@ def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split:
     # print("Dense blocks = ", dense_blocks)
     filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_zeros}_{partitioning}"
     
-    vbr_matrix = VBR([1.0]*(m+col_split+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
+    vbr_matrix = VBR(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
     write_vbr_matrix(filename, vbr_matrix)
+    write_dense_vector(filename, 1.0, rpntr[-1])
+    write_dense_matrix(filename, 1.0, rpntr[-1], rpntr[-1])

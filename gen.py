@@ -3,7 +3,7 @@ from enum import Enum
 
 from src.mtx_matrices_gen import convert_all_vbr_to_mtx
 from src.vbr_matrices_gen import vbr_matrix_gen
-from src.spmv_codegen import vbr_spmv_codegen_for_all
+from src.codegen import vbr_spmv_codegen_for_all
 
 class PartitionType(Enum):
     uniform = 'uniform'

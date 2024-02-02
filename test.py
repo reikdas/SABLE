@@ -5,7 +5,7 @@ import numpy
 import ast
 from concurrent.futures import ThreadPoolExecutor
 
-from src.spmv_codegen import vbr_spmv_codegen
+from src.codegen import vbr_spmv_codegen
 
 def is_valid_list_string(s):
     try:
@@ -49,7 +49,7 @@ def cmp_file(file1, file2):
     return True
 
 def write_canon(mtx_file):
-    M = load_mtx(os.path.join("Generated_Matrix", mtx_file))
+    M = load_mtx(os.path.join("Generated_MMarket", mtx_file))
     output = M.dot([1] * M.shape[1])
     with open(os.path.join(dir_name, mtx_file[:-4]+"_canon.txt"), "w") as f:
         f.writelines(str(elem)+"\n" for elem in output)
@@ -68,7 +68,7 @@ if __name__ == "__main__":
     if not os.path.exists(dir_name):
         os.mkdir(dir_name)
     with ThreadPoolExecutor(max_workers=8) as executor:
-        for mtx_file in os.listdir("Generated_Matrix"):
+        for mtx_file in os.listdir("Generated_MMarket"):
             assert(mtx_file.endswith(".mtx"))
             print(mtx_file[:-4])
             # Python canonical

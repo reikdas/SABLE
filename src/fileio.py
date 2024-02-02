@@ -3,17 +3,11 @@ from os import makedirs
 from os.path import exists, join
 from src.vbr import VBR
 
-'''
-This file contains functionality to write/read VBR matrices to/from files,
-write matrices in Matrix Market format to files.
-'''
-
 def write_vbr_matrix(filename: str, vbr_matrix: VBR):
     
     assert(type(vbr_matrix) == VBR)
     assert(type(filename) == str)
     
-    x = vbr_matrix.x
     val = vbr_matrix.val
     indx = vbr_matrix.indx
     bindx = vbr_matrix.bindx
@@ -22,11 +16,10 @@ def write_vbr_matrix(filename: str, vbr_matrix: VBR):
     bpntrb = vbr_matrix.bpntrb
     bpntre = vbr_matrix.bpntre
     
-    dir_name = "Generated_Data"
+    dir_name = "Generated_VBR"
     if not exists(dir_name):
         makedirs(dir_name)
-    with open(join(dir_name, filename+".data"), "w") as f:
-        f.write(f"x=[{','.join(map(str, x))}]\n")
+    with open(join(dir_name, filename+".vbr"), "w") as f:
         f.write(f"val=[{','.join(map(str, val))}]\n")
         f.write(f"indx=[{','.join(map(str, indx))}]\n")
         f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
@@ -35,9 +28,24 @@ def write_vbr_matrix(filename: str, vbr_matrix: VBR):
         f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
         f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
 
-def read_data(filename):
+def write_dense_vector(filename: str, val: float, size: int):
+    dir_name = "Generated_Vector"
+    if not exists(dir_name):
+        makedirs(dir_name)
+    with open(join(dir_name, filename+".vector"), "w") as f:
+        x = [val] * size
+        f.write(f"x=[{','.join(map(str, x))}]\n")
+
+def write_dense_matrix(filename: str, val: float, m: int, n: int):
+    dir_name = "Generated_Matrix"
+    if not exists(dir_name):
+        makedirs(dir_name)
+    with open(join(dir_name, filename+".matrix"), "w") as f:
+        x = [val] * n * m
+        f.write(f"x=[{','.join(map(str, x))}]\n")
+
+def read_vbr(filename):
     with open(filename, "r") as f:
-        x = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
         val = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
         indx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         bindx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
@@ -45,7 +53,17 @@ def read_data(filename):
         cpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         bpntrb = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-    return x, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
+    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
+
+def read_vector(filename):
+    with open(filename, "r") as f:
+        x = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
+    return x
+
+def read_matrix(filename):
+    with open(filename, "r") as f:
+        x = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
+    return x
 
 def write_mm_file(filename, M):
     with open(filename, 'w') as f:

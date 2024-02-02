@@ -1,8 +1,10 @@
 **__pycache__**
 **.venv**
 .mypy_cache/
-Generated_Data/
+Generated_Vector/
+Generated_VBR/
 Generated_Matrix/
+Generated_MMarket/
 Generated_SpMV/
 tests/
 benchmarks_*.txt

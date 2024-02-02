@@ -5,3 +5,4 @@ Generated_Data/
 Generated_Matrix/
 Generated_SpMV/
 tests/
+benchmarks_*.txt

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 
-rows=1000
-cols=1000
+rows=5000
+cols=5000
 partition_types="uniform non-uniform"
 row_splits="50 100"
 col_splits="50 100"
 percentage_of_blocks="20 15 10 5 1"
-percentage_of_zeros="99 17 50 40 30 20 10 0"
+percentage_of_zeros="99 75 50 40 30 20 10 0"
 
-jobs=30
+jobs=8
 
 # time execution of script
 start=`date +%s.%N`

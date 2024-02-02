@@ -188,7 +188,6 @@ def gen_multi_threaded(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, 
 def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV", threads=16):
     vbr_path = os.path.join("Generated_VBR", filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
-    filename = filename[:-5]
     time1 = time.time_ns() // 1_000
     if threads == 1:
         gen_single_threaded(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename)

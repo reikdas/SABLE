@@ -56,7 +56,7 @@ def write_canon(mtx_file):
 
 def write_vbr(mtx_file):
     for threads in [1, 16]:
-        vbr_spmv_codegen(mtx_file[:-4]+".data", threads=threads)
+        vbr_spmv_codegen(mtx_file[:-len(".mtx")], threads=threads)
         subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", mtx_file[:-4], mtx_file[:-4]+".c"], cwd="Generated_SpMV")
         output = subprocess.run(["./"+mtx_file[:-4]], capture_output=True, cwd="Generated_SpMV")
         output = output.stdout.decode("utf-8").split("\n")[1:]
@@ -70,7 +70,7 @@ if __name__ == "__main__":
     with ThreadPoolExecutor(max_workers=8) as executor:
         for mtx_file in os.listdir("Generated_MMarket"):
             assert(mtx_file.endswith(".mtx"))
-            print(mtx_file[:-4])
+            print(mtx_file[:-len(".mtx")])
             # Python canonical
             executor.submit(write_canon, mtx_file)
             # VBR-Codegen

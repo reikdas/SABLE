@@ -1,4 +1,5 @@
 from random import sample
+import os
 
 from src.fileio import write_vbr_matrix, write_dense_matrix, write_dense_vector
 from src.vbr import VBR
@@ -46,7 +47,9 @@ def vbr_matrices_gen():
                                 vbr_matrix_gen(m, n, partition_type, row_split, col_split, num_dense, perc_zeros)
 
 def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split: int, num_dense: int, perc_zeros: int) -> None:
-
+    # dir_name = "Generated_VBR"
+    # if not os.path.exists(dir_name):
+    #     os.makedirs(dir_name)
     assert(m%row_split == 0)
     assert(n%col_split == 0)
     if partitioning == "nonuniform":

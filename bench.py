@@ -7,7 +7,7 @@ from src.spmv_codegen import vbr_spmv_codegen
 BENCHMARK_FREQ = 5
 
 if __name__ == "__main__":
-    vbr_files = os.listdir("Generated_Data")
+    vbr_files = os.listdir("Generated_VBR")
     print("Benchmarking inspector")
     with open("benchmarks_inspector.txt", "w") as fInspector:
         for filename in vbr_files:

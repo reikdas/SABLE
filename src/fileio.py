@@ -28,21 +28,17 @@ def write_vbr_matrix(filename: str, vbr_matrix: VBR):
         f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
         f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
 
-def write_dense_vector(filename: str, val: float, size: int):
-    dir_name = "Generated_Vector"
-    if not exists(dir_name):
-        makedirs(dir_name)
-    with open(join(dir_name, filename+".vector"), "w") as f:
+def write_dense_vector(val: float, size: int):
+    filename = f"generated_vector_{size}.vector"
+    with open(filename, "w") as f:
         x = [val] * size
-        f.write(f"x=[{','.join(map(str, x))}]\n")
+        f.write(f"{','.join(map(str, x))}\n")
 
-def write_dense_matrix(filename: str, val: float, m: int, n: int):
-    dir_name = "Generated_Matrix"
-    if not exists(dir_name):
-        makedirs(dir_name)
-    with open(join(dir_name, filename+".matrix"), "w") as f:
+def write_dense_matrix(val: float, m: int, n: int):
+    filename = f"generated_matrix_{m}x{n}.matrix"
+    with open(filename, "w") as f:
         x = [val] * n * m
-        f.write(f"x=[{','.join(map(str, x))}]\n")
+        f.write(f"{','.join(map(str, x))}\n")
 
 def read_vbr(filename):
     with open(filename, "r") as f:

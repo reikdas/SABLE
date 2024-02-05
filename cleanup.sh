@@ -1,7 +1,9 @@
 #!/bin/bash
 rm -rf Generated_VBR
-rm -rf Generated_Vector
-rm -rf Generated_Matrix
+rm generated_vector*.vector
+rm generated_matrix*.matrix
 rm -rf Generated_MMarket
 rm -rf Generated_SpMV
-rm -rf tests
+rm -rf Generated_SpMM
+rm -rf tests_spmv
+rm -rf tests_spmm

@@ -203,7 +203,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
 
 def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename):
     vbr_path = os.path.join("Generated_VBR", filename + ".vbr")
-    matrix_path = os.path.join("Generated_Matrix", filename + ".matrix")
+    matrix_path = f"generated_matrix_{rpntr[-1]}x{cpntr[-1]}.matrix"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     code = []
@@ -222,7 +222,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     code.append("\t}\n")
     code.append(f"\tfloat** x = (float**)calloc({rpntr[-1]}, sizeof(float*));\n")
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append(f"\t\tx[i] = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
+    code.append(f"\t\tx[i] = (float*)calloc({cpntr[-1]}, sizeof(float));\n")
     code.append("\t}\n")
     code.append(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
     code.append("\tchar c;\n")
@@ -244,23 +244,12 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');
     fclose(file1);''')
-    code.append('''
-    int ch;
-    while ((ch = fgetc(file2)) != EOF && ch != '[') { }
-    for(int i = 0; i < {0} && ch != ']'; i++) {
-        for(int j = 0; j < {0} && ch != ']'; j++) {
-            if (fscanf(file2, "%d", &x[i][j]) != 1) {
-                perror("Error reading file");
-            }
-            while ((ch = fgetc(file2)) != EOF && !isdigit(ch) && ch != '-') {
-                if (ch == ']') {
-                    break;
-                }
-            }
-            ungetc(ch, file2);
+    code.append('''\tfor(int i = 0; i < {0}; i++) {
+        for(int j = 0; j < {1}; j++) {
+            assert(fscanf(file2, "%f,", &x[i][j]) == 1);
         }
     }
-    fclose(file2);'''.format(rpntr[-1]))
+    fclose(file2);'''.format(rpntr[-1], cpntr[-1]))
     code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")

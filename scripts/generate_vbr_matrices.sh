@@ -12,7 +12,7 @@ jobs=8
 
 # time execution of script
 start=`date +%s.%N`
-parallel -j $jobs python gen.py --num-rows {1} --num-cols {2} --partition-type {3} --row-split {4}  --col-split {5} --percentage-of-blocks {6} --percentage-of-zeros {7} \
+parallel -j $jobs python3 gen.py --num-rows {1} --num-cols {2} --partition-type {3} --row-split {4}  --col-split {5} --percentage-of-blocks {6} --percentage-of-zeros {7} \
                                 ::: $rows      ::: $cols      ::: $partition_types ::: $row_splits  ::: $col_splits ::: $percentage_of_blocks ::: $percentage_of_zeros
 end=`date +%s.%N`
 

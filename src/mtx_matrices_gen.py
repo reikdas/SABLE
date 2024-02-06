@@ -40,9 +40,9 @@ def convert_all_vbr_to_mtx():
             procs[j].join()
             print(f'{j}: Process {j} joined')
 
-def vbr_to_mtx(filename: str, dir_name: str = "Generated_MMarket"):
+def vbr_to_mtx(filename: str, dir_name: str = "Generated_MMarket", vbr_dir="Generated_VBR"):
     assert(filename.endswith(".vbr"))
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join("Generated_VBR", filename))
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, filename))
     filename = filename[:-len(".vbr")]
     M = numpy.zeros((rpntr[-1], cpntr[-1]))
     count = 0
@@ -58,3 +58,4 @@ def vbr_to_mtx(filename: str, dir_name: str = "Generated_MMarket"):
                         count2 += 1
                 count += 1
     write_mm_file(os.path.join(dir_name, filename + ".mtx"), M)
+    return M

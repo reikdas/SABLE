@@ -178,9 +178,9 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     assert(c=='\\n');
     fclose(file1);''')
         f.write('''
-    while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {
+    while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
         x_size++;
-    }
+    }}
     fclose(file2);'''.format(rpntr[-1]))
         f.write("\tstruct timeval t1;\n")
         f.write("\tgettimeofday(&t1, NULL);\n")
@@ -202,7 +202,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("}\n")
 
 def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename):
-    vbr_path = os.path.join("Generated_VBR", filename + ".vbr")
+    vbr_path = os.path.join(dir_name, filename + ".vbr")
     matrix_path = f"generated_matrix_{rpntr[-1]}x{cpntr[-1]}.matrix"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -244,11 +244,11 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');
     fclose(file1);''')
-    code.append('''\tfor(int i = 0; i < {0}; i++) {
-        for(int j = 0; j < {1}; j++) {
+    code.append('''\tfor(int i = 0; i < {0}; i++) {{
+        for(int j = 0; j < {1}; j++) {{
             assert(fscanf(file2, "%f,", &x[i][j]) == 1);
-        }
-    }
+        }}
+    }}
     fclose(file2);'''.format(rpntr[-1], cpntr[-1]))
     code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
@@ -293,8 +293,8 @@ def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV", threads=16):
     time2 = time.time_ns() // 1_000
     return time2-time1
 
-def vbr_spmm_codegen(filename: str, dir_name: str = "Generated_SpMM", threads=16):
-    vbr_path = os.path.join("Generated_VBR", filename + ".vbr")
+def vbr_spmm_codegen(filename: str, dir_name: str = "Generated_SpMM", vbr_dir="Generated_VBR", threads=16):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     time1 = time.time_ns() // 1_000
     gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename)

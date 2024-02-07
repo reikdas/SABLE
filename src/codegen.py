@@ -70,12 +70,12 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     }
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');
-    fclose(file1);''')
+    fclose(file1);\n''')
     code.append('''
     while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
         x_size++;
     }}
-    fclose(file2);'''.format(rpntr[-1]))
+    fclose(file2);\n'''.format(rpntr[-1]))
     code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
@@ -181,7 +181,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
         x_size++;
     }}
-    fclose(file2);'''.format(rpntr[-1]))
+    fclose(file2);\n'''.format(rpntr[-1]))
         f.write("\tstruct timeval t1;\n")
         f.write("\tgettimeofday(&t1, NULL);\n")
         f.write("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
@@ -201,8 +201,8 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t}\n")
         f.write("}\n")
 
-def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename):
-    vbr_path = os.path.join(dir_name, filename + ".vbr")
+def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename, vbr_dir="Generated_VBR"):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     matrix_path = f"generated_matrix_{rpntr[-1]}x{cpntr[-1]}.matrix"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -243,13 +243,13 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     }
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');
-    fclose(file1);''')
+    fclose(file1);\n''')
     code.append('''\tfor(int i = 0; i < {0}; i++) {{
         for(int j = 0; j < {1}; j++) {{
             assert(fscanf(file2, "%f,", &x[i][j]) == 1);
         }}
     }}
-    fclose(file2);'''.format(rpntr[-1], cpntr[-1]))
+    fclose(file2);\n'''.format(rpntr[-1], cpntr[-1]))
     code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
@@ -262,9 +262,9 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 code.append(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
-                code.append(f"\t\tfor (int j={cpntr[b]}; j<{cpntr[b+1]}; j++) {{\n")
+                code.append(f"\t\tfor (int j={cpntr[0]}; j<{cpntr[-1]}; j++) {{\n")
                 code.append(f"\t\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
-                code.append(f"\t\t\t\ty[i][j] += val[{indx[count]}+ (k*{rpntr[a+1] - rpntr[a]}) + i] * x[k][j];\n")
+                code.append(f"\t\t\t\ty[i][j] += val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})] * x[k][j];\n")
                 code.append("\t\t\t}\n")
                 code.append("\t\t}\n")
                 code.append("\t}\n")
@@ -297,6 +297,6 @@ def vbr_spmm_codegen(filename: str, dir_name: str = "Generated_SpMM", vbr_dir="G
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     time1 = time.time_ns() // 1_000
-    gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename)
+    gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename, vbr_dir)
     time2 = time.time_ns() // 1_000
     return time2-time1

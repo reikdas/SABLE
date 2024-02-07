@@ -6,7 +6,7 @@
 int main() {
 	FILE *file1 = fopen("/home/reikdas/VBR-SpMV/tests/example.vbr", "r");
 	if (file1 == NULL) { printf("Error opening file1"); return 1; }
-	FILE *file2 = fopen("/home/reikdas/VBR-SpMV/generated_matrix_5000x5000.matrix", "r");
+	FILE *file2 = fopen("/home/reikdas/VBR-SpMV/generated_matrix_11x11.matrix", "r");
 	if (file2 == NULL) { printf("Error opening file2"); return 1; }
 	float** y = (float**)calloc(11, sizeof(float*));
 	for (int i=0; i<11; i++) {
@@ -45,93 +45,93 @@ int main() {
 	gettimeofday(&t1, NULL);
 	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
 	for (int i=0; i<2; i++) {
-		for (int j=0; j<2; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=0; k<2; k++) {
-				y[i][j] += val[0+ (k*2) + i] * x[k][j];
+				y[i][j] += val[0+ (k-0)*2 + (i-0)] * x[k][j];
 			}
 		}
 	}
 	for (int i=0; i<2; i++) {
-		for (int j=5; j<6; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=5; k<6; k++) {
-				y[i][j] += val[4+ (k*2) + i] * x[k][j];
+				y[i][j] += val[4+ (k-5)*2 + (i-0)] * x[k][j];
 			}
 		}
 	}
 	for (int i=0; i<2; i++) {
-		for (int j=9; j<11; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=9; k<11; k++) {
-				y[i][j] += val[6+ (k*2) + i] * x[k][j];
+				y[i][j] += val[6+ (k-9)*2 + (i-0)] * x[k][j];
 			}
 		}
 	}
 	for (int i=2; i<5; i++) {
-		for (int j=2; j<5; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=2; k<5; k++) {
-				y[i][j] += val[10+ (k*3) + i] * x[k][j];
+				y[i][j] += val[10+ (k-2)*3 + (i-2)] * x[k][j];
 			}
 		}
 	}
 	for (int i=2; i<5; i++) {
-		for (int j=5; j<6; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=5; k<6; k++) {
-				y[i][j] += val[19+ (k*3) + i] * x[k][j];
+				y[i][j] += val[19+ (k-5)*3 + (i-2)] * x[k][j];
 			}
 		}
 	}
 	for (int i=5; i<6; i++) {
-		for (int j=0; j<2; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=0; k<2; k++) {
-				y[i][j] += val[22+ (k*1) + i] * x[k][j];
+				y[i][j] += val[22+ (k-0)*1 + (i-5)] * x[k][j];
 			}
 		}
 	}
 	for (int i=5; i<6; i++) {
-		for (int j=2; j<5; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=2; k<5; k++) {
-				y[i][j] += val[24+ (k*1) + i] * x[k][j];
+				y[i][j] += val[24+ (k-2)*1 + (i-5)] * x[k][j];
 			}
 		}
 	}
 	for (int i=5; i<6; i++) {
-		for (int j=5; j<6; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=5; k<6; k++) {
-				y[i][j] += val[27+ (k*1) + i] * x[k][j];
+				y[i][j] += val[27+ (k-5)*1 + (i-5)] * x[k][j];
 			}
 		}
 	}
 	for (int i=5; i<6; i++) {
-		for (int j=6; j<9; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=6; k<9; k++) {
-				y[i][j] += val[28+ (k*1) + i] * x[k][j];
+				y[i][j] += val[28+ (k-6)*1 + (i-5)] * x[k][j];
 			}
 		}
 	}
 	for (int i=6; i<9; i++) {
-		for (int j=5; j<6; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=5; k<6; k++) {
-				y[i][j] += val[31+ (k*3) + i] * x[k][j];
+				y[i][j] += val[31+ (k-5)*3 + (i-6)] * x[k][j];
 			}
 		}
 	}
 	for (int i=6; i<9; i++) {
-		for (int j=6; j<9; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=6; k<9; k++) {
-				y[i][j] += val[34+ (k*3) + i] * x[k][j];
+				y[i][j] += val[34+ (k-6)*3 + (i-6)] * x[k][j];
 			}
 		}
 	}
 	for (int i=9; i<11; i++) {
-		for (int j=0; j<2; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=0; k<2; k++) {
-				y[i][j] += val[43+ (k*2) + i] * x[k][j];
+				y[i][j] += val[43+ (k-0)*2 + (i-9)] * x[k][j];
 			}
 		}
 	}
 	for (int i=9; i<11; i++) {
-		for (int j=9; j<11; j++) {
+		for (int j=0; j<11; j++) {
 			for (int k=9; k<11; k++) {
-				y[i][j] += val[47+ (k*2) + i] * x[k][j];
+				y[i][j] += val[47+ (k-9)*2 + (i-9)] * x[k][j];
 			}
 		}
 	}

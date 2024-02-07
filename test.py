@@ -1,123 +1,50 @@
-import subprocess
 import os
+from src.mtx_matrices_gen import vbr_to_mtx
+from src.codegen import vbr_spmm_codegen
+import subprocess
+
 import numpy
-# from interpreter import interpret
-import ast
-from concurrent.futures import ThreadPoolExecutor
-
-from src.codegen import vbr_spmv_codegen, vbr_spmm_codegen
-
-def is_valid_list_string(s):
-    try:
-        ast.literal_eval(s)
-        return True
-    except (ValueError, SyntaxError):
-        return False
-
-def load_mtx(mtx_file):
-    with open(mtx_file, "r") as f:
-        lines = f.readlines()
-        start_processing = False
-
-        for line in lines:
-            if not line.startswith("%"):
-                data = line.strip().split()
-                if not start_processing:
-                    M = numpy.zeros((int(data[0]), int(data[1])))
-                    start_processing = True
-                    continue
-                M[int(data[0])-1][int(data[1])-1] = float(data[2])
-    return M
 
 def cmp_file(file1, file2):
     with open(file1, "r") as f1:
         with open(file2, "r") as f2:
-            count = 0
             for line1, line2 in zip(f1, f2):
-                line1 = line1.strip()
-                line2 = line2.strip()
-                count += 1
-                if is_valid_list_string(line1):
-                    line1 = ast.literal_eval(line1)
-                    line2 = ast.literal_eval(line2)
-                else:
-                    line1 = float(line1)
-                    line2 = float(line2)
-                if line1 != line2:
-                    print(count, ": ", line1, " ", line2)
+                if line1!=line2:
                     return False
     return True
 
-def write_canon_spmv(mtx_file):
-    M = load_mtx(os.path.join("Generated_MMarket", mtx_file))
-    output = M.dot([1] * M.shape[1])
-    with open(os.path.join(dir_name_spmv, mtx_file[:-len(".mtx")]+"_canon.txt"), "w") as f:
-        f.writelines(str(elem)+"\n" for elem in output)
-
-def write_vbr_spmv(mtx_file):
-    for threads in [1, 16]:
-        vbr_spmv_codegen(mtx_file[:-len(".mtx")], threads=threads)
-        subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", mtx_file[:-len(".mtx")], mtx_file[:-len(".mtx")]+".c"], cwd="Generated_SpMV")
-        output = subprocess.run(["./"+mtx_file[:-len(".mtx")]], capture_output=True, cwd="Generated_SpMV")
-        output = output.stdout.decode("utf-8").split("\n")[1:]
-        with open(os.path.join(dir_name_spmv, mtx_file[:-len(".mtx")]+f"_{threads}_my.txt"), "w") as f:
-            f.writelines(line+"\n" for line in output)
-
-def write_canon_spmm(mtx_file):
-    M = load_mtx(os.path.join("Generated_MMarket", mtx_file))
-    output = M.dot(numpy.ones(M.shape))
-    with open(os.path.join(dir_name_spmm, mtx_file[:-len(".mtx")]+"_canon.txt"), "w") as f:
-        for row in output:
-            f.writelines(str(elem)+"\n" for elem in row)
-
-def write_vbr_spmm(mtx_file):
-    for threads in [1, 16]:
-        vbr_spmm_codegen(mtx_file[:-len(".mtx")], threads=threads)
-        subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", mtx_file[:-len(".mtx")], mtx_file[:-len(".mtx")]+".c"], cwd="Generated_SpMM")
-        output = subprocess.run(["./"+mtx_file[:-len(".mtx")]], capture_output=True, cwd="Generated_SpMM")
-        output = output.stdout.decode("utf-8").split("\n")[1:]
-        with open(os.path.join(dir_name_spmm, mtx_file[:-len(".mtx")]+f"_{threads}_my.txt"), "w") as f:
-            f.writelines(line+"\n" for line in output)
-
-if __name__ == "__main__":
-    dir_name_spmv = "tests_spmv"
-    if not os.path.exists(dir_name_spmv):
-        os.mkdir(dir_name_spmv)
-    dir_name_spmm = "tests_spmm"
-    if not os.path.exists(dir_name_spmm):
-        os.mkdir(dir_name_spmm)
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        for mtx_file in os.listdir("Generated_MMarket"):
-            assert(mtx_file.endswith(".mtx"))
-            print(mtx_file[:-len(".mtx")])
-            # Python canonical
-            executor.submit(write_canon_spmv, mtx_file)
-            # executor.submit(write_canon_spmm, mtx_file)
-            # VBR-Codegen
-            executor.submit(write_vbr_spmv, mtx_file)
-            # executor.submit(write_vbr_spmm, mtx_file)
-            # Interpreter
-            # with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
-            #     y = interpret(os.path.join("Generated_Data", mtx_file[:-4]+".data"))
-            #     for elem in y:
-            #         f.write(str(int(elem))+"\n")
-            # CBLAS
-            # subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], "dense.c", "-lcblas"])
-            # output = subprocess.run(["./"+mtx_file[:-4], os.path.join("Generated_Matrix", mtx_file)], capture_output=True)
-            # output = output.stdout.decode("utf-8").split("\n")[1:]
-            # with open(os.path.join(dir_name, mtx_file[:-4]+"_dense.txt"), "w") as f:
-            #     for line in output:
-            #         f.write(line+"\n")
-    for test_dir in [dir_name_spmv, dir_name_spmm]:
-        for filename in os.listdir(test_dir):
-            if filename.endswith("_my.txt"):
-                print(f"Comparing {filename[:-7]}")
-                # Compare mine with canon
-                print("Comparing mine with canon")
-                parts = filename.split('_')
-                assert(cmp_file(os.path.join(test_dir, filename), os.path.join(test_dir, '_'.join(parts[:-2])+"_canon.txt")))
-                # Compare cblas with canon
-                # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"dense.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
-                # Compare interp with canon
-                # print("Comparing interpreter with canon")
-                # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"interp.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
+def test():
+    filename = "example.vbr"
+    dense = vbr_to_mtx(filename, dir_name="tests", vbr_dir="tests")
+    dense_canon = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., -1.,  1.],
+                                [ 1.,  5.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0., -1.],
+                                [ 0.,  0.,  6.,  1.,  2.,  2.,  0.,  0.,  0.,  0.,  0.],
+                                [ 0.,  0.,  2.,  7.,  1.,  0.,  0.,  0.,  0.,  0.,  0.],
+                                [ 0.,  0., -1.,  2.,  9.,  3.,  0.,  0.,  0.,  0.,  0.],
+                                [ 2.,  1.,  3.,  4.,  5., 10.,  4.,  3.,  2.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  4., 13.,  4.,  2.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  3.,  3., 11.,  3.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  7.,  0.,  0.],
+                                [ 8.,  4.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 25.,  3.],
+                                [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  8., 12.]])
+    assert(numpy.array_equal(dense, dense_canon))
+    assert(cmp_file("tests/example.mtx", "tests/example-canon.mtx"))
+    mult = dense.dot(numpy.ones(dense.shape))
+    mult_canon = numpy.array([[ 7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.],
+                                [ 7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.],
+                                [11., 11., 11., 11., 11., 11., 11., 11., 11., 11., 11.],
+                                [10., 10., 10., 10., 10., 10., 10., 10., 10., 10., 10.],
+                                [13., 13., 13., 13., 13., 13., 13., 13., 13., 13., 13.],
+                                [34., 34., 34., 34., 34., 34., 34., 34., 34., 34., 34.],
+                                [23., 23., 23., 23., 23., 23., 23., 23., 23., 23., 23.],
+                                [20., 20., 20., 20., 20., 20., 20., 20., 20., 20., 20.],
+                                [ 9.,  9.,  9.,  9.,  9.,  9.,  9.,  9.,  9.,  9.,  9.],
+                                [40., 40., 40., 40., 40., 40., 40., 40., 40., 40., 40.],
+                                [21., 21., 21., 21., 21., 21., 21., 21., 21., 21., 21.]])
+    assert(numpy.array_equal(mult, mult_canon))
+    vbr_spmm_codegen(filename="example", dir_name="tests", threads=1, vbr_dir="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output-canon.txt"))

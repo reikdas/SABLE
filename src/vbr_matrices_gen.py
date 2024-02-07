@@ -3,10 +3,6 @@ from random import sample
 from src.fileio import write_vbr_matrix
 from src.vbr import VBR
 
-'''
-This file contains functionality to generate VBR matrices.
-'''
-
 def cumsum_list(l):
     '''
     method to calculate cumulative sum list of a list
@@ -30,35 +26,15 @@ def random_splits(n, a):
 
     return differences
 
-def vbr_matrices_gen():
-    rows = [5000] # Number of rows
-    cols = [5000] # Number of columns
-    partition_types = ["uniform", "nonuniform"]
-    num_row_splits = [50, 100]
-    num_col_splits = [50, 100]
-    percentage_of_dense_blocks = [20, 15, 10, 5, 1]
-    percentage_of_zeros = [50, 40, 30, 20, 10, 0]
-    
-    for m in rows:
-        for n in cols:
-            for partition_type in partition_types:
-                for row_split in num_row_splits:
-                    for col_split in num_col_splits:
-                        num_blocks = row_split * col_split
-                        for num_dense in [(percentage*num_blocks)//100 for percentage in percentage_of_dense_blocks]:
-                            for perc_zeros in percentage_of_zeros:
-                                vbr_matrix_gen(m, n, partition_type, row_split, col_split, num_dense, perc_zeros)
-
-def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split: int, num_dense: int, perc_zeros: int) -> None:
-
+def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split: int, num_dense: int, perc_zeros: int) -> None:
     assert(m%row_split == 0)
     assert(n%col_split == 0)
     if partitioning == "nonuniform":
-        rpntr = cumsum_list(random_splits(m-1, row_split))
-        cpntr = cumsum_list(random_splits(n-1, col_split))
+        rpntr = cumsum_list(random_splits(m, row_split))
+        cpntr = cumsum_list(random_splits(n, col_split))
     elif partitioning == "uniform":
-        rpntr = [x for x in range(0, m+row_split, m//row_split)]
-        cpntr = [x for x in range(0, n+col_split, n//col_split)]
+        rpntr = [x for x in range(0, m+1, m//row_split)]
+        cpntr = [x for x in range(0, n+1, n//col_split)]
     else:
         assert(False)
     num_blocks = row_split * col_split
@@ -109,15 +85,8 @@ def vbr_matrix_gen(m: int, n: int, partitioning: int, row_split: int, col_split:
     bpntre.append(len(bindx))
     while (len(bpntrb) < len(rpntr) -1):
         bpntrb.append(-1)
-        bpntre.append(-1)        
-    # print("indx = ", indx)
-    # print("bindx = ", bindx)
-    # print("rpntr = ", rpntr)
-    # print("cpntr = ", cpntr)
-    # print("bpntrb = ", bpntrb)
-    # print("bpntre = ", bpntre)
-    # print("Dense blocks = ", dense_blocks)
+        bpntre.append(-1)
     filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_zeros}_{partitioning}"
     
-    vbr_matrix = VBR([1.0]*(m+col_split+1), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
+    vbr_matrix = VBR(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
     write_vbr_matrix(filename, vbr_matrix)

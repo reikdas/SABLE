@@ -3,7 +3,8 @@ from enum import Enum
 
 from src.mtx_matrices_gen import convert_all_vbr_to_mtx
 from src.vbr_matrices_gen import vbr_matrix_gen
-from src.spmv_codegen import vbr_spmv_codegen_for_all
+from src.codegen import vbr_spmv_codegen_for_all
+from src.fileio import write_dense_matrix, write_dense_vector
 
 class PartitionType(Enum):
     uniform = 'uniform'
@@ -51,3 +52,5 @@ if __name__ == '__main__':
     partition_type = "uniform" if args.partition_type == PartitionType.uniform else "nonuniform"
     
     vbr_matrix_gen(args.num_rows, args.num_cols, partition_type, args.row_split, args.col_split, num_dense, args.percentage_of_zeros)
+    write_dense_vector(1.0, args.num_cols)
+    write_dense_matrix(1.0, args.num_rows, args.num_cols)

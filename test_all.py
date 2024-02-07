@@ -91,10 +91,10 @@ if __name__ == "__main__":
             assert(mtx_file.endswith(".mtx"))
             print(mtx_file[:-len(".mtx")])
             # Python canonical
-            # executor.submit(write_canon_spmv, mtx_file)
+            executor.submit(write_canon_spmv, mtx_file)
             executor.submit(write_canon_spmm, mtx_file)
             # VBR-Codegen
-            # executor.submit(write_vbr_spmv, mtx_file)
+            executor.submit(write_vbr_spmv, mtx_file)
             executor.submit(write_vbr_spmm, mtx_file)
             # Interpreter
             # with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
@@ -108,8 +108,7 @@ if __name__ == "__main__":
             # with open(os.path.join(dir_name, mtx_file[:-4]+"_dense.txt"), "w") as f:
             #     for line in output:
             #         f.write(line+"\n")
-    # for test_dir in [dir_name_spmv, dir_name_spmm]:
-    for test_dir in [dir_name_spmm]:
+    for test_dir in [dir_name_spmv, dir_name_spmm]:
         for filename in os.listdir(test_dir):
             if filename.endswith("_my.txt"):
                 print(f"Comparing {filename[:-7]}")

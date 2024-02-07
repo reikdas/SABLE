@@ -13,7 +13,7 @@ def cmp_file(file1, file2):
                     return False
     return True
 
-def test():
+def test_spmm():
     filename = "example.vbr"
     dense = vbr_to_mtx(filename, dir_name="tests", vbr_dir="tests")
     dense_canon = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., -1.,  1.],

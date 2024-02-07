@@ -248,6 +248,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tfloat tmp;\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -256,9 +257,11 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 code.append(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
-                code.append(f"\t\tfor (int j={cpntr[0]}; j<{cpntr[-1]}; j++) {{\n")
-                code.append(f"\t\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
-                code.append(f"\t\t\t\ty[i*{cpntr[-1]} + j] += val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})] * x[k*{cpntr[-1]} + j];\n")
+                code.append(f"\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
+                code.append(f"\t\t\ttmp=val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})];\n")
+                code.append(f"\t\t\t#pragma GCC unroll 4\n")
+                code.append(f"\t\t\tfor (int j={cpntr[0]}; j<{cpntr[-1]}; j++) {{\n")
+                code.append(f"\t\t\t\ty[i*{cpntr[-1]} + j] += tmp* x[k*{cpntr[-1]} + j];\n")
                 code.append("\t\t\t}\n")
                 code.append("\t\t}\n")
                 code.append("\t}\n")
@@ -287,7 +290,7 @@ def vbr_spmv_codegen(filename: str, dir_name = "Generated_SpMV", threads=16):
     time2 = time.time_ns() // 1_000
     return time2-time1
 
-def vbr_spmm_codegen(filename: str, dir_name: str = "Generated_SpMM", vbr_dir="Generated_VBR", threads=16):
+def vbr_spmm_codegen(filename: str, dir_name: str = "Generated_SpMM", vbr_dir="Generated_VBR", threads=1):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     time1 = time.time_ns() // 1_000

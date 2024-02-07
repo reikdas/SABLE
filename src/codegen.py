@@ -216,14 +216,8 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tfloat** y = (float**)calloc({rpntr[-1]}, sizeof(float*));\n")
-    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append(f"\t\ty[i] = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-    code.append("\t}\n")
-    code.append(f"\tfloat** x = (float**)calloc({rpntr[-1]}, sizeof(float*));\n")
-    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append(f"\t\tx[i] = (float*)calloc({cpntr[-1]}, sizeof(float));\n")
-    code.append("\t}\n")
+    code.append(f"\tfloat *y = (float*)calloc({rpntr[-1]*cpntr[-1]}, sizeof(float));\n")
+    code.append(f"\tfloat *x = (float*)calloc({cpntr[-1] * cpntr[-1]}, sizeof(float));\n")
     code.append(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
@@ -246,7 +240,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     fclose(file1);\n''')
     code.append('''\tfor(int i = 0; i < {0}; i++) {{
         for(int j = 0; j < {1}; j++) {{
-            assert(fscanf(file2, "%f,", &x[i][j]) == 1);
+            assert(fscanf(file2, "%f,", &x[i*{1}+j]) == 1);
         }}
     }}
     fclose(file2);\n'''.format(rpntr[-1], cpntr[-1]))
@@ -264,7 +258,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
                 code.append(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
                 code.append(f"\t\tfor (int j={cpntr[0]}; j<{cpntr[-1]}; j++) {{\n")
                 code.append(f"\t\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
-                code.append(f"\t\t\t\ty[i][j] += val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})] * x[k][j];\n")
+                code.append(f"\t\t\t\ty[i*{cpntr[-1]} + j] += val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})] * x[k*{cpntr[-1]} + j];\n")
                 code.append("\t\t\t}\n")
                 code.append("\t\t}\n")
                 code.append("\t}\n")
@@ -275,7 +269,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append(f"\t\tfor (int j=0; j<{cpntr[-1]}; j++) {{\n")
-    code.append("\t\t\tprintf(\"%f\\n\", y[i][j]);\n")
+    code.append(f"\t\t\tprintf(\"%f\\n\", y[i*{cpntr[-1]} + j]);\n")
     code.append("\t\t}\n")
     code.append("\t}\n")
     code.append("}\n")

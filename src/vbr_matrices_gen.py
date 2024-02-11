@@ -26,7 +26,7 @@ def random_splits(n, a):
 
     return differences
 
-def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split: int, num_dense: int, perc_zeros: int) -> None:
+def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split: int, num_dense: int, l_perc_zeros: list[int]) -> None:
     assert(m%row_split == 0)
     assert(n%col_split == 0)
     if partitioning == "nonuniform":
@@ -43,6 +43,10 @@ def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split:
     dense_blocks = sample([x for x in range(num_blocks)], num_dense)
     dense_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
 
+    for perc_zeros in l_perc_zeros:
+        _vbr_matrix_gen(m, n, rpntr, cpntr, row_split, col_split, dense_blocks, perc_zeros, num_dense, partitioning)
+
+def _vbr_matrix_gen(m: int, n: int, rpntr: list[int], cpntr: list[int], row_split: int, col_split: int, dense_blocks: list[int], perc_zeros: int, num_dense: int, partitioning: str) -> None:
     val = []
     indx = [0]
     bindx = []

@@ -5,7 +5,7 @@
 Generated_VBR/
 generated_vector_*.vector
 generated_matrix_*.matrix
-!generated_matrix_11x11.matrix
+!generated_matrix_11x512.matrix
 Generated_MMarket/
 Generated_SpMV/
 Generated_SpMM/

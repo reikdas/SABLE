@@ -29,19 +29,6 @@ def test_spmm():
                                 [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  8., 12.]])
     assert(numpy.array_equal(dense, dense_canon))
     assert(cmp_file("tests/example.mtx", "tests/example-canon.mtx"))
-    mult = dense.dot(numpy.ones(dense.shape))
-    mult_canon = numpy.array([[ 7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.],
-                                [ 7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.,  7.],
-                                [11., 11., 11., 11., 11., 11., 11., 11., 11., 11., 11.],
-                                [10., 10., 10., 10., 10., 10., 10., 10., 10., 10., 10.],
-                                [13., 13., 13., 13., 13., 13., 13., 13., 13., 13., 13.],
-                                [34., 34., 34., 34., 34., 34., 34., 34., 34., 34., 34.],
-                                [23., 23., 23., 23., 23., 23., 23., 23., 23., 23., 23.],
-                                [20., 20., 20., 20., 20., 20., 20., 20., 20., 20., 20.],
-                                [ 9.,  9.,  9.,  9.,  9.,  9.,  9.,  9.,  9.,  9.,  9.],
-                                [40., 40., 40., 40., 40., 40., 40., 40., 40., 40., 40.],
-                                [21., 21., 21., 21., 21., 21., 21., 21., 21., 21., 21.]])
-    assert(numpy.array_equal(mult, mult_canon))
     vbr_spmm_codegen(filename="example", dir_name="tests", threads=1, vbr_dir="tests")
     subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]

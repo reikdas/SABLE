@@ -203,7 +203,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
 
 def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename, vbr_dir="Generated_VBR"):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    matrix_path = f"generated_matrix_{rpntr[-1]}x{cpntr[-1]}.matrix"
+    matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     code = []
@@ -226,10 +226,10 @@ int lcm(int a, int b) {
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tfloat *y = (float*)aligned_alloc(64, lcm({rpntr[-1] * cpntr[-1]}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(y, 0, lcm({rpntr[-1] * cpntr[-1]}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tfloat *x = (float*)aligned_alloc(64, lcm({cpntr[-1] * cpntr[-1]}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(x, 0, lcm({cpntr[-1] * cpntr[-1]}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *y = (float*)aligned_alloc(64, lcm({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(y, 0, lcm({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *x = (float*)aligned_alloc(64, lcm({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(x, 0, lcm({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
     code.append(f"\tfloat *val = (float*)aligned_alloc(64, lcm({len(val)}*sizeof(float), 64*sizeof(float)));\n")
     code.append(f"\tmemset(val, 0, lcm({len(val)}*sizeof(float), 64*sizeof(float)));\n")
     code.append("\tchar c;\n")
@@ -252,11 +252,11 @@ int lcm(int a, int b) {
     assert(c=='\\n');
     fclose(file1);\n''')
     code.append('''\tfor(int i = 0; i < {0}; i++) {{
-        for(int j = 0; j < {1}; j++) {{
-            assert(fscanf(file2, "%f,", &x[i*{1}+j]) == 1);
+        for(int j = 0; j < 512; j++) {{
+            assert(fscanf(file2, "%f,", &x[i*512+j]) == 1);
         }}
     }}
-    fclose(file2);\n'''.format(rpntr[-1], cpntr[-1]))
+    fclose(file2);\n'''.format(rpntr[-1]))
     code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
@@ -273,8 +273,8 @@ int lcm(int a, int b) {
                 code.append(f"\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
                 code.append(f"\t\t\ttmp=val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})];\n")
                 code.append(f"\t\t\t#pragma GCC unroll 4\n")
-                code.append(f"\t\t\tfor (int j={cpntr[0]}; j<{cpntr[-1]}; j++) {{\n")
-                code.append(f"\t\t\t\ty[i*{cpntr[-1]} + j] += tmp* x[k*{cpntr[-1]} + j];\n")
+                code.append(f"\t\t\tfor (int j=0; j<512; j++) {{\n")
+                code.append(f"\t\t\t\ty[i*512 + j] += tmp* x[k*512 + j];\n")
                 code.append("\t\t\t}\n")
                 code.append("\t\t}\n")
                 code.append("\t}\n")
@@ -284,8 +284,8 @@ int lcm(int a, int b) {
     code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
     code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append(f"\t\tfor (int j=0; j<{cpntr[-1]}; j++) {{\n")
-    code.append(f"\t\t\tprintf(\"%f\\n\", y[i*{cpntr[-1]} + j]);\n")
+    code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
+    code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
     code.append("\t\t}\n")
     code.append("\t}\n")
     code.append("}\n")

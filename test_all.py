@@ -65,7 +65,7 @@ def write_vbr_spmv(mtx_file):
 
 def write_canon_spmm(mtx_file):
     M = load_mtx(os.path.join("Generated_MMarket", mtx_file))
-    output = M.dot(numpy.ones(M.shape))
+    output = M.dot(numpy.ones((M.shape[1], 512)))
     with open(os.path.join(dir_name_spmm, mtx_file[:-len(".mtx")]+"_canon.txt"), "w") as f:
         for row in output:
             f.writelines(str(elem)+"\n" for elem in row)

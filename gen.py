@@ -1,3 +1,4 @@
+import random
 from argparse import ArgumentParser
 from enum import Enum
 
@@ -37,6 +38,8 @@ def parse_arguments():
 
 if __name__ == '__main__':
     args = parse_arguments()
+    
+    random.seed(0)
     
     if (args.operation == Operation.vbr_to_mtx):
         convert_all_vbr_to_mtx()

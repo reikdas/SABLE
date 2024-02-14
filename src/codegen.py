@@ -211,8 +211,18 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     code.append("#include <sys/time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
+    code.append("#include <x86intrin.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append("""
+void foo(float s, float *b, float *c, int n) {
+    __m512 sv = _mm512_set1_ps(s);
+    for (int i=0; i<n/16; i++) {
+        __m512 cv = _mm512_loadu_ps(&c[16*i]);
+        __m512 bv = _mm512_loadu_ps(&b[16*i]);
+        cv = _mm512_fmadd_ps(sv, bv, cv);
+        _mm512_storeu_ps(&c[16*i], cv);
+    }
+}
 int gcd(int a, int b) {
     if (b == 0)
         return a;
@@ -272,10 +282,7 @@ int lcm(int a, int b) {
                 code.append(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
                 code.append(f"\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
                 code.append(f"\t\t\ttmp=val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})];\n")
-                code.append(f"\t\t\t#pragma GCC unroll 4\n")
-                code.append(f"\t\t\tfor (int j=0; j<512; j++) {{\n")
-                code.append(f"\t\t\t\ty[i*512 + j] += tmp* x[k*512 + j];\n")
-                code.append("\t\t\t}\n")
+                code.append("\t\t\tfoo(tmp, &x[k*512], &y[i*512], 512);")
                 code.append("\t\t}\n")
                 code.append("\t}\n")
                 count+=1

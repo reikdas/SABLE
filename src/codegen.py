@@ -269,15 +269,7 @@ int lcm(int a, int b) {
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                code.append(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
-                code.append(f"\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
-                code.append(f"\t\t\ttmp=val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})];\n")
-                code.append(f"\t\t\t#pragma GCC unroll 4\n")
-                code.append(f"\t\t\tfor (int j=0; j<512; j++) {{\n")
-                code.append(f"\t\t\t\ty[i*512 + j] += tmp* x[k*512 + j];\n")
-                code.append("\t\t\t}\n")
-                code.append("\t\t}\n")
-                code.append("\t}\n")
+                code.append(f"\tcblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, {rpntr[a+1]-rpntr[a]}, 512, {cpntr[b+1]-cpntr[b]}, 1.0, val, {cpntr[b+1] - cpntr[b]}, x, 512, 1.0, y, 512);\n")
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")

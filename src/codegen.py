@@ -262,9 +262,8 @@ int lcm(int a, int b) {
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-    N = 2
-    code.append(f"\t__m512 sv[{N}], bv[{N}];\n")
-    code.append(f"\t__m512 cv;")
+    code.append("\tfloat tmp;\n")
+    code.append("\t__m512 sv, bv, cv;\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -273,15 +272,13 @@ int lcm(int a, int b) {
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 code.append(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
-                code.append(f"\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k+={N}) {{\n")
-                for n in range(N):
-                    code.append(f"\t\t\tsv[{n}] = _mm512_set1_ps(val[{indx[count]} + (k+{n - cpntr[b]}) * {rpntr[a+1] - rpntr[a]} + (i-{rpntr[a]})]);\n")
-                # code.append("\t\t\t#pragma GCC unroll 16\n")
+                code.append(f"\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
+                code.append(f"\t\t\ttmp=val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})];\n")
+                code.append("\t\t\tsv=_mm512_set1_ps(tmp);\n")
                 code.append("\t\t\tfor (int j=0; j<512/16; j++) {\n")
                 code.append("\t\t\t\tcv = _mm512_loadu_ps(&y[i*512 + 16*j]);\n")
-                for n in range(N):
-                    code.append(f"\t\t\t\tbv[{n}] = _mm512_loadu_ps(&x[(k+{n})*512 + 16*j]);\n")
-                    code.append(f"\t\t\t\tcv = _mm512_fmadd_ps(sv[{n}], bv[{n}], cv);\n")
+                code.append("\t\t\t\tbv = _mm512_loadu_ps(&x[k*512 + 16*j]);\n")
+                code.append("\t\t\t\tcv = _mm512_fmadd_ps(sv, bv, cv);\n")
                 code.append("\t\t\t\t_mm512_storeu_ps(&y[512*i+16*j], cv);\n")
                 code.append("\t\t\t}\n")
                 code.append("\t\t}\n")

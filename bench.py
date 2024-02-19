@@ -53,7 +53,7 @@ def bench_spmv():
 
 def bench_spmm():
     vbr_files = os.listdir("Generated_VBR")
-    for thread in [1]:
+    for thread in [1, 2, 4, 8, 16]:
         with open(f"benchmarks_my_spmm_{thread}.txt", "w") as fMy:
             for filename in vbr_files:
                 fname = filename[:-len(".vbr")]
@@ -61,7 +61,7 @@ def bench_spmm():
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
                 vbr_spmm_codegen(fname, threads=thread)
-                subprocess.run(["/usr/bin/gcc-8", "-O3", "-lpthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM")
+                subprocess.run(["/usr/bin/gcc-8", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM")
                 execution_times = []
                 for i in range(BENCHMARK_FREQ):
                     print(f"Benchmarking threads={thread} executor iteration", i, flush=True)

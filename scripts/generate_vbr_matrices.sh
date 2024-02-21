@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-rows=5000
-cols=5000
+rows=10000
+cols=10000
 partition_types="uniform non-uniform"
 row_splits="50 100"
 col_splits="50 100"

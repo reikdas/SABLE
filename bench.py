@@ -2,23 +2,23 @@ import subprocess
 import os
 import time
 
-from src.spmv_codegen import vbr_spmv_codegen
+from src.codegen import vbr_spmv_codegen
 
 BENCHMARK_FREQ = 5
 
 if __name__ == "__main__":
     vbr_files = os.listdir("Generated_VBR")
     print("Benchmarking inspector")
-    with open("benchmarks_inspector.txt", "w") as fInspector:
+    with open(os.path.join("results", "benchmarks_inspector.txt"), "w") as fInspector:
         for filename in vbr_files:
-            fname = filename[:-5]
+            fname = filename[:-len(".vbr")]
             spmv_file = fname + ".c"
             print(filename, flush=True)
             inspector_times = []
             for i in range(BENCHMARK_FREQ):
                 # SpMV code generation by inspecting the VBR matrix
                 print("Benchmarking inspector iteration", i, flush=True)
-                spmv_codegen_time = vbr_spmv_codegen(filename)
+                spmv_codegen_time = vbr_spmv_codegen(fname, threads=1)
                 time1 = time.time_ns() // 1_000
                 # compile the generated code for SpMV operation
                 subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", fname, spmv_file], cwd="Generated_SpMV")
@@ -32,13 +32,13 @@ if __name__ == "__main__":
             fInspector.write(p)
     print("Benchmarking executor")
     for thread in [1, 2, 4, 8, 16]:
-        with open(f"benchmarks_my_{thread}.txt", "w") as fMy:
+        with open(os.path.join("results", f"benchmarks_my_{thread}.txt"), "w") as fMy:
             for filename in vbr_files:
-                fname = filename[:-5]
+                fname = filename[:-len(".vbr")]
                 spmv_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmv_codegen(filename, threads=thread)
+                vbr_spmv_codegen(fname, threads=thread)
                 subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", fname, spmv_file], cwd="Generated_SpMV")
                 execution_times = []
                 for i in range(BENCHMARK_FREQ):

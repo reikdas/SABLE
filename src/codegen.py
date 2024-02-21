@@ -178,7 +178,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     assert(c=='\\n');
     fclose(file1);''')
         f.write('''
-    while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
+    while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
         x_size++;
     }}
     fclose(file2);\n'''.format(rpntr[-1]))

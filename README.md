@@ -72,3 +72,15 @@ Execute the `bench.py`
 ```
 nohup python bench.py &> bench.txt &
 ```
+
+## Running the tests
+
+```bash
+python -m pytest tests
+
+# running single files with verbose
+python -m pytest -s tests/test_util.py
+
+# running a single test
+python -m pytest -s tests/test_util.py -k 'test_correct_widths'
+```

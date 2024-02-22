@@ -1,7 +1,6 @@
 import subprocess
 import os
 import numpy
-# from interpreter import interpret
 import ast
 from concurrent.futures import ThreadPoolExecutor
 
@@ -73,7 +72,7 @@ def write_canon_spmm(mtx_file):
 def write_vbr_spmm(mtx_file):
     for threads in [1]:
         vbr_spmm_codegen(mtx_file[:-len(".mtx")], threads=threads)
-        subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", mtx_file[:-len(".mtx")], mtx_file[:-len(".mtx")]+".c"], cwd="Generated_SpMM")
+        subprocess.run(["gcc", "-O3", "-pthread", "-march=native", "-o", mtx_file[:-len(".mtx")], mtx_file[:-len(".mtx")]+".c"], cwd="Generated_SpMM")
         output = subprocess.run(["./"+mtx_file[:-len(".mtx")]], capture_output=True, cwd="Generated_SpMM")
         output = output.stdout.decode("utf-8").split("\n")[1:]
         with open(os.path.join(dir_name_spmm, mtx_file[:-len(".mtx")]+f"_{threads}_my.txt"), "w") as f:
@@ -96,18 +95,6 @@ if __name__ == "__main__":
             # VBR-Codegen
             executor.submit(write_vbr_spmv, mtx_file)
             executor.submit(write_vbr_spmm, mtx_file)
-            # Interpreter
-            # with open(os.path.join(dir_name, mtx_file[:-4]+"_interp.txt"), "w") as f:
-            #     y = interpret(os.path.join("Generated_Data", mtx_file[:-4]+".data"))
-            #     for elem in y:
-            #         f.write(str(int(elem))+"\n")
-            # CBLAS
-            # subprocess.run(["gcc", "-O3", "-o", mtx_file[:-4], "dense.c", "-lcblas"])
-            # output = subprocess.run(["./"+mtx_file[:-4], os.path.join("Generated_Matrix", mtx_file)], capture_output=True)
-            # output = output.stdout.decode("utf-8").split("\n")[1:]
-            # with open(os.path.join(dir_name, mtx_file[:-4]+"_dense.txt"), "w") as f:
-            #     for line in output:
-            #         f.write(line+"\n")
     for test_dir in [dir_name_spmv, dir_name_spmm]:
         for filename in os.listdir(test_dir):
             if filename.endswith("_my.txt"):
@@ -116,8 +103,3 @@ if __name__ == "__main__":
                 print("Comparing mine with canon")
                 parts = filename.split('_')
                 assert(cmp_file(os.path.join(test_dir, filename), os.path.join(test_dir, '_'.join(parts[:-2])+"_canon.txt")))
-                # Compare cblas with canon
-                # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"dense.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))
-                # Compare interp with canon
-                # print("Comparing interpreter with canon")
-                # assert(cmp_file(os.path.join(dir_name, filename[:-6]+"interp.txt"), os.path.join(dir_name, filename[:-6]+"canon.txt")))

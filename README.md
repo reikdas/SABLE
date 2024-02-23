@@ -66,6 +66,16 @@ nohup ./scripts/generate_spmv_code.sh &> timed_gen_code.txt &
 python gen.py -o vbr_to_code
 ```
 
+## Converting a matrix with mtx format to vbr
+
+`mtx_to_vbr.py` contains a simple script to call the conversion routine.
+Change the file location and define the variable grid accordingly before running the script.
+Example mtx file can be downloaded from https://sparse.tamu.edu/HB/bcsstk14
+
+```bash
+python mtx_to_vbr.py
+```
+
 ## Benchmarking the implementation
 
 Execute the `bench.py`

@@ -1,7 +1,8 @@
 from scipy.io import mmread
 import matplotlib.pyplot as plt
 
-from src.util import del_stuff, convert_dense_to_vbr
+from src.fileio import write_vbr_matrix
+from src.util import convert_dense_to_vbr, convert_mtx_to_vbr
 
 def test_get_dense_for_mtx():
     csr = mmread("tests/example-canon.mtx")

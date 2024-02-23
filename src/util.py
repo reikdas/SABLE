@@ -1,4 +1,5 @@
 import gc
+import scipy
 import numpy
 
 from src.vbr import VBR
@@ -122,13 +123,12 @@ def convert_dense_to_vbr(dense, row_widths, col_widths):
             
     return VBR(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
 
-def convert_mtx_to_vbr(input: str, row_widths: list = None, col_widths: list = None) -> None:
+def convert_mtx_to_vbr(coo: scipy.sparse._coo.coo_matrix, row_widths: list = None, col_widths: list = None) -> None:
     '''
     Converts a matrix in Matrix Market format to VBR format.
     '''
-    from scipy.io import mmread
-    csr = mmread(input)
-    dense = csr.toarray()
+    assert type(coo) == scipy.sparse._coo.coo_matrix
+    dense = coo.toarray()
     
     if row_widths is None:
         row_widths = [2 for _ in range(0, dense.shape[0]//2)]

@@ -1,7 +1,109 @@
 import os
 import time
+from collections import defaultdict
+from typing import Any, Callable
+import itertools
+import inspect
 
 from src.fileio import read_vbr
+
+curr_block_instructions = []
+
+def _codegen(f):
+    global curr_block_instructions
+    prev = curr_block_instructions
+    try:
+        curr_block_instructions = []
+        f()
+        res = ";\n".join(str(e) for e in curr_block_instructions)
+    finally:
+        curr_block_instructions = prev
+    return f"{res};"
+
+def codegen(fun):
+    def res(*args, **kwargs):
+        return _codegen(lambda: fun(*args, **kwargs))
+    return res
+
+# ids = defaultdict(lambda: itertools.count())
+
+# def fresh_name(prefix='i'):
+#     id = next(ids[prefix])
+#     if id == 0:
+#         return f"{prefix}"
+#     else:
+#         return f"{prefix}_{id}"
+
+class NumVal:
+    def __init__(self, name: str):
+        self.name = name
+    def __str__(self):
+        return self.name
+    
+    def __add__(self, v2: "NumVal"):
+        return NumVal(f"({self} + {v2})")
+
+    def __sub__(self, v2: "NumVal"):
+        return NumVal(f"({self} - {v2})")
+
+    def __mul__(self, v2: "NumVal"):
+        return NumVal(f"({self} * {v2})")
+
+
+class ArrayVal:
+    def __init__(self, name: str):
+        self.name = name
+    
+    def slice(self, start: NumVal):
+        return ArrayVal(f"(&{self.name}[{start}])")
+
+    def __getitem__(self, idx: NumVal):
+        return NumVal(f"{self.name}[{idx}]")
+    
+    def __setitem__(self, idx: NumVal, val: NumVal):
+        curr_block_instructions.append(f"{self.name}[{idx}] = {val}")
+
+def it(r: range, fun: Callable[[NumVal], Any]):
+    iname = list(inspect.signature(fun).parameters.keys())[0]
+
+    # i = NumVal(fresh_name(iname))
+    i = NumVal(iname)
+    curr_block_instructions.append(f"""
+    for (int {i} = {r.start}; {i} < {r.stop}; {i}++) {{
+        {codegen(fun)(i)}
+    }}
+    """)
+
+def it2(r1: range, r2: range, f: Callable[[NumVal, NumVal], Any]):
+    return it(r1, lambda i: it(r2, lambda j: f(i, j)))
+
+def it3(r1: range, r2: range, r3: range, f: Callable[[NumVal, NumVal, NumVal], Any]):
+    return it(r1, lambda i: it(r2, lambda j: it(r3, lambda k: f(i, j, k))))
+
+def spmv(
+    row_idxs: range, # (row_start, row_end)
+    col_idxs: range, # (col_start, col_end)
+    col_maj_val: ArrayVal, # dense block from vbr
+    x: ArrayVal, # dense vector / matrix to multiply
+    y: ArrayVal, # output
+):
+    def op(j, i):
+        y[i] += col_maj_val[(j - col_idxs.start)*len(row_idxs) + (i - row_idxs.start)] * x[j]
+
+    return it2(col_idxs, row_idxs, op)
+
+def spmm(
+    row_idxs: range, # (row_start, row_end)
+    col_idxs: range, # (col_start, col_end)
+    dense_idxs: range,
+    col_maj_val: ArrayVal, # dense block from vbr
+    x: ArrayVal, # dense vector / matrix to multiply
+    y: ArrayVal, # output
+):
+    def op(i, k, j):
+        y[i*512 + j] += col_maj_val[(k-col_idxs.start)*len(row_idxs) + (i - row_idxs.start)] * x[k*512+j]
+
+    return it3(row_idxs, col_idxs, dense_idxs, op)
 
 def codegen_for_all(op: str):
     if op.lower() == "spmv":
@@ -87,11 +189,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                code.append(f"\tfor (int j = {cpntr[b]}; j < {cpntr[b+1]}; j++) {{\n")
-                code.append(f"\t\tfor (int i = {rpntr[a]}; i < {rpntr[a+1]}; i++) {{\n")
-                code.append(f"\t\t\ty[i] += val[{indx[count]}+(j-{cpntr[b]})*({rpntr[a+1]} - {rpntr[a]}) + (i-{rpntr[a]})] * x[j];\n")
-                code.append("\t\t}\n")
-                code.append("\t}\n")
+                code.append(codegen(spmv)(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -138,11 +236,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
             valid_cols = bindx[bpntrb[a]:bpntre[a]]
             for b in range(len(cpntr)-1):
                 if b in valid_cols:
-                    f.write(f"\tfor (int j = {cpntr[b]}; j < {cpntr[b+1]}; j++) {{\n")
-                    f.write(f"\t\tfor (int i = {rpntr[a]}; i < {rpntr[a+1]}; i++) {{\n")
-                    f.write(f"\t\t\ty[i] += val[{indx[count]}+(j-{cpntr[b]})*({rpntr[a+1]} - {rpntr[a]}) + (i-{rpntr[a]})] * x[j];\n")
-                    f.write("\t\t}\n")
-                    f.write("\t}\n")
+                    f.write(codegen(spmv)(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     count+=1
             func_idx += 1
             if func_idx == per_func[funcount] or a == len(rpntr) - 2:
@@ -261,7 +355,6 @@ int lcm(int a, int b) {
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-    code.append("\tfloat tmp;\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -269,14 +362,7 @@ int lcm(int a, int b) {
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                code.append(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
-                code.append(f"\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
-                code.append(f"\t\t\ttmp=val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})];\n")
-                code.append(f"\t\t\tfor (int j=0; j<512; j++) {{\n")
-                code.append(f"\t\t\t\ty[i*512 + j] += tmp* x[k*512 + j];\n")
-                code.append("\t\t\t}\n")
-                code.append("\t\t}\n")
-                code.append("\t}\n")
+                code.append(codegen(spmm)(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), range(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -331,18 +417,10 @@ int lcm(int a, int b) {
             continue
         if func_idx == 0:
             code.append(f"void *func{funcount}(){{\n")
-            code.append(f"\tfloat tmp;\n")
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                code.append(f"\tfor (int i={rpntr[a]}; i<{rpntr[a+1]}; i++) {{\n")
-                code.append(f"\t\tfor (int k={cpntr[b]}; k<{cpntr[b+1]}; k++) {{\n")
-                code.append(f"\t\t\ttmp=val[{indx[count]}+ (k-{cpntr[b]})*{rpntr[a+1]-rpntr[a]} + (i-{rpntr[a]})];\n")
-                code.append(f"\t\t\tfor (int j=0; j<512; j++) {{\n")
-                code.append(f"\t\t\t\ty[i*512 + j] += tmp* x[k*512 + j];\n")
-                code.append("\t\t\t}\n")
-                code.append("\t\t}\n")
-                code.append("\t}\n")
+                code.append(codegen(spmm)(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), range(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                 count+=1
         func_idx += 1
         if func_idx == per_func[funcount] or a == len(rpntr) - 2:

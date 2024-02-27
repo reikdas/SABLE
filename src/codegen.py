@@ -1,7 +1,8 @@
+from dataclasses import dataclass
 import os
 import time
 from collections import defaultdict
-from typing import Any, Callable
+from typing import Any, Callable, Union
 import itertools
 import inspect
 
@@ -25,14 +26,14 @@ def codegen(fun):
         return _codegen(lambda: fun(*args, **kwargs))
     return res
 
-# ids = defaultdict(lambda: itertools.count())
+ids = defaultdict(lambda: itertools.count())
 
-# def fresh_name(prefix='i'):
-#     id = next(ids[prefix])
-#     if id == 0:
-#         return f"{prefix}"
-#     else:
-#         return f"{prefix}_{id}"
+def fresh_name(prefix='i'):
+    id = next(ids[prefix])
+    if id == 0:
+        return f"{prefix}"
+    else:
+        return f"{prefix}${id}"
 
 class NumVal:
     def __init__(self, name: str):
@@ -49,6 +50,10 @@ class NumVal:
     def __mul__(self, v2: "NumVal"):
         return NumVal(f"({self} * {v2})")
 
+class ConcreteNumVal(NumVal):
+    def __init__(self, name: str, value):
+        self.name = name
+        self.value = value
 
 class ArrayVal:
     def __init__(self, name: str):
@@ -63,16 +68,43 @@ class ArrayVal:
     def __setitem__(self, idx: NumVal, val: NumVal):
         curr_block_instructions.append(f"{self.name}[{idx}] = {val}")
 
-def it(r: range, fun: Callable[[NumVal], Any]):
+class ConcreteArrayVal:
+    def __init__(self, name: str, value):
+        self.name = name
+        self.value = value
+    
+    def slice(self, start: int):
+        name = f"{self.name}_slice"
+        n = f"{fresh_name(name)}"
+        curr_block_instructions.append(f"float* {n} = &({self.name}[{start}])")
+        return ConcreteArrayVal(n, self.value[start:])
+
+    def __getitem__(self, idx: int):
+        return ConcreteNumVal(f"{self.name}[{idx}]", self.value[idx])
+
+
+@dataclass
+class RepRange:
+    start: int
+    stop: int
+
+    def __len__(self):
+        return self.stop - self.start
+
+def it(r: Union[RepRange, range], fun: Callable[[NumVal], Any]):
     iname = list(inspect.signature(fun).parameters.keys())[0]
 
-    # i = NumVal(fresh_name(iname))
-    i = NumVal(iname)
-    curr_block_instructions.append(f"""
-    for (int {i} = {r.start}; {i} < {r.stop}; {i}++) {{
-        {codegen(fun)(i)}
-    }}
-    """)
+    if isinstance(r, RepRange):
+        # i = NumVal(fresh_name(iname))
+        i = NumVal(iname)
+        curr_block_instructions.append(f"""
+        for (int {i} = {r.start}; {i} < {r.stop}; {i}++) {{
+            {codegen(fun)(i)}
+        }}
+        """)
+    else:
+        for i in r:
+            curr_block_instructions.append(codegen(fun)(i))
 
 def it2(r1: range, r2: range, f: Callable[[NumVal, NumVal], Any]):
     return it(r1, lambda i: it(r2, lambda j: f(i, j)))
@@ -80,15 +112,25 @@ def it2(r1: range, r2: range, f: Callable[[NumVal, NumVal], Any]):
 def it3(r1: range, r2: range, r3: range, f: Callable[[NumVal, NumVal, NumVal], Any]):
     return it(r1, lambda i: it(r2, lambda j: it(r3, lambda k: f(i, j, k))))
 
+def isDense(val):
+    if isinstance(val, ConcreteNumVal):
+        return val.value!=0
+    if isinstance(val, NumVal):
+        return True
+    else:
+        raise Exception("Invalid type")
+    
 def spmv(
     row_idxs: range, # (row_start, row_end)
     col_idxs: range, # (col_start, col_end)
-    col_maj_val: ArrayVal, # dense block from vbr
+    col_maj_val, # dense block from vbr
     x: ArrayVal, # dense vector / matrix to multiply
     y: ArrayVal, # output
 ):
     def op(j, i):
-        y[i] += col_maj_val[(j - col_idxs.start)*len(row_idxs) + (i - row_idxs.start)] * x[j]
+        val = col_maj_val[(j - col_idxs.start)*len(row_idxs) + (i - row_idxs.start)]
+        if isDense(val):
+            y[i] += val * x[j]
 
     return it2(col_idxs, row_idxs, op)
 
@@ -96,12 +138,14 @@ def spmm(
     row_idxs: range, # (row_start, row_end)
     col_idxs: range, # (col_start, col_end)
     dense_idxs: range,
-    col_maj_val: ArrayVal, # dense block from vbr
+    col_maj_val, # dense block from vbr
     x: ArrayVal, # dense vector / matrix to multiply
     y: ArrayVal, # output
 ):
     def op(i, k, j):
-        y[i*512 + j] += col_maj_val[(k-col_idxs.start)*len(row_idxs) + (i - row_idxs.start)] * x[k*512+j]
+        val = col_maj_val[(k-col_idxs.start)*len(row_idxs) + (i - row_idxs.start)]
+        if isDense(val):
+            y[i*512 + j] += val * x[k*512+j]
 
     return it3(row_idxs, col_idxs, dense_idxs, op)
 
@@ -189,7 +233,21 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                code.append(codegen(spmv)(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                sparse_count = 0
+                dense_count = 0
+                count2 = 0
+                # Check if the block is more than 25% dense
+                for _ in range(rpntr[a], rpntr[a+1]):
+                    for _ in range(cpntr[b], cpntr[b+1]):
+                        if val[indx[count]+count2] == 0.0:
+                            sparse_count+=1
+                        else:
+                            dense_count+=1
+                        count2+=1
+                if dense_count > (25 * (sparse_count+dense_count))//100:
+                    code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                else:
+                    code.append(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -236,7 +294,21 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
             valid_cols = bindx[bpntrb[a]:bpntre[a]]
             for b in range(len(cpntr)-1):
                 if b in valid_cols:
-                    f.write(codegen(spmv)(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                    sparse_count = 0
+                    dense_count = 0
+                    count2 = 0
+                    # Check if the block is more than 25% dense
+                    for _ in range(rpntr[a], rpntr[a+1]):
+                        for _ in range(cpntr[b], cpntr[b+1]):
+                            if val[indx[count]+count2] == 0.0:
+                                sparse_count+=1
+                            else:
+                                dense_count+=1
+                            count2+=1
+                    if dense_count > (25 * (sparse_count+dense_count))//100:
+                        f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                    else:
+                        f.write(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                     count+=1
             func_idx += 1
             if func_idx == per_func[funcount] or a == len(rpntr) - 2:
@@ -365,7 +437,21 @@ int lowestMultiple(int x, int y) {
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                code.append(codegen(spmm)(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), range(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                sparse_count = 0
+                dense_count = 0
+                count2 = 0
+                # Check if the block is more than 25% dense
+                for _ in range(rpntr[a], rpntr[a+1]):
+                    for _ in range(cpntr[b], cpntr[b+1]):
+                        if val[indx[count]+count2] == 0.0:
+                            sparse_count+=1
+                        else:
+                            dense_count+=1
+                        count2+=1
+                if dense_count > (25 * (sparse_count+dense_count))//100:
+                    code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                else:
+                    code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), range(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -426,7 +512,21 @@ int lowestMultiple(int x, int y) {
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                code.append(codegen(spmm)(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), range(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                sparse_count = 0
+                dense_count = 0
+                count2 = 0
+                # Check if the block is more than 25% dense
+                for _ in range(rpntr[a], rpntr[a+1]):
+                    for _ in range(cpntr[b], cpntr[b+1]):
+                        if val[indx[count]+count2] == 0.0:
+                            sparse_count+=1
+                        else:
+                            dense_count+=1
+                        count2+=1
+                if dense_count > (25 * (sparse_count+dense_count))//100:
+                    code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                else:
+                    code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), range(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 count+=1
         func_idx += 1
         if func_idx == per_func[funcount] or a == len(rpntr) - 2:

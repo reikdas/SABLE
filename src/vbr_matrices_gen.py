@@ -26,7 +26,7 @@ def random_splits(n, a):
 
     return differences
 
-def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split: int, num_dense: int, perc_zeros: int) -> None:
+def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split: int, num_dense: int, perc_dense_zeros: int, num_sparse: int) -> None:
     assert(m%row_split == 0)
     assert(n%col_split == 0)
     if partitioning == "nonuniform":
@@ -41,7 +41,13 @@ def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split:
 
     # Randomly choose dense blocks
     dense_blocks = sample([x for x in range(num_blocks)], num_dense)
-    dense_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
+
+    remaining_blocks = [x for x in range(num_blocks) if x not in dense_blocks]
+    sparse_blocks = sample(remaining_blocks, num_sparse)
+    perc_sparse_zeros = 75
+
+    all_blocks = dense_blocks + sparse_blocks
+    all_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
 
     val = []
     indx = [0]
@@ -49,15 +55,15 @@ def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split:
     bpntrb = []
     bpntre = []
     curr_row = 0
-    numzeros = 0
-    for dense_block in dense_blocks:
-        new_row = dense_block//col_split
-        col_idx = dense_block%col_split
+    for block in all_blocks:
+        new_row = block//col_split
+        col_idx = block%col_split
         block_size = (rpntr[new_row+1] - rpntr[new_row]) * (cpntr[col_idx+1] - cpntr[col_idx])
-        zeros = sample([x for x in range(block_size)], (block_size * perc_zeros) // 100)
+        if block in dense_blocks:
+            zeros = sample([x for x in range(block_size)], (block_size * perc_dense_zeros) // 100)
+        else:
+            zeros = sample([x for x in range(block_size)], (block_size * perc_sparse_zeros) // 100)
         zeros = set(zeros)
-        numzeros += len(zeros)
-        
         for index in range(block_size):
             if index in zeros:
                 val.append(0)
@@ -81,12 +87,11 @@ def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split:
                 bpntrb.append(len(bindx))
         if (len(bpntrb) == 0):
             bpntrb.append(0)
-        bindx.append(dense_block%col_split)
+        bindx.append(block%col_split)
     bpntre.append(len(bindx))
     while (len(bpntrb) < len(rpntr) -1):
         bpntrb.append(-1)
         bpntre.append(-1)
-    filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_zeros}_{partitioning}"
-    
+    filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_dense_zeros}_{num_sparse}_{partitioning}"
     vbr_matrix = VBR(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
     write_vbr_matrix(filename, vbr_matrix)

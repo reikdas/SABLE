@@ -29,7 +29,8 @@ def parse_arguments():
     parser.add_argument("-p", "--partition-type", type=PartitionType, choices=list(PartitionType), default="uniform", required=False, help="Partition type for the generated VBR matrix. Default is uniform. If uniform, the number of rows is divided by row-split to create uniform partitions. If non-uniform, the number of rows is divided by row-split to create non-uniform partitions, where each partition size is randomly chosen, the sum of all partitions is guaranteed to sum to the total number of rows.")
     parser.add_argument("--row-split", type=int, default=50, required=False, help="Number of rows is divided by this number to get the number of row partitions in the generated VBR matrix")
     parser.add_argument("--col-split", type=int, default=50, required=False, help="Number of columns is divided by this number to get the number of column partitions in the generated VBR matrix")
-    parser.add_argument("--percentage-of-blocks", type=int, default = 50, required=False, help="Percentage of dense blocks (out of all the blocks calculated using row-split*col-split) with non-zero values in the generated VBR matrix. Suggested to use values 20, 15, 10, 5, 1")
+    parser.add_argument("--percentage-dense", type=int, default = 50, required=False, help="Percentage of dense blocks (out of all the blocks calculated using row-split*col-split) with non-zero values in the generated VBR matrix. Suggested to use values 20, 15, 10, 5, 1")
+    parser.add_argument("--percentage-sparse", type=int, required=True)
     parser.add_argument("--percentage-of-zeros", type=int, default = 50, required=False, help="Percentage of zeros in a dense block in the generated VBR matrix. Suggested to use values 50, 40, 30, 20, 10, 0")
     parser.add_argument("-o", "--operation", type=Operation, choices=list(Operation), default="vbr", required=False, help="Operation to perform. Values are `vbr`, `vbr_to_mtx`, `vbr_to_spmv`, `vbr_to_spmm`. Default is vbr. If vbr, generates a VBR matrix with given configuration. If vbr_to_mtx, converts all VBR matrices in Generated_Data to Matrix Market format and saves them in Generated_Matrix.")
     
@@ -54,10 +55,11 @@ if __name__ == '__main__':
         exit(0)
     
     num_blocks = args.row_split * args.col_split
-    num_dense = (args.percentage_of_blocks*num_blocks)//100
+    num_dense = (args.percentage_dense*num_blocks)//100
+    num_sparse = (args.percentage_sparse*num_blocks)//100
         
     partition_type = "uniform" if args.partition_type == PartitionType.uniform else "nonuniform"
     
-    vbr_matrix_gen(args.num_rows, args.num_cols, partition_type, args.row_split, args.col_split, num_dense, args.percentage_of_zeros)
+    vbr_matrix_gen(args.num_rows, args.num_cols, partition_type, args.row_split, args.col_split, num_dense, args.percentage_of_zeros, num_sparse)
     write_dense_vector(1.0, args.num_cols)
     write_dense_matrix(1.0, args.num_cols, 512)

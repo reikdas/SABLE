@@ -307,25 +307,28 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append("""
-int gcd(int a, int b) {
-    if (b == 0)
-        return a;
-    return gcd(b, a % b);
-}
-int lcm(int a, int b) {
-    return (abs(a) / gcd(a, b)) * abs(b);
-}\n\n""")
+int lowestMultiple(int x, int y) {
+    if (x % y == 0) {
+        return x;
+    }
+    else if (y % x == 0) {
+        return y;
+    }
+    else {
+        return ((x / y) + 1) * y;
+    }
+}""")
     code.append("int main() {\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tfloat *y = (float*)aligned_alloc(64, lcm({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(y, 0, lcm({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tfloat *x = (float*)aligned_alloc(64, lcm({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(x, 0, lcm({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tfloat *val = (float*)aligned_alloc(64, lcm({len(val)}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(val, 0, lcm({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *y = (float*)aligned_alloc(64, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(y, 0, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *x = (float*)aligned_alloc(64, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(x, 0, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *val = (float*)aligned_alloc(64, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(val, 0, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint val_size=0;\n")
     code.append('''
@@ -390,14 +393,17 @@ def gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     code.append("#include <pthread.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append("""
-int gcd(int a, int b) {
-    if (b == 0)
-        return a;
-    return gcd(b, a % b);
-}
-int lcm(int a, int b) {
-    return (abs(a) / gcd(a, b)) * abs(b);
-}\n\n""")
+int lowestMultiple(int x, int y) {
+    if (x % y == 0) {
+        return x;
+    }
+    else if (y % x == 0) {
+        return y;
+    }
+    else {
+        return ((x / y) + 1) * y;
+    }
+}""")
     code.append("float *x, *val, *y;\n\n")
     preemptive_count = 0
     for a in range(len(rpntr) - 1):
@@ -433,12 +439,12 @@ int lcm(int a, int b) {
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\ty = (float*)aligned_alloc(64, lcm({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(y, 0, lcm({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tx = (float*)aligned_alloc(64, lcm({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(x, 0, lcm({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tval = (float*)aligned_alloc(64, lcm({len(val)}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(val, 0, lcm({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\ty = (float*)aligned_alloc(64, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(y, 0, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tx = (float*)aligned_alloc(64, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(x, 0, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tval = (float*)aligned_alloc(64, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(val, 0, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint val_size=0;\n")
     code.append('''

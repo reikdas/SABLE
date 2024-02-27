@@ -16,10 +16,14 @@ def _codegen(f):
     try:
         curr_block_instructions = []
         f()
-        res = ";\n".join(str(e) for e in curr_block_instructions)
+        if len(curr_block_instructions) > 0:
+            res = ";\n".join(str(e) for e in curr_block_instructions if e!="")
+            res += ";"
+        else:
+            res = ""
     finally:
         curr_block_instructions = prev
-    return f"{res};"
+    return f"{res}"
 
 def codegen(fun):
     def res(*args, **kwargs):
@@ -38,6 +42,7 @@ def fresh_name(prefix='i'):
 class NumVal:
     def __init__(self, name: str):
         self.name = name
+
     def __str__(self):
         return self.name
     
@@ -49,6 +54,9 @@ class NumVal:
 
     def __mul__(self, v2: "NumVal"):
         return NumVal(f"({self} * {v2})")
+    
+    def __radd__(self, v2: int):
+        return NumVal(f"({v2} + {self})")
 
 class ConcreteNumVal(NumVal):
     def __init__(self, name: str, value):
@@ -97,11 +105,11 @@ def it(r: Union[RepRange, range], fun: Callable[[NumVal], Any]):
     if isinstance(r, RepRange):
         # i = NumVal(fresh_name(iname))
         i = NumVal(iname)
-        curr_block_instructions.append(f"""
-        for (int {i} = {r.start}; {i} < {r.stop}; {i}++) {{
-            {codegen(fun)(i)}
-        }}
-        """)
+        z = codegen(fun)(i)
+        if z != "":
+            curr_block_instructions.append(f"for (int {i} = {r.start}; {i} < {r.stop}; {i}++) {{")
+            curr_block_instructions.append(z+"\n")
+            curr_block_instructions.append("}\n")
     else:
         for i in r:
             curr_block_instructions.append(codegen(fun)(i))
@@ -121,7 +129,7 @@ def isDense(val):
         raise Exception("Invalid type")
     
 def spmv(
-    row_idxs: range, # (row_start, row_end)
+    row_idxs: Union[range, RepRange], # (row_start, row_end)
     col_idxs: range, # (col_start, col_end)
     col_maj_val, # dense block from vbr
     x: ArrayVal, # dense vector / matrix to multiply
@@ -135,9 +143,9 @@ def spmv(
     return it2(col_idxs, row_idxs, op)
 
 def spmm(
-    row_idxs: range, # (row_start, row_end)
-    col_idxs: range, # (col_start, col_end)
-    dense_idxs: range,
+    row_idxs: Union[range, RepRange], # (row_start, row_end)
+    col_idxs: Union[range, RepRange], # (col_start, col_end)
+    dense_idxs: RepRange,
     col_maj_val, # dense block from vbr
     x: ArrayVal, # dense vector / matrix to multiply
     y: ArrayVal, # output
@@ -389,7 +397,7 @@ int lowestMultiple(int x, int y) {
     else {
         return ((x / y) + 1) * y;
     }
-}""")
+}\n""")
     code.append("int main() {\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
@@ -451,7 +459,12 @@ int lowestMultiple(int x, int y) {
                 if dense_count > (25 * (sparse_count+dense_count))//100:
                     code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                 else:
-                    code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), range(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
+                    code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
+                    # for i in range(rpntr[a], rpntr[a+1]):
+                    #     for k in range(cpntr[b], cpntr[b+1]):
+                    #         code.append("\tfor (int j=0; j<512; j++) {\n")
+                    #         code.append(f"\t\ty[{i*512} + j] += val[{indx[count] + (k - cpntr[b])*(rpntr[a+1]-rpntr[a]) + (i-rpntr[a])}] * x[{k*512}+j];\n")
+                    #         code.append("\t}\n")
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -489,7 +502,7 @@ int lowestMultiple(int x, int y) {
     else {
         return ((x / y) + 1) * y;
     }
-}""")
+}\n""")
     code.append("float *x, *val, *y;\n\n")
     preemptive_count = 0
     for a in range(len(rpntr) - 1):
@@ -526,7 +539,7 @@ int lowestMultiple(int x, int y) {
                 if dense_count > (25 * (sparse_count+dense_count))//100:
                     code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                 else:
-                    code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), range(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
+                    code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 count+=1
         func_idx += 1
         if func_idx == per_func[funcount] or a == len(rpntr) - 2:

@@ -3,13 +3,11 @@
 rows=10000
 cols=10000
 partition_types="uniform non-uniform"
-row_splits="50 100"
-col_splits="50 100"
-percentage_dense="20 15 10 5 1"
-percentage_sparse="1 0"
-percentage_of_zeros="99 75 50 40 30 20 10 0"
-
-
+percentage_dense="20"
+percentage_sparse="10"
+row_splits="50"
+col_splits="50"
+percentage_of_zeros="75 50 40 30 20 10 0"
 jobs=8
 
 # time execution of script

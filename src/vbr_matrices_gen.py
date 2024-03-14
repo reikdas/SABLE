@@ -44,7 +44,9 @@ def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split:
 
     remaining_blocks = [x for x in range(num_blocks) if x not in dense_blocks]
     sparse_blocks = sample(remaining_blocks, num_sparse)
-    perc_sparse_zeros = 75
+    dense_in_sparse_blocks = 10
+    perc_sparse_zeros = 99
+    # (block_size * perc_sparse_zeros) // 100
 
     all_blocks = dense_blocks + sparse_blocks
     all_blocks.sort() # Easier handling of bpntrb/bpntre/bindx
@@ -62,7 +64,7 @@ def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split:
         if block in dense_blocks:
             zeros = sample([x for x in range(block_size)], (block_size * perc_dense_zeros) // 100)
         else:
-            zeros = sample([x for x in range(block_size)], (block_size * perc_sparse_zeros) // 100)
+            zeros = sample([x for x in range(block_size)], block_size - dense_in_sparse_blocks)
         zeros = set(zeros)
         for index in range(block_size):
             if index in zeros:

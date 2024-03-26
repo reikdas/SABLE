@@ -32,14 +32,14 @@ def bench_spmv():
             fInspector.write(p)
     print("Benchmarking executor")
     for thread in [1, 2, 4, 8, 16]:
-        with open(os.path.join("results", f"benchmarks_spmv_{thread}.txt"), "w") as fMy:
+        with open(os.path.join("results", f"benchmarks_spmv_{thread}.csv"), "w") as fMy:
             for filename in vbr_files:
                 fname = filename[:-len(".vbr")]
                 spmv_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
                 vbr_spmv_codegen(fname, threads=thread)
-                subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", fname, spmv_file], cwd="Generated_SpMV")
+                subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-funroll-all-loops", "-o", fname, spmv_file], cwd="Generated_SpMV")
                 execution_times = []
                 for i in range(BENCHMARK_FREQ):
                     print(f"Benchmarking threads={thread} executor iteration", i, flush=True)
@@ -54,15 +54,14 @@ def bench_spmv():
 def bench_spmm():
     vbr_files = os.listdir("Generated_VBR")
     for thread in [1, 2, 4, 8, 16]:
-        with open(os.path.join("results", f"benchmarks_spmm_{thread}.txt"), "w") as fMy:
+        with open(os.path.join("results", f"benchmarks_spmm_{thread}.csv"), "w") as fMy:
             for filename in vbr_files:
                 fname = filename[:-len(".vbr")]
                 spmm_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
                 vbr_spmm_codegen(fname, threads=thread)
-                # Only execute on Tim Rogers' machine since it has AVX-512 instructions
-                subprocess.run(["/usr/bin/gcc-8", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM")
+                subprocess.run(["gcc", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM")
                 execution_times = []
                 for i in range(BENCHMARK_FREQ):
                     print(f"Benchmarking threads={thread} executor iteration", i, flush=True)

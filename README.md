@@ -1,74 +1,89 @@
+## Setup Repository
+
+```
+git clone git@github.com:reikdas/SABLE.git --recurse-submodules
+```
+
 ## Install dependencies
 
+System dependencies:
+- Python3
+- GNU parallel
+- Intel MKL for Partially Strided Codelet and Sparse Register Tiling
+
+Install Python dependencies:
 ```
-python -m pip install -r requirements.txt
-```
-
-## File structure
-
-* `src/vbr_matrices_gen.py` — generating synthetic VBR[^1] matrices.
-  - Entry point: `vbr_matrix_gen`
-  - Output: `./Generated_Data`
-  - See “Generating VBR matrices” below for details.
-
-All scripts below depend on the results from the script above.
-
-* `src/mtx_matrices_gen.py` — generating Matrix market (`*.mtx`) files[^2].
-  - Entry point: `convert_all_vbr_to_mtx()`.
-  - Output: `./Generated_Matrix`
-  - See “Converting VBR Matrices to MTX Format” below for details.
-
-* `src/spmv_codegen.py` — generating C code that performs SpMV over synthesized VBR matrices.
-  - Entry point: `spmv_codegen`.
-  - Output: `./Generated_Code`
-
-* `gen.py` — CLI for generators above.
-
-* `bench.py` — benchmarks other than partially-strided codelets.
-
-* `test.py` — test correctness of `spmv_codegen`.
-
-[^1]: https://arxiv.org/abs/2005.12414
-[^2]: https://math.nist.gov/MatrixMarket/formats.html
-
-## Generating VBR matrices
-
-The script that generates VBR matrices is `generate_vbr_matrices.sh`. To generate all the default VBR matrices run:
-
-```bash
-nohup ./scripts/generate_vbr_matrices.sh &> timed_log5000.txt &
+python3 -m pip install -r requirements.txt
 ```
 
-The individual VBR matrices can be generated using the command below:
-```bash
-# To help and view argument descriptions to the VBR matrix generation script
-python gen.py --help
+## Perform the following operations in order
 
-# To generate a VBR matrix with given arguments
-python gen.py --num-rows 1000 --num-cols 1000 --partition-type uniform --row-split 50 --col-split 50 --percentage-of-blocks 20 --percentage-of-zeros 50
+#### Generate VBR Matrices and their Matrix Market equivalent
+
+```
+./scripts/generate_vbr_matrices.sh
+python3 gen.py -o vbr_to_mtx
 ```
 
-## Converting VBR Matrices to MTX Format
+The corresponding files will be generated in `Generated_VBR/` and `Generated_MMarket/`.
 
-Execute `scripts/convert_all_vbr_to_mtx.sh` to convert all the `.vbr` format matrices in the `Generated_Data` directory to the `.mtx` format matrices and store them in the `Generate_Matrix` directory.
+### SABLE
 
-```bash
-nohup ./scripts/convert_all_vbr_to_mtx.sh &> timed_convert.txt &
-python gen.py -o vbr_to_mtx
+#### Run SABLE to generate code to perform SpMV and SpMM over these Matrices
+
+```
+python3 gen.py -o vbr_to_spmv
+python3 gen.py -o vbr_to_spmm
 ```
 
-## Generating Code using VBR Matrices
+The corresponding files will be generated in `Generated_SpMV/` and `Generated_SpMM/`.
 
-Execute `scripts/generate_spmv_code.sh` to generate code for all the `.vbr` format matrices in the `Generated_Data` directory and save them in the `Generated_SpMV` directory.
+#### Benchmark SABLE
 
-```bash
-nohup ./scripts/generate_spmv_code.sh &> timed_gen_code.txt &
-python gen.py -o vbr_to_code
+```
+python3 bench.py
 ```
 
-## Benchmarking the implementation
+The corresponding files will be generated in `results/`.
 
-Execute the `bench.py`
+### Partially Strided Codelet
+
+#### Build
+
 ```
-nohup python bench.py &> bench.txt &
+cd partially-strided-codelet
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$INTEL_PARENT_DIR/intel/oneapi/mkl/latest/lib/intel64/;$INTEL_PARENT_DIR/intel/oneapi/mkl/latest/include/" ..
+make
 ```
+
+#### Benchmark Partially Strided Codelet for SpMV
+
+```
+cd $SABLE_PARENT_DIR/SABLE/partially-strided-codelet
+python3 bench.py
+```
+The corresponding benchmark files will be generated in the root dir of `partially-strided-codelet/`.
+
+### Sparse Register Tiling
+
+#### Build
+
+```
+cd $SABLE_PARENT_DIR/SABLE
+cd sparse-register-tiling
+cd spmm_nano_kernels
+python3 -m codegen.generate_ukernels
+cd ..
+mkdir release-build
+cmake -Brelease-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$INTEL_PARENT_DIR/intel/oneapi/mkl/latest/lib/intel64/;$INTEL_PARENT_DIR/intel/oneapi/mkl/latest/include/" -DENABLE_AVX512=True .
+make -Crelease-build SPMM_demo
+```
+
+#### Benchmark Sparse Register Tiling for SpMM
+
+```
+python3 bench.py
+```
+The corresponding benchmark files will be generated in `sparse-register-tiling/results/`.

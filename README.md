@@ -87,3 +87,17 @@ make -Crelease-build SPMM_demo
 python3 bench.py
 ```
 The corresponding benchmark files will be generated in `sparse-register-tiling/results/`.
+
+### Generate plots used in paper
+
+```
+cd plots/
+for f in *.py; do python3 "$f"; done
+```
+
+### Generate tables used in paper
+
+```
+cd tables/
+for f in *.py; do python3 "$f"; done
+```

@@ -1,7 +1,9 @@
 ## Setup Repository
 
 ```
-git clone git@github.com:reikdas/SABLE.git --recurse-submodules
+git clone git@github.com:reikdas/SABLE.git --recurse-submodules --branch sc24-artifact --single-branch
+cd SABLE
+git submodule update --recursive
 ```
 
 ## Install dependencies

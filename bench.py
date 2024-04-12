@@ -6,10 +6,20 @@ from src.codegen import vbr_spmv_codegen, vbr_spmm_codegen
 
 BENCHMARK_FREQ = 5
 
-def bench_spmv():
-    vbr_files = os.listdir("Generated_VBR")
+
+def bench_spmv(dense_blocks_only: bool = True):
+    '''
+    Here, dense_blocks_only denote that the blocks are mostly dense.
+    '''
+
+    inspector_output = "benchmarks_inspector_dense" if dense_blocks_only else "benchmarks_inspector_sparse"
+    executor_output = "benchmarks_spmv_dense" if dense_blocks_only else "benchmarks_spmv_sparse"
+    input_dir = "Generated_VBR_Dense" if dense_blocks_only else "Generated_VBR_Sparse"
+    output_dir = "Generated_SpMV"
+    vbr_files = os.listdir(input_dir)
+    
     print("Benchmarking inspector")
-    with open(os.path.join("results", "benchmarks_inspector.txt"), "w") as fInspector:
+    with open(os.path.join("results", f"{inspector_output}.txt"), "w") as fInspector:
         for filename in vbr_files:
             fname = filename[:-len(".vbr")]
             spmv_file = fname + ".c"
@@ -18,7 +28,7 @@ def bench_spmv():
             for i in range(BENCHMARK_FREQ):
                 # SpMV code generation by inspecting the VBR matrix
                 print("Benchmarking inspector iteration", i, flush=True)
-                spmv_codegen_time = vbr_spmv_codegen(fname)
+                spmv_codegen_time = vbr_spmv_codegen(fname, dense_blocks_only, vbr_dir=input_dir, dir_name=output_dir)
                 time1 = time.time_ns() // 1_000
                 # compile the generated code for SpMV operation
                 subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", fname, spmv_file], cwd="Generated_SpMV")
@@ -32,13 +42,13 @@ def bench_spmv():
             fInspector.write(p)
     print("Benchmarking executor")
     for thread in [1, 2, 4, 8, 16]:
-        with open(os.path.join("results", f"benchmarks_spmv_{thread}.txt"), "w") as fMy:
+        with open(os.path.join("results", f"{executor_output}_{thread}.txt"), "w") as fMy:
             for filename in vbr_files:
                 fname = filename[:-len(".vbr")]
                 spmv_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmv_codegen(fname, threads=thread)
+                vbr_spmv_codegen(fname, dense_blocks_only, dir_name=output_dir, vbr_dir=input_dir, threads=thread)
                 subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-o", fname, spmv_file], cwd="Generated_SpMV")
                 execution_times = []
                 for i in range(BENCHMARK_FREQ):
@@ -51,16 +61,20 @@ def bench_spmv():
                 print(p, flush=True)
                 fMy.write(p)
 
-def bench_spmm():
-    vbr_files = os.listdir("Generated_VBR")
+def bench_spmm(dense_blocks_only: bool = True):        
+    vbr_mat_input_dir = "Generated_VBR_Dense" if dense_blocks_only else "Generated_VBR_Sparse"
+    vbr_files = os.listdir(vbr_mat_input_dir)
+    output = "benchmarks_spmm_dense" if dense_blocks_only else "benchmarks_spmm_sparse"
+    output_dir = "Generated_SpMM"
+    
     for thread in [1, 2, 4, 8, 16]:
-        with open(os.path.join("results", f"benchmarks_spmm_{thread}.txt"), "w") as fMy:
+        with open(os.path.join("results", f"{output}_{thread}.txt"), "w") as fMy:
             for filename in vbr_files:
                 fname = filename[:-len(".vbr")]
                 spmm_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmm_codegen(fname, threads=thread)
+                vbr_spmm_codegen(fname, vbr_dir=vbr_mat_input_dir, dir_name=output_dir, threads=thread)
                 # Only execute on Tim Rogers' machine since it has AVX-512 instructions
                 subprocess.run(["/usr/bin/gcc-8", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM")
                 execution_times = []
@@ -75,5 +89,7 @@ def bench_spmm():
                 fMy.write(p)
 
 if __name__ == "__main__":
-    bench_spmv()
-    bench_spmm()
+    bench_spmv(dense_blocks_only=True)
+    bench_spmv(dense_blocks_only=False)
+    bench_spmm(dense_blocks_only=True)
+    bench_spmm(dense_blocks_only=False)

@@ -33,10 +33,11 @@ All scripts below depend on the results from the script above.
 
 ## Generating VBR matrices
 
-The script that generates VBR matrices is `generate_vbr_matrices.sh`. To generate all the default VBR matrices run:
+The script that generates VBR matrices is `generate_vbr_matrices_w_all_mostly_dense.sh` and `generate_vbr_matrices_w_some_mostly_sparse.sh`. To generate all the default VBR matrices run:
 
 ```bash
-nohup ./scripts/generate_vbr_matrices.sh &> timed_log5000.txt &
+nohup ./scripts/generate_vbr_matrices_w_all_mostly_dense.sh &> timed_log5000.txt &
+nohup ./scripts/generate_vbr_matrices_w_some_mostly_sparse.sh &> timed_log5000.txt &
 ```
 
 The individual VBR matrices can be generated using the command below:
@@ -45,7 +46,7 @@ The individual VBR matrices can be generated using the command below:
 python gen.py --help
 
 # To generate a VBR matrix with given arguments
-python gen.py --num-rows 1000 --num-cols 1000 --partition-type uniform --row-split 50 --col-split 50 --percentage-of-blocks 20 --percentage-of-zeros 50
+python gen.py --dense-blocks-only --num-rows 1000 --num-cols 1000 --partition-type uniform --row-split 50 --col-split 50 --percentage-of-dense 20 --percentage-of-zeros 0 --percentage-of-zeros 50
 ```
 
 ## Converting VBR Matrices to MTX Format

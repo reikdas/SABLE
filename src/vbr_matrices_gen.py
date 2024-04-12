@@ -26,7 +26,7 @@ def random_splits(n, a):
 
     return differences
 
-def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split: int, num_dense: int, perc_dense_zeros: int, num_sparse: int) -> None:
+def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split: int, num_dense: int, perc_dense_zeros: int, num_sparse: int, dense_blocks_only: True) -> None:
     assert(m%row_split == 0)
     assert(n%col_split == 0)
     if partitioning == "nonuniform":
@@ -94,6 +94,14 @@ def vbr_matrix_gen(m: int, n: int, partitioning: str, row_split: int, col_split:
     while (len(bpntrb) < len(rpntr) -1):
         bpntrb.append(-1)
         bpntre.append(-1)
-    filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_dense_zeros}_{num_sparse}_{partitioning}"
+    
     vbr_matrix = VBR(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
-    write_vbr_matrix(filename, vbr_matrix)
+    
+    if (dense_blocks_only):
+        filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_dense_zeros}_{partitioning}"
+        # Generated_VBR_Dense contains mostly dense blocks
+        write_vbr_matrix(filename, vbr_matrix, "Generated_VBR_Dense")
+    else:
+        filename = f"Matrix_{m}_{n}_{row_split}_{col_split}_{num_dense}_{perc_dense_zeros}_{num_sparse}_{partitioning}"
+        # Generated_VBR_Sparse contains matrices with some mostly sparse blocks
+        write_vbr_matrix(filename, vbr_matrix, "Generated_VBR_Sparse")

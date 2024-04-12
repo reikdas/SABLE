@@ -18,11 +18,15 @@ def find_nonneg(l):
     assert(False)
     return -1
 
-def convert_all_vbr_to_mtx():
-    dir_name = "Generated_MMarket"
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    file_names = os.listdir("Generated_VBR")
+def convert_all_vbr_to_mtx(dense_blocks_only: bool = True):
+    if (dense_blocks_only):
+        input_dir_name = "Generated_VBR_Dense"
+    else:
+        input_dir_name = "Generated_VBR_Sparse"
+    output_dir_name = "Generated_MMarket"
+    if not os.path.exists(output_dir_name):
+        os.makedirs(output_dir_name)
+    file_names = os.listdir(input_dir_name)
     n = len(file_names)
     procs = [-1 for _ in range(n)]
     
@@ -32,7 +36,7 @@ def convert_all_vbr_to_mtx():
         
         for j in range(s, e):
             filename = file_names[j]
-            p = Process(target=vbr_to_mtx, args=(filename, dir_name))
+            p = Process(target=vbr_to_mtx, args=(filename, output_dir_name, input_dir_name))
             procs[j] = p
             procs[j].start()
             
@@ -40,7 +44,7 @@ def convert_all_vbr_to_mtx():
             procs[j].join()
             print(f'{j}: Process {j} joined')
 
-def vbr_to_mtx(filename: str, dir_name: str = "Generated_MMarket", vbr_dir="Generated_VBR"):
+def vbr_to_mtx(filename: str, dir_name: str = "Generated_MMarket", vbr_dir="Generated_VBR_Dense"):
     assert(filename.endswith(".vbr"))
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, filename))
     filename = filename[:-len(".vbr")]

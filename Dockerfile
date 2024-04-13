@@ -6,27 +6,31 @@ RUN apt-get -y update && apt-get -y install \
     gcc \
     g++ \
     python3 \
-    git \
     wget \
     libomp-dev \
-    parallel 
+    parallel \
+    gpg-agent
 
 # install Intel oneMKL
-RUN wget https://registrationcenter-download.intel.com/akdlm/IRC_NAS/2f3a5785-1c41-4f65-a2f9-ddf9e0db3ea0/l_onemkl_p_2024.1.0.695_offline.sh && chmod +x l_onemkl_p_2024.1.0.695_offline.sh && sh ./l_onemkl_p_2024.1.0.695_offline.sh --silent -a --eula accept
+RUN wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
+RUN echo "deb [signed-by=/usr/share/keyrings/oneapi-archive-keyring.gpg] https://apt.repos.intel.com/oneapi all main" | tee /etc/apt/sources.list.d/oneAPI.list
+RUN apt-get -y update && apt-get -y install intel-oneapi-mkl-devel
 
 # add intel oneMKL to the path
-ENV LD_LIBRARY_PATH=/opt/intel/oneapi/mkl/2024.1.0/lib/intel64:$LD_LIBRARY_PATH
-ENV LIBRARY_PATH=/opt/intel/oneapi/mkl/2024.1.0/lib/intel64:$LIBRARY_PATH
-ENV CPATH=/opt/intel/oneapi/mkl/2024.1.0/include:$CPATH
+ENV INTEL_DIR=/opt/intel
+ENV LD_LIBRARY_PATH=/opt/intel/oneapi/mkl/latest/lib/intel64:$LD_LIBRARY_PATH
+ENV LIBRARY_PATH=/opt/intel/oneapi/mkl/latest/lib/intel64:$LIBRARY_PATH
+ENV CPATH=/opt/intel/oneapi/mkl/latest/include:$CPATH
 
 # create new user called sableuser
 RUN useradd -ms /bin/bash sableuser
 
-# copy the SABLE source code to the container directory /home/sableuser/SABLE
+WORKDIR /home/sableuser/
 COPY . /home/sableuser/SABLE
+WORKDIR /home/sableuser/SABLE
+ENV SABLE_ROOT_DIR=/home/sableuser/SABLE
 RUN chown -R sableuser /home/sableuser/
 
 USER sableuser
 
-# set the working directory to /home/sableuser/SABLE
-WORKDIR /home/sableuser/SABLE
+RUN python3 -m pip install -r requirements.txt

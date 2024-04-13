@@ -16,3 +16,5 @@ tests/example.mtx
 tests/example
 tests/example.c
 tests/output.txt
+**/*.pdf
+**/*.txt

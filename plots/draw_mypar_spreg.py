@@ -1,9 +1,13 @@
 from matplotlib import pyplot as plt
-import numpy as np  # Import numpy for evenly spaced sampling
+import numpy as np
+import os
+import pathlib
+
+FILEPATH = pathlib.Path(__file__).resolve().parent
+BASE_PATH = os.path.join(FILEPATH, "..", "..")
 
 plt.rcParams['figure.dpi'] = 300
 
-BASE_PATH = "/home/das160"
 ROWS = 10000
 COLS = 10000
 

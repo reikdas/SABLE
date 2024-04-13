@@ -1,6 +1,8 @@
 import re
+import pathlib
 
-BASE_PATH="/home/das160"
+FILEPATH = pathlib.Path(__file__).resolve().parent
+BASE_PATH = os.path.join(FILEPATH, "..")
 
 def extract_number(name_value_tuple):
     name = name_value_tuple[0]  # Get the name part of the tuple
@@ -9,8 +11,10 @@ def extract_number(name_value_tuple):
 def gen_table(op):
     if op == "spmm":
         repo = "sparse-register-tiling/results"
+        baseline = "SpReg"
     elif op == "spmv":
         repo = "partially-strided-codelet"
+        baseline = "PSC"
     else:
         raise Exception("Unknown operation")
     threads = [1, 16]
@@ -111,7 +115,8 @@ def gen_table(op):
         psc_16_nonuniform_pairs = sorted(zip(thread_vars_psc[f"psc_16_nonuniform_{zero}_names"], thread_vars_psc[f"psc_16_nonuniform_{zero}"]), key=extract_number)
         thread_vars_psc[f"psc_16_nonuniform_{zero}_names"], thread_vars_psc[f"psc_16_nonuniform_{zero}"] = zip(*psc_16_nonuniform_pairs)
 
-    with open(f"{op}_table.txt", "w") as f:
+    with open(f"{op}_speedup_table.txt", "w") as f:
+        f.write(f"Matrix & {baseline} 1 Thread (0% & 20% & 50%) & SABLE 1 Thread (0% & 20% & 50%) & {baseline} 16 Threads (0% & 20% & 50%) & SABLE 16 Threads (0% & 20% & 50%)\n")
         for formity in ["uniform", "nonuniform"]:
             for i, matrix_name in enumerate(thread_vars_mine[f"mine_1_{formity}_0_names"]):
                 f.write(matrix_name + " & ")

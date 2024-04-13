@@ -1,6 +1,9 @@
 import matplotlib.pyplot as plt
+import os
+import pathlib
 
-BASE_PATH = "/home/das160"
+FILEPATH = pathlib.Path(__file__).resolve().parent
+BASE_PATH = os.path.join(FILEPATH, "..", "..")
 
 plt.rcParams['figure.dpi'] = 300
 

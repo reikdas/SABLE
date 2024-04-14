@@ -34,7 +34,7 @@ def parse_arguments():
     parser.add_argument("-o", "--operation", type=Operation, choices=list(Operation), default="vbr", required=False, help="Operation to perform. Values are `vbr`, `vbr_to_mtx`, `vbr_to_spmv`, `vbr_to_spmm`. Default is vbr. If vbr, generates a VBR matrix with given configuration. If vbr_to_mtx, converts all VBR matrices in Generated_Data to Matrix Market format and saves them in Generated_Matrix.")
     
     args = parser.parse_args()
-    print(args)
+    # print(args)
     return args
 
 

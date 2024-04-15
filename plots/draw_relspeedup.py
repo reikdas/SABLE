@@ -24,7 +24,7 @@ def plot_relmatrix(matrix_name):
                 #     t_mine_uniform.append(sum(float(x) for x in parts[1:])/len(parts[1:]))
                 if parts[0] == name+"_nonuniform":
                     t_mine_nonuniform.append(sum(float(x) for x in parts[1:])/len(parts[1:]))
-        with open(f"{BASE_PATH}/partially-strided-codelet/bench_executor_1thrds.csv", "r") as f:
+        with open(f"{BASE_PATH}/SABLE/partially-strided-codelet/bench_executor_1thrds.csv", "r") as f:
             for line in f:
                 parts = line.split(",")
                 # if parts[0] == name+"_uniform":

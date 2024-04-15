@@ -39,7 +39,7 @@ python3 gen.py -o vbr_to_spmv
 python3 gen.py -o vbr_to_spmm
 ```
 
-The corresponding files will be generated in `Generated_SpMV/`, `Generated_SpMV_Sparse/`, `Generated_SpMM/` and `Generated_SpMM_Sparse/`.
+The corresponding files will be generated in `Generated_SpMV/` and `Generated_SpMM/`.
 
 #### Benchmark SABLE
 

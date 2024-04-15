@@ -15,10 +15,6 @@ def find_nonneg(l):
     assert(False)
     return -1
 
-def process_file(filename, input_dir_name, output_dir_name):
-    print("Converting", filename, "to Matrix Market format")
-    vbr_to_mtx(filename, output_dir_name, input_dir_name)
-
 def convert_all_vbr_to_mtx(dense_blocks_only: bool):
     if (dense_blocks_only):
         input_dir_name = "Generated_VBR"
@@ -28,9 +24,8 @@ def convert_all_vbr_to_mtx(dense_blocks_only: bool):
         output_dir_name = "Generated_MMarket_Sparse"
     if not os.path.exists(output_dir_name):
         os.makedirs(output_dir_name)
-    files = os.listdir(input_dir_name)
-    with ThreadPoolExecutor(max_workers=12) as executor:
-        [executor.submit(process_file, filename, input_dir_name, output_dir_name) for filename in files]
+    for filename in os.listdir(input_dir_name):
+        vbr_to_mtx(filename, output_dir_name, input_dir_name)
 
 def vbr_to_mtx(filename: str, dir_name, vbr_dir):
     assert(filename.endswith(".vbr"))

@@ -16,7 +16,7 @@ def bench_spmv(bad: bool):
         dense_blocks_only = False
     vbr_files = os.listdir("Generated_VBR_Sparse")
     print("Benchmarking executor")
-    for thread in [1, 2, 4, 8, 16]:
+    for thread in [1]:
         with open(os.path.join("results", benchfile_name), "w") as fMy:
             for filename in vbr_files:
                 fname = filename[:-len(".vbr")]
@@ -48,7 +48,7 @@ def bench_spmm(bad: bool):
         dense_blocks_only = False
     vbr_files = os.listdir("Generated_VBR_Sparse")
     print("Benchmarking executor")
-    for thread in [1, 2, 4, 8, 16]:
+    for thread in [1]:
         with open(os.path.join("results", benchfile_name), "w") as fMy:
             for filename in vbr_files:
                 fname = filename[:-len(".vbr")]

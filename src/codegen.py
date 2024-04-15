@@ -159,8 +159,8 @@ def spmm(
     
 def vbr_spmm_codegen_for_all(dense_blocks_only: bool = True):
     if dense_blocks_only:
-        input_dir_name = "Generated_VBR_Dense"
-        output_dir_name = "Generated_SpMM_Dense"
+        input_dir_name = "Generated_VBR"
+        output_dir_name = "Generated_SpMM"
     else:
         raise Exception("Not implemented")
     if not os.path.exists(output_dir_name):
@@ -175,8 +175,8 @@ def vbr_spmm_codegen_for_all(dense_blocks_only: bool = True):
 
 def vbr_spmv_codegen_for_all(dense_blocks_only: bool = True):
     if dense_blocks_only:
-        input_dir_name = "Generated_VBR_Dense"
-        output_dir_name = "Generated_SpMV_Dense"
+        input_dir_name = "Generated_VBR"
+        output_dir_name = "Generated_SpMV"
     else:
         raise Exception("Not implemented")
     if not os.path.exists(output_dir_name):
@@ -378,7 +378,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t}\n")
         f.write("}\n")
 
-def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, dense_blocks_only, filename, vbr_dir):
+def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
     if not os.path.exists(dir_name):

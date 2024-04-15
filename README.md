@@ -28,7 +28,7 @@ python3 -m pip install -r requirements.txt
 python3 gen.py -o vbr_to_mtx
 ```
 
-The corresponding files will be generated in `Generated_VBR_Dense/`, `Generated_VBR_Sparse/`, `Generated_MMarket_Dense/` and `Generated_MMarket_Sparse/`.
+The corresponding files will be generated in `Generated_VBR/`, `Generated_VBR_Sparse/`, `Generated_MMarket/` and `Generated_MMarket_Sparse/`.
 
 ### SABLE
 
@@ -39,7 +39,7 @@ python3 gen.py -o vbr_to_spmv
 python3 gen.py -o vbr_to_spmm
 ```
 
-The corresponding files will be generated in `Generated_SpMV_Dense/`, `Generated_SpMV_Sparse/`, `Generated_SpMM_Dense/` and `Generated_SpMM_Sparse/`.
+The corresponding files will be generated in `Generated_SpMV/`, `Generated_SpMV_Sparse/`, `Generated_SpMM/` and `Generated_SpMM_Sparse/`.
 
 #### Benchmark SABLE
 
@@ -67,6 +67,7 @@ make
 ```
 cd $SABLE_PARENT_DIR/SABLE/partially-strided-codelet
 python3 bench.py
+python3 bench_sparse.py
 ```
 The corresponding benchmark files will be generated in the root dir of `partially-strided-codelet/`.
 
@@ -89,6 +90,7 @@ make -Crelease-build SPMM_demo
 
 ```
 python3 bench.py
+python3 bench_sparse.py
 ```
 The corresponding benchmark files will be generated in `sparse-register-tiling/results/`.
 

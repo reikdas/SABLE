@@ -3,7 +3,7 @@ from os import makedirs
 from os.path import exists, join
 from src.vbr import VBR
 
-def write_vbr_matrix(filename: str, vbr_matrix: VBR, dir_name="Generated_VBR_Dense"):
+def write_vbr_matrix(filename: str, vbr_matrix: VBR, dir_name: str):
     
     assert(type(vbr_matrix) == VBR)
     assert(type(filename) == str)

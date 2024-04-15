@@ -23,11 +23,12 @@ python3 -m pip install -r requirements.txt
 #### Generate VBR Matrices and their Matrix Market equivalent
 
 ```
-./scripts/generate_vbr_matrices.sh
+./scripts/generate_vbr_matrices_w_all_mostly_dense.sh
+./scripts/generate_vbr_matrices_w_some_mostly_sparse.sh
 python3 gen.py -o vbr_to_mtx
 ```
 
-The corresponding files will be generated in `Generated_VBR/` and `Generated_MMarket/`.
+The corresponding files will be generated in `Generated_VBR_Dense/`, `Generated_VBR_Sparse/`, `Generated_MMarket_Dense/` and `Generated_MMarket_Sparse/`.
 
 ### SABLE
 
@@ -38,12 +39,13 @@ python3 gen.py -o vbr_to_spmv
 python3 gen.py -o vbr_to_spmm
 ```
 
-The corresponding files will be generated in `Generated_SpMV/` and `Generated_SpMM/`.
+The corresponding files will be generated in `Generated_SpMV_Dense/`, `Generated_SpMV_Sparse/`, `Generated_SpMM_Dense/` and `Generated_SpMM_Sparse/`.
 
 #### Benchmark SABLE
 
 ```
 python3 bench.py
+python3 bench_sparse.py
 ```
 
 The corresponding files will be generated in `results/`.

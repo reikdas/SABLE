@@ -60,7 +60,7 @@ def gen_table(op):
     # Read PSC
     thread_vars_psc = {}
     for thread in threads:
-        with open(f"{BASE_PATH}/{repo}/bench_executor_{thread}thrds.csv", "r") as f:
+        with open(f"{BASE_PATH}/SABLE/{repo}/bench_executor_{thread}thrds.csv", "r") as f:
             thread_vars_psc[f"psc_{thread}_uniform_0"] = []
             thread_vars_psc[f"psc_{thread}_uniform_20"] = []
             thread_vars_psc[f"psc_{thread}_uniform_50"] = []

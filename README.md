@@ -23,11 +23,12 @@ python3 -m pip install -r requirements.txt
 #### Generate VBR Matrices and their Matrix Market equivalent
 
 ```
-./scripts/generate_vbr_matrices.sh
+./scripts/generate_vbr_matrices_w_all_mostly_dense.sh
+./scripts/generate_vbr_matrices_w_some_mostly_sparse.sh
 python3 gen.py -o vbr_to_mtx
 ```
 
-The corresponding files will be generated in `Generated_VBR/` and `Generated_MMarket/`.
+The corresponding files will be generated in `Generated_VBR/`, `Generated_VBR_Sparse/`, `Generated_MMarket/` and `Generated_MMarket_Sparse/`.
 
 ### SABLE
 
@@ -44,6 +45,7 @@ The corresponding files will be generated in `Generated_SpMV/` and `Generated_Sp
 
 ```
 python3 bench.py
+python3 bench_sparse.py
 ```
 
 The corresponding files will be generated in `results/`.
@@ -65,6 +67,7 @@ make
 ```
 cd $SABLE_PARENT_DIR/SABLE/partially-strided-codelet
 python3 bench.py
+python3 bench_sparse.py
 ```
 The corresponding benchmark files will be generated in the root dir of `partially-strided-codelet/`.
 
@@ -87,6 +90,7 @@ make -Crelease-build SPMM_demo
 
 ```
 python3 bench.py
+python3 bench_sparse.py
 ```
 The corresponding benchmark files will be generated in `sparse-register-tiling/results/`.
 

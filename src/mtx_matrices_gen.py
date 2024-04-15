@@ -1,5 +1,6 @@
 import os
 import numpy
+from concurrent.futures import ThreadPoolExecutor
 
 from src.fileio import read_vbr, write_mm_file
 
@@ -14,16 +15,19 @@ def find_nonneg(l):
     assert(False)
     return -1
 
-def convert_all_vbr_to_mtx():
-    dir_name = "Generated_MMarket"
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    file_names = os.listdir("Generated_VBR")
-    for filename in file_names:
-        print("Converting", filename, "to Matrix Market format")
-        vbr_to_mtx(filename, dir_name)
+def convert_all_vbr_to_mtx(dense_blocks_only: bool):
+    if (dense_blocks_only):
+        input_dir_name = "Generated_VBR"
+        output_dir_name = "Generated_MMarket"
+    else:
+        input_dir_name = "Generated_VBR_Sparse"
+        output_dir_name = "Generated_MMarket_Sparse"
+    if not os.path.exists(output_dir_name):
+        os.makedirs(output_dir_name)
+    for filename in os.listdir(input_dir_name):
+        vbr_to_mtx(filename, output_dir_name, input_dir_name)
 
-def vbr_to_mtx(filename: str, dir_name: str = "Generated_MMarket", vbr_dir="Generated_VBR"):
+def vbr_to_mtx(filename: str, dir_name, vbr_dir):
     assert(filename.endswith(".vbr"))
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, filename))
     filename = filename[:-len(".vbr")]

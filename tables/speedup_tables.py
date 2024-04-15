@@ -2,7 +2,7 @@ import os
 import pathlib
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
-BASE_PATH = os.path.join(FILEPATH, "..")
+BASE_PATH = os.path.join(FILEPATH, "..", "..")
 
 def extract_number(name_value_tuple):
     name = name_value_tuple[0]  # Get the name part of the tuple

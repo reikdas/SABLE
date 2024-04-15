@@ -13,8 +13,7 @@ RUN apt-get -y update && apt-get -y install \
     git
 
 # Install Pip
-RUN wget https://bootstrap.pypa.io/get-pip.py
-RUN python3 get-pip.py
+RUN wget https://bootstrap.pypa.io/get-pip.py && python3 get-pip.py
 
 # install Intel oneMKL
 RUN wget -O- https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB | gpg --dearmor | tee /usr/share/keyrings/oneapi-archive-keyring.gpg > /dev/null
@@ -30,26 +29,19 @@ ENV CPATH=/opt/intel/oneapi/mkl/latest/include:$CPATH
 # create new user called sableuser
 RUN useradd -ms /bin/bash sableuser
 
+# copy the SABLE code to the container
 COPY . /home/sableuser/SABLE
 ENV SABLE_ROOT_DIR=/home/sableuser/SABLE
 RUN chown -R sableuser /home/sableuser/
 
 USER sableuser
 
-WORKDIR /home/sableuser/SABLE
+WORKDIR $SABLE_ROOT_DIR
 RUN python3 -m pip install -r requirements.txt
 
-WORKDIR $SABLE_ROOT_DIR/partially-strided-codelet
-RUN mkdir build
-WORKDIR $SABLE_ROOT_DIR/partially-strided-codelet/build
-RUN cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$INTEL_DIR/oneapi/mkl/latest/lib/intel64/;$INTEL_DIR/oneapi/mkl/latest/include/" ..
-RUN make
+RUN cd $SABLE_ROOT_DIR/partially-strided-codelet && mkdir build && cd build && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$INTEL_DIR/oneapi/mkl/latest/lib/intel64/;$INTEL_DIR/oneapi/mkl/latest/include/" .. && make
 
-WORKDIR $SABLE_ROOT_DIR/sparse-register-tiling/spmm_nano_kernels
-RUN python3 -m codegen.generate_ukernels
-WORKDIR $SABLE_ROOT_DIR/sparse-register-tiling
-RUN mkdir release-build
-RUN cmake -Brelease-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$INTEL_DIR/oneapi/mkl/latest/lib/intel64/;$INTEL_DIR/oneapi/mkl/latest/include/" -DENABLE_AVX512=True .
-RUN make -Crelease-build SPMM_demo
+RUN cd $SABLE_ROOT_DIR/sparse-register-tiling/spmm_nano_kernels && python3 -m codegen.generate_ukernels
+RUN cd $SABLE_ROOT_DIR/sparse-register-tiling && mkdir release-build && cmake -Brelease-build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="$INTEL_DIR/oneapi/mkl/latest/lib/intel64/;$INTEL_DIR/oneapi/mkl/latest/include/" -DENABLE_AVX512=True . && make -Crelease-build SPMM_demo
 
 WORKDIR $SABLE_ROOT_DIR/

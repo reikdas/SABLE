@@ -3,7 +3,6 @@
 System dependencies:
 - Python3
 - GNU parallel
-- Intel MKL for Partially Strided Codelet and Sparse Register Tiling
 
 Install Python dependencies:
 ```

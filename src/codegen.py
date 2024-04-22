@@ -1,10 +1,10 @@
-from dataclasses import dataclass
+import inspect
+import itertools
 import os
 import time
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import Any, Callable, Union
-import itertools
-import inspect
 
 from src.fileio import read_vbr
 
@@ -289,6 +289,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         per_func = [0]*threads
         for i in range(preemptive_count):
             per_func[i % threads] += 1
+        num_working_threads = sum(1 for element in per_func if element != 0)
         funcount = 0
         func_idx = 0
         count = 0
@@ -362,10 +363,10 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\tstruct timeval t1;\n")
         f.write("\tgettimeofday(&t1, NULL);\n")
         f.write("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-        f.write(f"\tpthread_t tid[{threads}];\n")
-        for a in range(threads):
+        f.write(f"\tpthread_t tid[{num_working_threads}];\n")
+        for a in range(num_working_threads):
             f.write(f"\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
-        for a in range(threads):
+        for a in range(num_working_threads):
             f.write(f"\tpthread_join(tid[{a}], NULL);\n")
         f.write("\tstruct timeval t2;\n")
         f.write("\tgettimeofday(&t2, NULL);\n")
@@ -513,6 +514,7 @@ int lowestMultiple(int x, int y) {
     per_func = [0]*threads
     for i in range(preemptive_count):
         per_func[i % threads] += 1
+    num_working_threads = sum(1 for element in per_func if element != 0)
     funcount = 0
     func_idx = 0
     count = 0
@@ -590,10 +592,10 @@ int lowestMultiple(int x, int y) {
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-    code.append(f"\tpthread_t tid[{threads}];\n")
-    for a in range(threads):
+    code.append(f"\tpthread_t tid[{num_working_threads}];\n")
+    for a in range(num_working_threads):
         code.append(f"\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
-    for a in range(threads):
+    for a in range(num_working_threads):
         code.append(f"\tpthread_join(tid[{a}], NULL);\n")
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")

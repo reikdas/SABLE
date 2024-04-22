@@ -8,11 +8,20 @@ from src.mtx_matrices_gen import vbr_to_mtx
 
 
 def cmp_file(file1, file2):
-    with open(file1, "r") as f1:
-        with open(file2, "r") as f2:
-            for line1, line2 in zip(f1, f2):
-                if line1!=line2:
+    with open(file1, "r") as f1, open(file2, "r") as f2:
+        for line1, line2 in zip(f1, f2):
+            line1 = line1.strip()
+            line2 = line2.strip()
+            # Attempt to compare as floats if the lines contain numeric data
+            try:
+                # This will succeed if both lines are numeric
+                if float(line1) != float(line2):
                     return False
+            except ValueError:
+                # If they aren't numeric, compare them as strings
+                if line1 != line2:
+                    return False
+
     return True
 
 def test_setup_file():
@@ -32,20 +41,34 @@ def test_setup_file():
     assert(numpy.array_equal(dense, dense_canon))
     assert(cmp_file("tests/example.mtx", "tests/example-canon.mtx"))
 
-def test_spmv():
+def run_spmv(threads):
     test_setup_file()
-    vbr_spmv_codegen(filename="example", dense_blocks_only=True, dir_name="tests", threads=1, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3"], cwd="tests")
+    vbr_spmv_codegen(filename="example", dense_blocks_only=True, dir_name="tests", threads=threads, vbr_dir="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
 
-def test_spmm():
+def run_spmm(threads):
     test_setup_file()
-    vbr_spmm_codegen(filename="example", dense_blocks_only=True, dir_name="tests", threads=1, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3"], cwd="tests")
+    vbr_spmm_codegen(filename="example", dense_blocks_only=True, dir_name="tests", threads=threads, vbr_dir="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
+def test_spmv():
+    run_spmv(1)
+    run_spmv(2)
+    run_spmv(4)
+    run_spmv(8)
+    run_spmv(16)
+
+def test_spmm():
+    run_spmm(1)
+    run_spmm(2)
+    run_spmm(4)
+    run_spmm(8)
+    run_spmm(16)

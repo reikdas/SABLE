@@ -3,7 +3,7 @@ from os import makedirs
 from os.path import exists, join
 from src.vbr import VBR
 
-def write_vbr_matrix(filename: str, vbr_matrix: VBR):
+def write_vbr_matrix(filename: str, vbr_matrix: VBR, dir_name: str):
     
     assert(type(vbr_matrix) == VBR)
     assert(type(filename) == str)
@@ -16,7 +16,6 @@ def write_vbr_matrix(filename: str, vbr_matrix: VBR):
     bpntrb = vbr_matrix.bpntrb
     bpntre = vbr_matrix.bpntre
     
-    dir_name = "Generated_VBR"
     if not exists(dir_name):
         makedirs(dir_name)
     with open(join(dir_name, filename+".vbr"), "w") as f:

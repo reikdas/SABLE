@@ -15,12 +15,5 @@ Generated_SpMV_Sparse_Bad/
 Generated_SpMM/
 Generated_SpMM_Sparse/
 Generated_SpMM_Sparse_Bad/
-tests_spmv/
-tests_spmm/
-tests/a.out
-tests/example.mtx
-tests/example
-tests/example.c
-tests/output.txt
 **/*.pdf
 **/*.txt

@@ -7,6 +7,7 @@ Generated_VBR_Sparse/
 generated_vector_*.vector
 generated_matrix_*.matrix
 !generated_matrix_11x512.matrix
+!generated_vector_11.vector
 Generated_MMarket/
 Generated_MMarket_Sparse/
 Generated_SpMV/
@@ -21,5 +22,4 @@ tests/a.out
 tests/example.mtx
 tests/example
 tests/example.c
-**/*.pdf
-**/*.txt
+tests/output.txt

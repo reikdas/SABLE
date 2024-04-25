@@ -610,6 +610,99 @@ int lowestMultiple(int x, int y) {
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
 
+def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    vector_path = f"generated_vector_{rpntr[-1]}.vector"
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <sys/time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append('''#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
+inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
+{
+   if (code != cudaSuccess) 
+   {
+      fprintf(stderr,"GPUassert: %s %s %d\\n", cudaGetErrorString(code), file, line);
+      if (abort) exit(code);
+   }
+}\n\n''')
+    code.append("__global__ void spmv(float *y, float* x, float* val, int i_start, int i_end, int j_start, int j_end, int offset) {\n")
+    code.append("\tint i_len = i_end - i_start;\n")
+    code.append("\tfor (int i=blockIdx.x * blockDim.x + threadIdx.x; i<i_end; i+=blockDim.x * gridDim.x) {\n")
+    code.append("\t\t for (int j=blockIdx.y * blockDim.y + threadIdx.y; j<j_end; j+=blockDim.y * gridDim.y) {\n")
+    code.append("\t\t\tif (i>=i_start && j>=j_start)\n")
+    code.append("\t\t\t\ty[i] += (&val[offset])[((j-j_start)*i_len) + (i-i_start)] * x[j];\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    code.append("int main() {\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append("\tfloat *y, *x, *val;\n");
+    code.append(f"\tgpuErrchk(cudaMallocManaged(&y, {rpntr[-1]}*sizeof(float)));\n")
+    code.append(f"\tgpuErrchk(cudaMallocManaged(&x, {rpntr[-1] + 1}*sizeof(float)));\n")
+    code.append(f"\tgpuErrchk(cudaMallocManaged(&val, {len(val) + 1}*sizeof(float)));\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint x_size=0, val_size=0;\n")
+    code.append('''\tassert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    fclose(file1);\n''')
+    code.append('''\twhile (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
+        x_size++;
+    }}
+    fclose(file2);\n'''.format(rpntr[-1]))
+    code.append("\tint blockSize, minGridSize, gridSize;\n")
+    code.append("\tcudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, spmv, 0, 0);\n")
+    code.append("\tstruct timeval t1;\n")
+    code.append("\tgettimeofday(&t1, NULL);\n")
+    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    count = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        code.append(f"\tgridSize = ({rpntr[a+1] - rpntr[a]} + blockSize - 1)/blockSize;\n")
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                code.append(f"\tspmv<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
+                # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
+                count+=1
+        code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
+    code.append("\tstruct timeval t2;\n")
+    code.append("\tgettimeofday(&t2, NULL);\n")
+    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tprintf(\"%f\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("\tgpuErrchk(cudaFree(y));\n")
+    code.append("\tgpuErrchk(cudaFree(x));\n")
+    code.append("\tgpuErrchk(cudaFree(val));\n")
+    code.append("}\n")
+    with open(os.path.join(dir_name, filename+".cu"), "w") as f:
+        f.writelines(code)
+
 def vbr_spmv_codegen(filename: str, dense_blocks_only: bool, dir_name: str, vbr_dir: str, threads: int):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)

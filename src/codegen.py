@@ -189,6 +189,23 @@ def vbr_spmv_codegen_for_all(dense_blocks_only: bool = True):
         runtimes[core_name] = run_time
     return runtimes
 
+def vbr_spmv_cuda_codegen_for_all(dense_blocks_only: bool):
+    if dense_blocks_only:
+        input_dir_name = "Generated_VBR"
+        output_dir_name = "Generated_SpMV_cuda"
+    else:
+        input_dir_name = "Generated_VBR_Sparse"
+        output_dir_name = "Generated_SpMV_cuda_Sparse"
+    if not os.path.exists(output_dir_name):
+        os.makedirs(output_dir_name)
+    runtimes = {}
+    for filename in os.listdir(input_dir_name):
+        assert(filename.endswith(".vbr"))
+        core_name = filename[:-len(".vbr")]
+        run_time = vbr_spmv_cuda_codegen(core_name, dir_name=output_dir_name, vbr_dir=input_dir_name, dense_blocks_only=dense_blocks_only)
+        runtimes[core_name] = run_time
+    return runtimes
+
 def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -610,7 +627,7 @@ int lowestMultiple(int x, int y) {
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
 
-def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str):
+def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, dense_blocks_only: bool):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     if not os.path.exists(dir_name):
@@ -684,9 +701,28 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         code.append(f"\tgridSize = ({rpntr[a+1] - rpntr[a]} + blockSize - 1)/blockSize;\n")
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                code.append(f"\tspmv<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
-                # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
+                if (not dense_blocks_only):
+                    sparse_count = 0
+                    dense_count = 0
+                    count2 = 0
+                    # Check if the block is more than 25% dense
+                    for _ in range(rpntr[a], rpntr[a+1]):
+                        for _ in range(cpntr[b], cpntr[b+1]):
+                            if val[indx[count]+count2] == 0.0:
+                                sparse_count+=1
+                            else:
+                                dense_count+=1
+                            count2+=1
+                    if dense_count > (15 * (sparse_count+dense_count))//100:
+                        code.append(f"\tspmv<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                        code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
+                    # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
+                    else:
+                        code.append(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
+                else:
+                    code.append(f"\tspmv<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
+                    # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                 count+=1
         code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
     code.append("\tstruct timeval t2;\n")

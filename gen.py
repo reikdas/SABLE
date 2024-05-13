@@ -4,7 +4,7 @@ from enum import Enum
 
 from src.mtx_matrices_gen import convert_all_vbr_to_mtx
 from src.vbr_matrices_gen import vbr_matrix_gen
-from src.codegen import vbr_spmv_codegen_for_all, vbr_spmm_codegen_for_all, vbr_spmv_cuda_codegen_for_all
+from src.codegen import vbr_spmv_codegen_for_all, vbr_spmm_codegen_for_all, vbr_spmv_cuda_codegen_for_all, vbr_spmm_cuda_codegen_for_all
 from src.fileio import write_dense_matrix, write_dense_vector
 
 class PartitionType(Enum):
@@ -60,7 +60,7 @@ if __name__ == '__main__':
             vbr_spmv_cuda_codegen_for_all(dense_blocks_only=False)
             exit(0)
         elif (args.operation == Operation.vbr_to_spmm):
-            raise NotImplementedError("Not implemented yet")
+            vbr_spmm_cuda_codegen_for_all(dense_blocks_only=False)
     else:
         if (args.operation == Operation.vbr_to_spmv):
             vbr_spmv_codegen_for_all(dense_blocks_only=True)

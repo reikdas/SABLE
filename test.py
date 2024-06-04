@@ -3,7 +3,7 @@ import subprocess
 
 import numpy
 
-from src.codegen import vbr_spmm_codegen, vbr_spmv_codegen
+from src.codegen import *
 from src.mtx_matrices_gen import vbr_to_mtx
 
 
@@ -50,10 +50,28 @@ def run_spmv(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
 
+def run_spmv_cuda():
+    test_setup_file()
+    vbr_spmv_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", dense_blocks_only=True)
+    subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
+
 def run_spmm(threads):
     test_setup_file()
     vbr_spmm_codegen(filename="example", dense_blocks_only=True, dir_name="tests", threads=threads, vbr_dir="tests")
     subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
+def run_spmm_cuda():
+    test_setup_file()
+    vbr_spmm_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", dense_blocks_only=True)
+    subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -65,6 +83,7 @@ def test_spmv():
     run_spmv(4)
     run_spmv(8)
     run_spmv(16)
+    run_spmv_cuda()
 
 def test_spmm():
     run_spmm(1)
@@ -72,3 +91,4 @@ def test_spmm():
     run_spmm(4)
     run_spmm(8)
     run_spmm(16)
+    run_spmm_cuda()

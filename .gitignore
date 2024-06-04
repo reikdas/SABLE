@@ -22,4 +22,5 @@ tests/a.out
 tests/example.mtx
 tests/example
 tests/example.c
+tests/example.cu
 tests/output.txt

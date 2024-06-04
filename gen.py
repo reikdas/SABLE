@@ -4,7 +4,7 @@ from enum import Enum
 
 from src.mtx_matrices_gen import convert_all_vbr_to_mtx
 from src.vbr_matrices_gen import vbr_matrix_gen
-from src.codegen import vbr_spmv_codegen_for_all, vbr_spmm_codegen_for_all
+from src.codegen import vbr_spmv_codegen_for_all, vbr_spmm_codegen_for_all, vbr_spmv_cuda_codegen_for_all, vbr_spmm_cuda_codegen_for_all
 from src.fileio import write_dense_matrix, write_dense_vector
 
 class PartitionType(Enum):
@@ -34,7 +34,8 @@ def parse_arguments():
     parser.add_argument("--percentage-sparse", type=int, required=False, default=0)
     parser.add_argument("--percentage-of-zeros", type=int, default = 50, required=False, help="Percentage of zeros in a dense block in the generated VBR matrix. Suggested to use values 50, 40, 30, 20, 10, 0")
     parser.add_argument("-o", "--operation", type=Operation, choices=list(Operation), default="vbr", required=False, help="Operation to perform. Values are `vbr`, `vbr_to_mtx`, `vbr_to_spmv`, `vbr_to_spmm`. Default is vbr. If vbr, generates a VBR matrix with given configuration. If vbr_to_mtx, converts all VBR matrices in Generated_Data to Matrix Market format and saves them in Generated_Matrix.")
-    
+    parser.add_argument("--cuda", action='store_true')
+
     args = parser.parse_args()
     
     dense_blocks_only = args.dense_blocks_only
@@ -54,12 +55,19 @@ if __name__ == '__main__':
         convert_all_vbr_to_mtx(dense_blocks_only=True)
         convert_all_vbr_to_mtx(dense_blocks_only=False)
         exit(0)
-    elif (args.operation == Operation.vbr_to_spmv):
-        vbr_spmv_codegen_for_all(dense_blocks_only=True)
-        exit(0)
-    elif (args.operation == Operation.vbr_to_spmm):
-        vbr_spmm_codegen_for_all(dense_blocks_only=True)
-        exit(0)
+    elif (args.cuda):
+        if (args.operation == Operation.vbr_to_spmv):
+            vbr_spmv_cuda_codegen_for_all(dense_blocks_only=False)
+            exit(0)
+        elif (args.operation == Operation.vbr_to_spmm):
+            vbr_spmm_cuda_codegen_for_all(dense_blocks_only=False)
+    else:
+        if (args.operation == Operation.vbr_to_spmv):
+            vbr_spmv_codegen_for_all(dense_blocks_only=True)
+            exit(0)
+        elif (args.operation == Operation.vbr_to_spmm):
+            vbr_spmm_codegen_for_all(dense_blocks_only=True)
+            exit(0)
     
     dense_blocks_only = args.dense_blocks_only
     num_blocks = args.row_split * args.col_split

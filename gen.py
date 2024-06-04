@@ -52,22 +52,35 @@ if __name__ == '__main__':
     random.seed(0)
     
     if (args.operation == Operation.vbr_to_mtx):
-        convert_all_vbr_to_mtx(dense_blocks_only=True)
-        convert_all_vbr_to_mtx(dense_blocks_only=False)
+        if (args.dense_blocks_only):
+            convert_all_vbr_to_mtx(dense_blocks_only=True)
+        else:
+            convert_all_vbr_to_mtx(dense_blocks_only=False)
         exit(0)
-    elif (args.cuda):
-        if (args.operation == Operation.vbr_to_spmv):
-            vbr_spmv_cuda_codegen_for_all(dense_blocks_only=False)
-            exit(0)
-        elif (args.operation == Operation.vbr_to_spmm):
-            vbr_spmm_cuda_codegen_for_all(dense_blocks_only=False)
-    else:
-        if (args.operation == Operation.vbr_to_spmv):
-            vbr_spmv_codegen_for_all(dense_blocks_only=True)
-            exit(0)
-        elif (args.operation == Operation.vbr_to_spmm):
-            vbr_spmm_codegen_for_all(dense_blocks_only=True)
-            exit(0)
+    elif (args.operation == Operation.vbr_to_spmv and args.cuda and args.dense_blocks_only):
+        vbr_spmv_cuda_codegen_for_all(dense_blocks_only=True)
+        exit(0)
+    elif (args.operation == Operation.vbr_to_spmv and args.dense_blocks_only):
+        vbr_spmv_codegen_for_all(dense_blocks_only=True)
+        exit(0)
+    elif (args.operation == Operation.vbr_to_spmv and args.cuda and not args.dense_blocks_only):
+        vbr_spmv_cuda_codegen_for_all(dense_blocks_only=False)
+        exit(0)
+    elif (args.operation == Operation.vbr_to_spmv and not args.dense_blocks_only):
+        vbr_spmv_codegen_for_all(dense_blocks_only=False)
+        exit(0)
+    elif (args.operation == Operation.vbr_to_spmm and args.cuda and args.dense_blocks_only):
+        vbr_spmm_cuda_codegen_for_all(dense_blocks_only=True)
+        exit(0)
+    elif (args.operation == Operation.vbr_to_spmm and args.dense_blocks_only):
+        vbr_spmm_codegen_for_all(dense_blocks_only=True)
+        exit(0)
+    elif (args.operation == Operation.vbr_to_spmm and args.cuda and not args.dense_blocks_only):
+        vbr_spmm_cuda_codegen_for_all(dense_blocks_only=False)
+        exit(0)
+    elif (args.operation == Operation.vbr_to_spmm and not args.dense_blocks_only):
+        vbr_spmm_codegen_for_all(dense_blocks_only=False)
+        exit(0)
     
     dense_blocks_only = args.dense_blocks_only
     num_blocks = args.row_split * args.col_split

@@ -5,34 +5,50 @@ import sys
 from argparse import ArgumentParser
 from enum import Enum
 
-from src.codegen import vbr_spmm_codegen
+from src.codegen import *
+
 
 class Operation(Enum):
     SPMV = "spmv"
     SPMM = "spmm"
 
 def exec_spmv(filename, threads):
-    raise NotImplementedError
+    vbr_spmv_codegen(filename, threads=threads, dir_name="testing_cuda", vbr_dir="tests", dense_blocks_only=True)
+    #subprocess.run(["gcc", "-O3", "-mprefer-vector-width=512", "-mavx", "-funroll-all-loops", "-march=native", "-pthread", "-o", "testbench", sys.argv[1]+".c"], cwd="Generated_SpMV")
+
+def exec_spmv_cuda(filename):
+    vbr_spmv_cuda_codegen(filename, vbr_dir="tests", dir_name="testing_cuda")
 
 def exec_spmm(filename, threads):
     vbr_spmm_codegen(filename, threads=threads)
-    # Only execute on Tim Rogers' machine since it has AVX-512 instructions
-    subprocess.run(["/usr/bin/gcc-8", "-O3", "-mprefer-vector-width=512", "-mavx", "-funroll-all-loops", "-march=native", "-pthread", "-o", "testbench", sys.argv[1]+".c"], cwd="Generated_SpMM")
+    subprocess.run(["gcc", "-O3", "-mprefer-vector-width=512", "-mavx", "-funroll-all-loops", "-march=native", "-pthread", "-o", "testbench", sys.argv[1]+".c"], cwd="Generated_SpMM")
     sum = 0
     for _ in range(5):
         output = subprocess.check_output(["./testbench"], cwd="Generated_SpMM").decode("utf-8").split("\n")[0].split("=")[1]
         sum += float(output)
     print(sum/5)
 
+def exec_spmm_cuda(filename):
+    vbr_spmm_cuda_codegen(filename)
+
 if __name__ == "__main__":
     parser = ArgumentParser()
+    parser.add_argument("-c", "--cuda", action='store_true')
     parser.add_argument("-o", "--operation", type=Operation, choices=list(Operation), required=True)
     parser.add_argument("-t", "--threads", type=int, default=1)
     parser.add_argument("filename", type=str)
     args = parser.parse_args()
-    if (args.operation == Operation.SPMV):
-        exec_spmv(args.filename, args.threads)
-    elif (args.operation == Operation.SPMM):
-        exec_spmm(args.filename, args.threads)
+    if (args.cuda):
+        if (args.operation == Operation.SPMV):
+            exec_spmv_cuda(args.filename)
+        elif (args.operation == Operation.SPMM):
+            exec_spmv_cuda(args.filename)
+        else:
+            raise Exception("Unknown operation")
     else:
-        raise Exception("Unknown operation")
+        if (args.operation == Operation.SPMV):
+            exec_spmv(args.filename, args.threads)
+        elif (args.operation == Operation.SPMM):
+            exec_spmm(args.filename, args.threads)
+        else:
+            raise Exception("Unknown operation")

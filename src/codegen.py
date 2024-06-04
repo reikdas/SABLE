@@ -647,6 +647,7 @@ int lowestMultiple(int x, int y) {
 def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, dense_blocks_only: bool):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+    time1 = time.time_ns() // 1_000
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
@@ -697,7 +698,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
             break;
         } else {
             assert(0);
-        }h down for everything. I usually spend spare time in the corec/hanging out with these bozos. like I mentioned, I’m down for anything, including destroying sai’s shins
+        }
     }
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');
@@ -762,10 +763,13 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".cu"), "w") as f:
         f.writelines(code)
+    time2 = time.time_ns() // 1_000
+    return time2-time1
 
 def vbr_spmm_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, dense_blocks_only: bool):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+    time1 = time.time_ns() // 1_000
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
@@ -887,6 +891,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".cu"), "w") as f:
         f.writelines(code)
+    time2 = time.time_ns() // 1_000
+    return time2-time1
 
 def vbr_spmv_codegen(filename: str, dense_blocks_only: bool, dir_name: str, vbr_dir: str, threads: int):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")

@@ -287,14 +287,14 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
                             else:
                                 dense_count+=1
                             count2+=1
-                    if dense_count > (15 * (sparse_count+dense_count))//100:
+                    if dense_count > 100:
                         code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     else:
                         code.append(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 else:
                     code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                 count+=1
-    code.append("\tstruct timeval t2;\n")
+    code.append("\n\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
     code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
     code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
@@ -349,7 +349,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                                 else:
                                     dense_count+=1
                                 count2+=1
-                        if dense_count > (15 * (sparse_count+dense_count))//100:
+                        if dense_count > 100:
                             f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                         else:
                             f.write(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())

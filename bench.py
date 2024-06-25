@@ -15,12 +15,12 @@ def bench_spmv():
             spmv_file = fname + ".c"
             print(filename, flush=True)
             inspector_times = []
-            vbr_spmv_codegen(fname, dense_blocks_only=True, dir_name="Generated_SpMV", vbr_dir="Generated_VBR", threads=1)
+            vbr_spmv_codegen(fname, density=0, dir_name="Generated_SpMV", vbr_dir="Generated_VBR", threads=1)
             subprocess.run(["gcc", "-O3", "-lpthread", "-funroll-all-loops", "-march=native", "-o", fname, spmv_file], cwd="Generated_SpMV")
             for i in range(BENCHMARK_FREQ):
                 # SpMV code generation by inspecting the VBR matrix
                 print("Benchmarking inspector iteration", i, flush=True)
-                spmv_codegen_time = vbr_spmv_codegen(fname, dense_blocks_only=True, dir_name="Generated_SpMV", vbr_dir="Generated_VBR", threads=1)
+                spmv_codegen_time = vbr_spmv_codegen(fname, density=0, dir_name="Generated_SpMV", vbr_dir="Generated_VBR", threads=1)
                 time1 = time.time_ns() // 1_000
                 # compile the generated code for SpMV operation
                 subprocess.run(["gcc", "-O3", "-lpthread", "-funroll-all-loops", "-march=native", "-o", fname, spmv_file], cwd="Generated_SpMV")
@@ -40,7 +40,7 @@ def bench_spmv():
                 spmv_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmv_codegen(fname, dense_blocks_only=True, dir_name="Generated_SpMV", vbr_dir="Generated_VBR", threads=thread)
+                vbr_spmv_codegen(fname, density=0, dir_name="Generated_SpMV", vbr_dir="Generated_VBR", threads=thread)
                 subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-funroll-all-loops", "-o", fname, spmv_file], cwd="Generated_SpMV")
                 output = subprocess.run(["./"+fname], capture_output=True, cwd="Generated_SpMV")
                 execution_times = []
@@ -63,12 +63,12 @@ def bench_spmm():
             spmm_file = fname + ".c"
             print(filename, flush=True)
             inspector_times = []
-            vbr_spmm_codegen(fname, dense_blocks_only=True, dir_name="Generated_SpMM", vbr_dir="Generated_VBR", threads=1)
+            vbr_spmm_codegen(fname, density=0, dir_name="Generated_SpMM", vbr_dir="Generated_VBR", threads=1)
             subprocess.run(["gcc", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM")
             for i in range(BENCHMARK_FREQ):
                 # SpMV code generation by inspecting the VBR matrix
                 print("Benchmarking inspector iteration", i, flush=True)
-                spmm_codegen_time = vbr_spmm_codegen(fname, dense_blocks_only=True, dir_name="Generated_SpMM", vbr_dir="Generated_VBR", threads=1)
+                spmm_codegen_time = vbr_spmm_codegen(fname, density=0, dir_name="Generated_SpMM", vbr_dir="Generated_VBR", threads=1)
                 time1 = time.time_ns() // 1_000
                 # compile the generated code for SpMV operation
                 subprocess.run(["gcc", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM")
@@ -88,7 +88,7 @@ def bench_spmm():
                 spmm_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmm_codegen(fname, dense_blocks_only=True, dir_name="Generated_SpMM", vbr_dir="Generated_VBR", threads=thread)
+                vbr_spmm_codegen(fname, density=0, dir_name="Generated_SpMM", vbr_dir="Generated_VBR", threads=thread)
                 subprocess.run(["gcc", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM")
                 output = subprocess.run(["./"+fname], capture_output=True, cwd="Generated_SpMM")
                 execution_times = []

@@ -157,8 +157,8 @@ def spmm(
 
     return it3(row_idxs, col_idxs, dense_idxs, op)
     
-def vbr_spmm_codegen_for_all(dense_blocks_only: bool = True):
-    if dense_blocks_only:
+def vbr_spmm_codegen_for_all(density: int = 0):
+    if density == 0:
         input_dir_name = "Generated_VBR"
         output_dir_name = "Generated_SpMM"
     else:
@@ -169,12 +169,12 @@ def vbr_spmm_codegen_for_all(dense_blocks_only: bool = True):
     for filename in os.listdir(input_dir_name):
         assert(filename.endswith(".vbr"))
         core_name = filename[:-len(".vbr")]
-        run_time = vbr_spmm_codegen(core_name, dense_blocks_only, dir_name=output_dir_name, vbr_dir=input_dir_name, threads=1)
+        run_time = vbr_spmm_codegen(core_name, density, dir_name=output_dir_name, vbr_dir=input_dir_name, threads=1)
         runtimes[core_name] = run_time
     return runtimes
 
-def vbr_spmm_cuda_codegen_for_all(dense_blocks_only: bool):
-    if dense_blocks_only:
+def vbr_spmm_cuda_codegen_for_all(density: int = 0):
+    if density == 0:
         input_dir_name = "Generated_VBR"
         output_dir_name = "Generated_SpMM_cuda"
     else:
@@ -186,12 +186,12 @@ def vbr_spmm_cuda_codegen_for_all(dense_blocks_only: bool):
     for filename in os.listdir(input_dir_name):
         assert(filename.endswith(".vbr"))
         core_name = filename[:-len(".vbr")]
-        run_time = vbr_spmm_cuda_codegen(core_name, dir_name=output_dir_name, vbr_dir=input_dir_name, dense_blocks_only=dense_blocks_only)
+        run_time = vbr_spmm_cuda_codegen(core_name, dir_name=output_dir_name, vbr_dir=input_dir_name, density=density)
         runtimes[core_name] = run_time
     return runtimes
 
-def vbr_spmv_codegen_for_all(dense_blocks_only: bool = True):
-    if dense_blocks_only:
+def vbr_spmv_codegen_for_all(density: int = 0):
+    if density == 0:
         input_dir_name = "Generated_VBR"
         output_dir_name = "Generated_SpMV"
     else:
@@ -202,12 +202,12 @@ def vbr_spmv_codegen_for_all(dense_blocks_only: bool = True):
     for filename in os.listdir(input_dir_name):
         assert(filename.endswith(".vbr"))
         core_name = filename[:-len(".vbr")]
-        run_time = vbr_spmv_codegen(core_name, dense_blocks_only, dir_name=output_dir_name, vbr_dir=input_dir_name, threads=1)
+        run_time = vbr_spmv_codegen(core_name, density, dir_name=output_dir_name, vbr_dir=input_dir_name, threads=1)
         runtimes[core_name] = run_time
     return runtimes
 
-def vbr_spmv_cuda_codegen_for_all(dense_blocks_only: bool):
-    if dense_blocks_only:
+def vbr_spmv_cuda_codegen_for_all(density: int = 0):
+    if density == 0:
         input_dir_name = "Generated_VBR"
         output_dir_name = "Generated_SpMV_cuda"
     else:
@@ -219,11 +219,11 @@ def vbr_spmv_cuda_codegen_for_all(dense_blocks_only: bool):
     for filename in os.listdir(input_dir_name):
         assert(filename.endswith(".vbr"))
         core_name = filename[:-len(".vbr")]
-        run_time = vbr_spmv_cuda_codegen(core_name, dir_name=output_dir_name, vbr_dir=input_dir_name, dense_blocks_only=dense_blocks_only)
+        run_time = vbr_spmv_cuda_codegen(core_name, dir_name=output_dir_name, vbr_dir=input_dir_name, density=density)
         runtimes[core_name] = run_time
     return runtimes
 
-def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir):
+def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
@@ -275,7 +275,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                if (not dense_blocks_only):
+                if density > 0:
                     sparse_count = 0
                     dense_count = 0
                     count2 = 0
@@ -287,7 +287,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
                             else:
                                 dense_count+=1
                             count2+=1
-                    if dense_count > 100:
+                    if (dense_count/(dense_count + sparse_count))*100 > density:
                         code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     else:
                         code.append(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
@@ -305,7 +305,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
 
-def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir):
+def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     vector_path = f"generated_vector_{rpntr[-1]}.vector"
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
@@ -337,7 +337,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
             valid_cols = bindx[bpntrb[a]:bpntre[a]]
             for b in range(len(cpntr)-1):
                 if b in valid_cols:
-                    if (not dense_blocks_only):
+                    if density > 0:
                         sparse_count = 0
                         dense_count = 0
                         count2 = 0
@@ -349,7 +349,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                                 else:
                                     dense_count+=1
                                 count2+=1
-                        if dense_count > 100:
+                        if (dense_count/(dense_count + sparse_count))*100 > density:
                             f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                         else:
                             f.write(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
@@ -413,7 +413,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t}\n")
         f.write("}\n")
 
-def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir):
+def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
     if not os.path.exists(dir_name):
@@ -483,7 +483,7 @@ int lowestMultiple(int x, int y) {
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                if (not dense_blocks_only):
+                if density > 0:
                     sparse_count = 0
                     dense_count = 0
                     count2 = 0
@@ -495,7 +495,7 @@ int lowestMultiple(int x, int y) {
                             else:
                                 dense_count+=1
                             count2+=1
-                    if dense_count > (15 * (sparse_count+dense_count))//100:
+                    if (dense_count/(dense_count + sparse_count))*100 > density:
                         code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     else:
                         code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
@@ -515,7 +515,7 @@ int lowestMultiple(int x, int y) {
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
 
-def gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir):
+def gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
     if not os.path.exists(dir_name):
@@ -562,7 +562,7 @@ int lowestMultiple(int x, int y) {
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                if (not dense_blocks_only):
+                if density > 0:
                     sparse_count = 0
                     dense_count = 0
                     count2 = 0
@@ -574,7 +574,7 @@ int lowestMultiple(int x, int y) {
                             else:
                                 dense_count+=1
                             count2+=1
-                    if dense_count > (15 * (sparse_count+dense_count))//100:
+                    if dense_count > (density * (sparse_count+dense_count))//100:
                         code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     else:
                         code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
@@ -644,7 +644,7 @@ int lowestMultiple(int x, int y) {
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
 
-def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, dense_blocks_only: bool):
+def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: int):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     time1 = time.time_ns() // 1_000
@@ -726,7 +726,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         code.append(f"\tgridSize = ({rpntr[a+1] - rpntr[a]} + blockSize - 1)/blockSize;\n")
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                if (not dense_blocks_only):
+                if density > 0:
                     sparse_count = 0
                     dense_count = 0
                     count2 = 0
@@ -738,7 +738,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
                             else:
                                 dense_count+=1
                             count2+=1
-                    if dense_count > (15 * (sparse_count+dense_count))//100:
+                    if dense_count > (density * (sparse_count+dense_count))//100:
                         code.append(f"\tspmv<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                         code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
@@ -766,7 +766,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     time2 = time.time_ns() // 1_000
     return time2-time1
 
-def vbr_spmm_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, dense_blocks_only: bool):
+def vbr_spmm_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: int):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     time1 = time.time_ns() // 1_000
@@ -852,7 +852,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         code.append(f"\tgridSize = ({rpntr[a+1] - rpntr[a]} + blockSize - 1)/blockSize;\n")
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                if (not dense_blocks_only):
+                if density > 0:
                     sparse_count = 0
                     dense_count = 0
                     count2 = 0
@@ -864,7 +864,7 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
                             else:
                                 dense_count+=1
                             count2+=1
-                    if dense_count > (15 * (sparse_count+dense_count))//100:
+                    if dense_count > (density * (sparse_count+dense_count))//100:
                         code.append(f"\tspmm<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                         code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
@@ -894,24 +894,24 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     time2 = time.time_ns() // 1_000
     return time2-time1
 
-def vbr_spmv_codegen(filename: str, dense_blocks_only: bool, dir_name: str, vbr_dir: str, threads: int):
+def vbr_spmv_codegen(filename: str, density: int, dir_name: str, vbr_dir: str, threads: int):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     time1 = time.time_ns() // 1_000
     if threads == 1:
-        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir)
+        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
     else:
-        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir)
+        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
     time2 = time.time_ns() // 1_000
     return time2-time1
 
-def vbr_spmm_codegen(filename: str, dense_blocks_only: bool, dir_name: str, vbr_dir: str, threads: int):
+def vbr_spmm_codegen(filename: str, density: int, dir_name: str, vbr_dir: str, threads: int):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     time1 = time.time_ns() // 1_000
     if threads == 1:
-        gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir)
+        gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
     else:
-        gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dense_blocks_only, dir_name, filename, vbr_dir)
+        gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
     time2 = time.time_ns() // 1_000
     return time2-time1

@@ -4,7 +4,7 @@ import subprocess
 from src.codegen import vbr_spmv_codegen, vbr_spmm_codegen
 from src.fileio import write_dense_matrix, write_dense_vector
 
-BENCHMARK_FREQ = 5
+BENCHMARK_FREQ = 10
 
 def bench_spmv():
     vbr_dir = "manual_vbr"
@@ -17,7 +17,7 @@ def bench_spmv():
                 spmv_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmv_codegen(fname, dense_blocks_only=False, dir_name=codegen_dir, vbr_dir=vbr_dir, threads=thread)
+                vbr_spmv_codegen(fname, density=1, dir_name=codegen_dir, vbr_dir=vbr_dir, threads=thread)
                 subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-funroll-all-loops", "-o", fname, spmv_file], cwd=codegen_dir)
                 output = subprocess.run(["./"+fname], capture_output=True, cwd=codegen_dir)
                 execution_times = []
@@ -43,7 +43,7 @@ def bench_spmm():
                 spmm_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmm_codegen(fname, dense_blocks_only=True, dir_name=codegen_dir, vbr_dir=vbr_dir, threads=thread)
+                vbr_spmm_codegen(fname, density=1, dir_name=codegen_dir, vbr_dir=vbr_dir, threads=thread)
                 subprocess.run(["gcc", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd=codegen_dir)
                 output = subprocess.run(["./"+fname], capture_output=True, cwd=codegen_dir)
                 execution_times = []
@@ -59,9 +59,15 @@ def bench_spmm():
 
 
 if __name__ == "__main__":
-    # write_dense_matrix(1.0, 662, 512)
-    # write_dense_matrix(1.0, 4000, 512)
-    # write_dense_matrix(1.0, 1454, 512)
-    write_dense_vector(1.0, 14109)
+    write_dense_vector(1.0, 1454)
+    write_dense_matrix(1.0, 1454, 512)
+    write_dense_vector(1.0, 132)
+    write_dense_matrix(1.0, 132, 512)
+    write_dense_vector(1.0, 36)
+    write_dense_matrix(1.0, 36, 512)
+    write_dense_vector(1.0, 55)
+    write_dense_matrix(1.0, 55, 512)
+    write_dense_vector(1.0, 66)
+    write_dense_matrix(1.0, 66, 512)
     bench_spmv()
-    # bench_spmm()
+    bench_spmm()

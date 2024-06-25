@@ -22,9 +22,17 @@ python3 gen.py -o vbr_to_mtx --dense-blocks-only
 
 The corresponding files will be generated in `Generated_VBR/`, `Generated_VBR_Sparse/`, `Generated_MMarket/` and `Generated_MMarket_Sparse/`.
 
+#### Generate VBR matrices from manually partitioned Suitesparse matrices
+
+```
+python3 src/convert_real_to_vbr.py
+```
+
+The corresponding files will be generated in `manual_vbr/`.
+
 ### SABLE
 
-#### Run SABLE to generate CPU code to perform SpMV and SpMM over these Matrices
+#### Run SABLE to generate CPU code to perform SpMV and SpMM over these generated Matrices
 
 ```
 python3 gen.py -o vbr_to_spmv
@@ -51,6 +59,7 @@ The corresponding files will be generated in `Generated_SpMV_cuda/`, `Generated_
 ```
 python3 bench.py
 python3 bench_sparse.py
+python3 bench_manualvbr.py
 python3 bench_cuda.py
 python3 bench_sparse_cuda.py
 ```

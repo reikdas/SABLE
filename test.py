@@ -43,7 +43,7 @@ def test_setup_file():
 
 def run_spmv(threads):
     test_setup_file()
-    vbr_spmv_codegen(filename="example", dense_blocks_only=True, dir_name="tests", threads=threads, vbr_dir="tests")
+    vbr_spmv_codegen(filename="example", density=0, dir_name="tests", threads=threads, vbr_dir="tests")
     subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
@@ -52,7 +52,7 @@ def run_spmv(threads):
 
 def run_spmv_cuda():
     test_setup_file()
-    vbr_spmv_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", dense_blocks_only=True)
+    vbr_spmv_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", density=0)
     subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
@@ -61,7 +61,7 @@ def run_spmv_cuda():
 
 def run_spmm(threads):
     test_setup_file()
-    vbr_spmm_codegen(filename="example", dense_blocks_only=True, dir_name="tests", threads=threads, vbr_dir="tests")
+    vbr_spmm_codegen(filename="example", density=0, dir_name="tests", threads=threads, vbr_dir="tests")
     subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
@@ -70,7 +70,7 @@ def run_spmm(threads):
 
 def run_spmm_cuda():
     test_setup_file()
-    vbr_spmm_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", dense_blocks_only=True)
+    vbr_spmm_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", density=0)
     subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:

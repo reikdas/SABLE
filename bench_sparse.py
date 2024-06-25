@@ -9,11 +9,11 @@ def bench_spmv(bad: bool):
     if bad:
         gen_dir = "Generated_SpMV_Sparse_Bad"
         benchfile_name = "benchmarks_spmv_1_rel_bad.csv"
-        dense_blocks_only = True
+        density = 0
     else:
         gen_dir = "Generated_SpMV_Sparse"
         benchfile_name = "benchmarks_spmv_1_rel.csv"
-        dense_blocks_only = False
+        density = 15
     vbr_files = os.listdir("Generated_VBR_Sparse")
     print("Benchmarking executor")
     for thread in [1]:
@@ -23,7 +23,7 @@ def bench_spmv(bad: bool):
                 spmv_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmv_codegen(fname, dense_blocks_only=dense_blocks_only, dir_name=gen_dir, vbr_dir="Generated_VBR_Sparse", threads=thread)
+                vbr_spmv_codegen(fname, density, dir_name=gen_dir, vbr_dir="Generated_VBR_Sparse", threads=thread)
                 subprocess.run(["gcc", "-O3", "-lpthread", "-march=native", "-funroll-all-loops", "-o", fname, spmv_file], cwd=gen_dir)
                 output = subprocess.run(["./"+fname], capture_output=True, cwd=gen_dir)
                 execution_times = []
@@ -41,11 +41,11 @@ def bench_spmm(bad: bool):
     if bad:
         gen_dir = "Generated_SpMM_Sparse_Bad"
         benchfile_name = "benchmarks_spmm_1_rel_bad.csv"
-        dense_blocks_only = True
+        density = 0
     else:
         gen_dir = "Generated_SpMM_Sparse"
         benchfile_name = "benchmarks_spmm_1_rel.csv"
-        dense_blocks_only = False
+        density = 15
     vbr_files = os.listdir("Generated_VBR_Sparse")
     print("Benchmarking executor")
     for thread in [1]:
@@ -55,7 +55,7 @@ def bench_spmm(bad: bool):
                 spmm_file = fname + ".c"
                 print(filename, flush=True)
                 # compile the generated code for SpMV operation
-                vbr_spmm_codegen(fname, dense_blocks_only=dense_blocks_only, dir_name=gen_dir, vbr_dir="Generated_VBR_Sparse", threads=thread)
+                vbr_spmm_codegen(fname, density, dir_name=gen_dir, vbr_dir="Generated_VBR_Sparse", threads=thread)
                 subprocess.run(["gcc", "-O3", "-pthread", "-march=native", "-funroll-all-loops", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd=gen_dir)
                 output = subprocess.run(["./"+fname], capture_output=True, cwd=gen_dir)
                 execution_times = []

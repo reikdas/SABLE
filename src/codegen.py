@@ -156,6 +156,29 @@ def spmm(
             y[i*512 + j] += val * x[k*512+j]
 
     return it3(row_idxs, col_idxs, dense_idxs, op)
+
+def split_chunks(values, num_chunks):
+    if len([v for v in values if v != 0]) < num_chunks:
+        num_chunks = len([v for v in values if v!=0])
+
+    # Create a list of (value, index) tuples, excluding zeros
+    indexed_values = [(index, value) for index, value in enumerate(values) if value != 0]
+    
+    # Sort by value in descending order
+    sorted_indexed_values = sorted(indexed_values, key=lambda x: x[1], reverse=True)
+    
+    # Initialize chunks
+    chunks = [[] for _ in range(num_chunks)]
+    chunk_sums = [0] * num_chunks
+    
+    # Distribute values
+    for index, value in sorted_indexed_values:
+        # Find the chunk with the smallest sum
+        min_sum_index = chunk_sums.index(min(chunk_sums))
+        chunks[min_sum_index].append(index)
+        chunk_sums[min_sum_index] += value
+    
+    return chunks
     
 def vbr_spmm_codegen_for_all(density: int = 0):
     if density == 0:
@@ -315,25 +338,11 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("#include <assert.h>\n")
         f.write("#include <pthread.h>\n\n")
         f.write("float *x, *val, *y;\n\n")
-        preemptive_count = 0
-        for a in range(len(rpntr) - 1):
-            if bpntrb[a] == -1:
-                continue
-            preemptive_count += 1
-        per_func = [0]*threads
-        for i in range(preemptive_count):
-            per_func[i % threads] += 1
-        num_working_threads = sum(1 for element in per_func if element != 0)
-        funcount = 0
-        func_idx = 0
+        work_per_br = [0]*len(rpntr)
         count = 0
         for a in range(len(rpntr) - 1):
             if bpntrb[a] == -1:
-                if a == len(rpntr) - 2 and func_idx!=0:
-                    f.write("}\n")
                 continue
-            if func_idx == 0:
-                f.write(f"void *func{funcount}(){{\n")
             valid_cols = bindx[bpntrb[a]:bpntre[a]]
             for b in range(len(cpntr)-1):
                 if b in valid_cols:
@@ -341,7 +350,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                         sparse_count = 0
                         dense_count = 0
                         count2 = 0
-                        # Check if the block is more than 25% dense
                         for _ in range(rpntr[a], rpntr[a+1]):
                             for _ in range(cpntr[b], cpntr[b+1]):
                                 if val[indx[count]+count2] == 0.0:
@@ -350,17 +358,43 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                                     dense_count+=1
                                 count2+=1
                         if (dense_count/(dense_count + sparse_count))*100 > density:
-                            f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                        else:
-                            f.write(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
+                            work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
                     else:
-                        f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                        work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
                     count+=1
-            func_idx += 1
-            if func_idx == per_func[funcount] or a == len(rpntr) - 2:
-                funcount += 1
-                func_idx = 0
-                f.write("}\n")
+        del count
+        thread_br_map = split_chunks(work_per_br, threads)
+        funcount = 0
+        for br_list in thread_br_map:
+            f.write(f"void *func{funcount}(){{\n")
+            for a in br_list:
+                if bpntrb[a] == -1:
+                    continue
+                indx_count = 0
+                valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                for b in range(len(cpntr)-1):
+                    if b in valid_cols:
+                        if density>0:
+                            sparse_count = 0
+                            dense_count = 0
+                            count2 = 0
+                            for _ in range(rpntr[a], rpntr[a+1]):
+                                for _ in range(cpntr[b], cpntr[b+1]):
+                                    if val[indx[bpntrb[a]+indx_count]+count2] == 0.0:
+                                        sparse_count+=1
+                                    else:
+                                        dense_count+=1
+                                    count2+=1
+                            if (dense_count/(dense_count + sparse_count))*100 > density:
+                                f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
+                            else:
+                                f.write(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))())
+                        else:
+                            f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
+                        indx_count += 1
+            f.write("}\n")
+            funcount += 1
+        num_working_threads = len(thread_br_map)
         f.write("\n")
         f.write("int main() {\n")
         f.write(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
@@ -540,25 +574,11 @@ int lowestMultiple(int x, int y) {
     }
 }\n""")
     code.append("float *x, *val, *y;\n\n")
-    preemptive_count = 0
-    for a in range(len(rpntr) - 1):
-        if bpntrb[a] == -1:
-            continue
-        preemptive_count += 1
-    per_func = [0]*threads
-    for i in range(preemptive_count):
-        per_func[i % threads] += 1
-    num_working_threads = sum(1 for element in per_func if element != 0)
-    funcount = 0
-    func_idx = 0
+    work_per_br = [0]*len(rpntr)
     count = 0
     for a in range(len(rpntr) - 1):
         if bpntrb[a] == -1:
-            if a == len(rpntr) - 2 and func_idx!=0:
-                code.append("}\n")
             continue
-        if func_idx == 0:
-            code.append(f"void *func{funcount}(){{\n")
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
@@ -566,7 +586,6 @@ int lowestMultiple(int x, int y) {
                     sparse_count = 0
                     dense_count = 0
                     count2 = 0
-                    # Check if the block is more than 25% dense
                     for _ in range(rpntr[a], rpntr[a+1]):
                         for _ in range(cpntr[b], cpntr[b+1]):
                             if val[indx[count]+count2] == 0.0:
@@ -574,18 +593,44 @@ int lowestMultiple(int x, int y) {
                             else:
                                 dense_count+=1
                             count2+=1
-                    if dense_count > (density * (sparse_count+dense_count))//100:
-                        code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                    else:
-                        code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
+                    if (dense_count/(dense_count + sparse_count))*100 > density:
+                        work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
                 else:
-                    code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                    work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
                 count+=1
-        func_idx += 1
-        if func_idx == per_func[funcount] or a == len(rpntr) - 2:
-            funcount += 1
-            func_idx = 0
-            code.append("}\n")
+    del count
+    thread_br_map = split_chunks(work_per_br, threads)
+    funcount = 0
+    for br_list in thread_br_map:
+        code.append(f"void *func{funcount}(){{\n")
+        for a in br_list:
+            if bpntrb[a] == -1:
+                continue
+            indx_count = 0
+            valid_cols = bindx[bpntrb[a]:bpntre[a]]
+            for b in range(len(cpntr)-1):
+                if b in valid_cols:
+                    if density>0:
+                        sparse_count = 0
+                        dense_count = 0
+                        count2 = 0
+                        for _ in range(rpntr[a], rpntr[a+1]):
+                            for _ in range(cpntr[b], cpntr[b+1]):
+                                if val[indx[bpntrb[a]+indx_count]+count2] == 0.0:
+                                    sparse_count+=1
+                                else:
+                                    dense_count+=1
+                                count2+=1
+                        if (dense_count/(dense_count + sparse_count))*100 > density:
+                            code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
+                        else:
+                            code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))())
+                    else:
+                        code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
+                    indx_count += 1
+        code.append("}\n")
+        funcount += 1
+    num_working_threads = len(thread_br_map)
     code.append("\n")
     code.append("int main() {\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")

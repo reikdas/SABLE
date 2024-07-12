@@ -25,7 +25,7 @@ The corresponding files will be generated in `Generated_VBR/`, `Generated_VBR_Sp
 #### Generate VBR matrices from manually partitioned Suitesparse matrices
 
 ```
-python3 src/convert_real_to_vbr.py
+python3 scripts/convert_real_to_vbr.py
 ```
 
 The corresponding files will be generated in `manual_vbr/`.

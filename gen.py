@@ -58,28 +58,28 @@ if __name__ == '__main__':
             convert_all_vbr_to_mtx(dense_blocks_only=False)
         exit(0)
     elif (args.operation == Operation.vbr_to_spmv and args.cuda and args.dense_blocks_only):
-        vbr_spmv_cuda_codegen_for_all(dense_blocks_only=True)
+        vbr_spmv_cuda_codegen_for_all(density=0)
         exit(0)
     elif (args.operation == Operation.vbr_to_spmv and args.dense_blocks_only):
-        vbr_spmv_codegen_for_all(dense_blocks_only=True)
+        vbr_spmv_codegen_for_all(density=0)
         exit(0)
     elif (args.operation == Operation.vbr_to_spmv and args.cuda and not args.dense_blocks_only):
-        vbr_spmv_cuda_codegen_for_all(dense_blocks_only=False)
+        vbr_spmv_cuda_codegen_for_all(density=15)
         exit(0)
     elif (args.operation == Operation.vbr_to_spmv and not args.dense_blocks_only):
-        vbr_spmv_codegen_for_all(dense_blocks_only=False)
+        vbr_spmv_codegen_for_all(density=15)
         exit(0)
     elif (args.operation == Operation.vbr_to_spmm and args.cuda and args.dense_blocks_only):
-        vbr_spmm_cuda_codegen_for_all(dense_blocks_only=True)
+        vbr_spmm_cuda_codegen_for_all(density=0)
         exit(0)
     elif (args.operation == Operation.vbr_to_spmm and args.dense_blocks_only):
-        vbr_spmm_codegen_for_all(dense_blocks_only=True)
+        vbr_spmm_codegen_for_all(density=0)
         exit(0)
     elif (args.operation == Operation.vbr_to_spmm and args.cuda and not args.dense_blocks_only):
-        vbr_spmm_cuda_codegen_for_all(dense_blocks_only=False)
+        vbr_spmm_cuda_codegen_for_all(density=15)
         exit(0)
     elif (args.operation == Operation.vbr_to_spmm and not args.dense_blocks_only):
-        vbr_spmm_codegen_for_all(dense_blocks_only=False)
+        vbr_spmm_codegen_for_all(density=15)
         exit(0)
     
     dense_blocks_only = args.dense_blocks_only

@@ -13,9 +13,12 @@ Generated_MMarket_Sparse/
 Generated_SpMV/
 Generated_SpMV_Sparse/
 Generated_SpMV_Sparse_Bad/
+Generated_SpMV_manual/
 Generated_SpMM/
 Generated_SpMM_Sparse/
 Generated_SpMM_Sparse_Bad/
+Generated_SpMM_manual/
+manual_vbr/
 tests_spmv/
 tests_spmm/
 tests/a.out

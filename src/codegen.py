@@ -114,12 +114,6 @@ def it(r: Union[RepRange, range], fun: Callable[[NumVal], Any]):
         for i in r:
             curr_block_instructions.append(codegen(fun)(i))
 
-def it2(r1: range, r2: range, f: Callable[[NumVal, NumVal], Any]):
-    return it(r1, lambda i: it(r2, lambda j: f(i, j)))
-
-def it3(r1: range, r2: range, r3: range, f: Callable[[NumVal, NumVal, NumVal], Any]):
-    return it(r1, lambda i: it(r2, lambda j: it(r3, lambda k: f(i, j, k))))
-
 def isDense(val):
     if isinstance(val, ConcreteNumVal):
         return val.value!=0
@@ -128,34 +122,11 @@ def isDense(val):
     else:
         raise Exception("Invalid type")
     
-def spmv(
-    row_idxs: Union[range, RepRange], # (row_start, row_end)
-    col_idxs: range, # (col_start, col_end)
-    col_maj_val, # dense block from vbr
-    x: ArrayVal, # dense vector / matrix to multiply
-    y: ArrayVal, # output
-):
-    def op(j, i):
-        val = col_maj_val[(j - col_idxs.start)*len(row_idxs) + (i - row_idxs.start)]
-        if isDense(val):
-            y[i] += val * x[j]
-
-    return it2(col_idxs, row_idxs, op)
-
-def spmm(
-    row_idxs: Union[range, RepRange], # (row_start, row_end)
-    col_idxs: Union[range, RepRange], # (col_start, col_end)
-    dense_idxs: RepRange,
-    col_maj_val, # dense block from vbr
-    x: ArrayVal, # dense vector / matrix to multiply
-    y: ArrayVal, # output
-):
-    def op(i, k, j):
-        val = col_maj_val[(k-col_idxs.start)*len(row_idxs) + (i - row_idxs.start)]
-        if isDense(val):
-            y[i*512 + j] += val * x[k*512+j]
-
-    return it3(row_idxs, col_idxs, dense_idxs, op)
+def get_val(row_idxs: Union[range, RepRange], 
+            col_idxs: Union[range, RepRange], 
+            col_maj_val: Union[ArrayVal, ConcreteArrayVal], 
+            i, j):
+    return col_maj_val[(j - col_idxs.start)*len(row_idxs) + (i - row_idxs.start)]
 
 def split_chunks(values, num_chunks):
     if len([v for v in values if v != 0]) < num_chunks:
@@ -179,22 +150,6 @@ def split_chunks(values, num_chunks):
         chunk_sums[min_sum_index] += value
     
     return chunks
-    
-def vbr_spmm_codegen_for_all(density: int = 0):
-    if density == 0:
-        input_dir_name = "Generated_VBR"
-        output_dir_name = "Generated_SpMM"
-    else:
-        raise Exception("Not implemented")
-    if not os.path.exists(output_dir_name):
-        os.makedirs(output_dir_name)
-    runtimes = {}
-    for filename in os.listdir(input_dir_name):
-        assert(filename.endswith(".vbr"))
-        core_name = filename[:-len(".vbr")]
-        run_time = vbr_spmm_codegen(core_name, density, dir_name=output_dir_name, vbr_dir=input_dir_name, threads=1)
-        runtimes[core_name] = run_time
-    return runtimes
 
 def vbr_spmm_cuda_codegen_for_all(density: int = 0):
     if density == 0:
@@ -210,22 +165,6 @@ def vbr_spmm_cuda_codegen_for_all(density: int = 0):
         assert(filename.endswith(".vbr"))
         core_name = filename[:-len(".vbr")]
         run_time = vbr_spmm_cuda_codegen(core_name, dir_name=output_dir_name, vbr_dir=input_dir_name, density=density)
-        runtimes[core_name] = run_time
-    return runtimes
-
-def vbr_spmv_codegen_for_all(density: int = 0):
-    if density == 0:
-        input_dir_name = "Generated_VBR"
-        output_dir_name = "Generated_SpMV"
-    else:
-        raise Exception("Not implemented")
-    if not os.path.exists(output_dir_name):
-        os.makedirs(output_dir_name)
-    runtimes = {}
-    for filename in os.listdir(input_dir_name):
-        assert(filename.endswith(".vbr"))
-        core_name = filename[:-len(".vbr")]
-        run_time = vbr_spmv_codegen(core_name, density, dir_name=output_dir_name, vbr_dir=input_dir_name, threads=1)
         runtimes[core_name] = run_time
     return runtimes
 
@@ -246,47 +185,8 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
         runtimes[core_name] = run_time
     return runtimes
 
-def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir):
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    vector_path = f"generated_vector_{rpntr[-1]}.vector"
+def gen_single_threaded_codegen(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, filename, userop):
     code = []
-    code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
-    code.append("#include <stdlib.h>\n")
-    code.append("#include <assert.h>\n\n")
-    code.append("int main() {\n")
-    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
-    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
-    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
-    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tfloat* y = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-    code.append(f"\tfloat* x = (float*)calloc({rpntr[-1] + 1}, sizeof(float));\n")
-    code.append(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
-    code.append("\tchar c;\n")
-    code.append(f"\tint x_size=0, val_size=0;\n")
-    code.append('''\tassert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
-    val_size++;
-    while (1) {
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {
-            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
-            val_size++;
-        } else if (c == ']') {
-            break;
-        } else {
-            assert(0);
-        }
-    }
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');
-    fclose(file1);\n''')
-    code.append('''
-    while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
-        x_size++;
-    }}
-    fclose(file2);\n'''.format(rpntr[-1]))
     code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
@@ -302,7 +202,6 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
                     sparse_count = 0
                     dense_count = 0
                     count2 = 0
-                    # Check if the block is more than 25% dense
                     for _ in range(rpntr[a], rpntr[a+1]):
                         for _ in range(cpntr[b], cpntr[b+1]):
                             if val[indx[count]+count2] == 0.0:
@@ -311,269 +210,20 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
                                 dense_count+=1
                             count2+=1
                     if (dense_count/(dense_count + sparse_count))*100 > density:
-                        code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                        code.append(codegen(userop)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count])))
                     else:
-                        code.append(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
+                        code.append(codegen(lambda: userop(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count])))())
                 else:
-                    code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                    code.append(codegen(userop)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count])))
                 count+=1
     code.append("\n\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
     code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
     code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
-    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append("\t\tprintf(\"%f\\n\", y[i]);\n")
-    code.append("\t}\n")
-    code.append("}\n")
-    with open(os.path.join(dir_name, filename+".c"), "w") as f:
-        f.writelines(code)
-
-def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    vector_path = f"generated_vector_{rpntr[-1]}.vector"
-    with open(os.path.join(dir_name, filename+".c"), "w") as f:
-        f.write("#include <stdio.h>\n")
-        f.write("#include <sys/time.h>\n")
-        f.write("#include <stdlib.h>\n")
-        f.write("#include <assert.h>\n")
-        f.write("#include <pthread.h>\n\n")
-        f.write("float *x, *val, *y;\n\n")
-        work_per_br = [0]*len(rpntr)
-        count = 0
-        for a in range(len(rpntr) - 1):
-            if bpntrb[a] == -1:
-                continue
-            valid_cols = bindx[bpntrb[a]:bpntre[a]]
-            for b in range(len(cpntr)-1):
-                if b in valid_cols:
-                    if density > 0:
-                        sparse_count = 0
-                        dense_count = 0
-                        count2 = 0
-                        for _ in range(rpntr[a], rpntr[a+1]):
-                            for _ in range(cpntr[b], cpntr[b+1]):
-                                if val[indx[count]+count2] == 0.0:
-                                    sparse_count+=1
-                                else:
-                                    dense_count+=1
-                                count2+=1
-                        if (dense_count/(dense_count + sparse_count))*100 > density:
-                            work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
-                    else:
-                        work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
-                    count+=1
-        del count
-        thread_br_map = split_chunks(work_per_br, threads)
-        funcount = 0
-        for br_list in thread_br_map:
-            f.write(f"void *func{funcount}(){{\n")
-            for a in br_list:
-                if bpntrb[a] == -1:
-                    continue
-                indx_count = 0
-                valid_cols = bindx[bpntrb[a]:bpntre[a]]
-                for b in range(len(cpntr)-1):
-                    if b in valid_cols:
-                        if density>0:
-                            sparse_count = 0
-                            dense_count = 0
-                            count2 = 0
-                            for _ in range(rpntr[a], rpntr[a+1]):
-                                for _ in range(cpntr[b], cpntr[b+1]):
-                                    if val[indx[bpntrb[a]+indx_count]+count2] == 0.0:
-                                        sparse_count+=1
-                                    else:
-                                        dense_count+=1
-                                    count2+=1
-                            if (dense_count/(dense_count + sparse_count))*100 > density:
-                                f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
-                            else:
-                                f.write(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))())
-                        else:
-                            f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
-                        indx_count += 1
-            f.write("}\n")
-            funcount += 1
-        num_working_threads = len(thread_br_map)
-        f.write("\n")
-        f.write("int main() {\n")
-        f.write(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
-        f.write("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
-        f.write(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
-        f.write("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-        f.write(f"\ty = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-        f.write(f"\tx = (float*)calloc({rpntr[-1] + 1}, sizeof(float));\n")
-        f.write(f"\tval = (float*)calloc({len(val) + 1}, sizeof(float));\n")
-        f.write("\tchar c;\n")
-        f.write(f"\tint x_size=0, val_size=0;\n")
-        f.write('''
-    assert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
-    val_size++;
-    while (1) {
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {
-            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
-            val_size++;
-        } else if (c == ']') {
-            break;
-        } else {
-            assert(0);
-        }
-    }
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');
-    fclose(file1);''')
-        f.write('''
-    while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
-        x_size++;
-    }}
-    fclose(file2);\n'''.format(rpntr[-1]))
-        f.write("\tstruct timeval t1;\n")
-        f.write("\tgettimeofday(&t1, NULL);\n")
-        f.write("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-        f.write(f"\tpthread_t tid[{num_working_threads}];\n")
-        for a in range(num_working_threads):
-            f.write(f"\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
-        for a in range(num_working_threads):
-            f.write(f"\tpthread_join(tid[{a}], NULL);\n")
-        f.write("\tstruct timeval t2;\n")
-        f.write("\tgettimeofday(&t2, NULL);\n")
-        f.write("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-        f.write("\tfree(x);\n")
-        f.write("\tfree(val);\n")
-        f.write("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
-        f.write(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-        f.write("\t\tprintf(\"%.2f\\n\", y[i]);\n")
-        f.write("\t}\n")
-        f.write("}\n")
-
-def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
+    return code
+    
+def gen_multi_threaded_codegen(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, filename: str, userop):
     code = []
-    code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
-    code.append("#include <stdlib.h>\n")
-    code.append("#include <string.h>\n")
-    code.append("#include <assert.h>\n\n")
-    code.append("""
-int lowestMultiple(int x, int y) {
-    if (x % y == 0) {
-        return x;
-    }
-    else if (y % x == 0) {
-        return y;
-    }
-    else {
-        return ((x / y) + 1) * y;
-    }
-}\n""")
-    code.append("int main() {\n")
-    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
-    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
-    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
-    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tfloat *y = (float*)aligned_alloc(64, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(y, 0, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tfloat *x = (float*)aligned_alloc(64, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(x, 0, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tfloat *val = (float*)aligned_alloc(64, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(val, 0, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
-    code.append("\tchar c;\n")
-    code.append(f"\tint val_size=0;\n")
-    code.append('''
-    assert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
-    val_size++;
-    while (1) {
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {
-            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
-            val_size++;
-        } else if (c == ']') {
-            break;
-        } else {
-            assert(0);
-        }
-    }
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');
-    fclose(file1);\n''')
-    code.append('''\tfor(int i = 0; i < {0}; i++) {{
-        for(int j = 0; j < 512; j++) {{
-            assert(fscanf(file2, "%f,", &x[i*512+j]) == 1);
-        }}
-    }}
-    fclose(file2);\n'''.format(rpntr[-1]))
-    code.append("\tint count = 0;\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-    count = 0
-    for a in range(len(rpntr)-1):
-        if bpntrb[a] == -1:
-            continue
-        valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                if density > 0:
-                    sparse_count = 0
-                    dense_count = 0
-                    count2 = 0
-                    # Check if the block is more than 25% dense
-                    for _ in range(rpntr[a], rpntr[a+1]):
-                        for _ in range(cpntr[b], cpntr[b+1]):
-                            if val[indx[count]+count2] == 0.0:
-                                sparse_count+=1
-                            else:
-                                dense_count+=1
-                            count2+=1
-                    if (dense_count/(dense_count + sparse_count))*100 > density:
-                        code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                    else:
-                        code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
-                else:
-                    code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                count+=1
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
-    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
-    code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
-    code.append("\t\t}\n")
-    code.append("\t}\n")
-    code.append("}\n")
-    with open(os.path.join(dir_name, filename+".c"), "w") as f:
-        f.writelines(code)
-
-def gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    code = []
-    code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
-    code.append("#include <stdlib.h>\n")
-    code.append("#include <string.h>\n")
-    code.append("#include <pthread.h>\n")
-    code.append("#include <assert.h>\n\n")
-    code.append("""
-int lowestMultiple(int x, int y) {
-    if (x % y == 0) {
-        return x;
-    }
-    else if (y % x == 0) {
-        return y;
-    }
-    else {
-        return ((x / y) + 1) * y;
-    }
-}\n""")
-    code.append("float *x, *val, *y;\n\n")
     work_per_br = [0]*len(rpntr)
     count = 0
     for a in range(len(rpntr) - 1):
@@ -622,52 +272,18 @@ int lowestMultiple(int x, int y) {
                                     dense_count+=1
                                 count2+=1
                         if (dense_count/(dense_count + sparse_count))*100 > density:
-                            code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
+                            code.append(codegen(userop)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[bpntrb[a]+indx_count])))
                         else:
-                            code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))())
+                            code.append(codegen(lambda: userop(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[bpntrb[a]+indx_count])))())
                     else:
-                        code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
+                        code.append(codegen(userop)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[bpntrb[a]+indx_count])))
                     indx_count += 1
         code.append("}\n")
         funcount += 1
     num_working_threads = len(thread_br_map)
     code.append("\n")
     code.append("int main() {\n")
-    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
-    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
-    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
-    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\ty = (float*)aligned_alloc(64, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(y, 0, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tx = (float*)aligned_alloc(64, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(x, 0, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tval = (float*)aligned_alloc(64, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
-    code.append(f"\tmemset(val, 0, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
-    code.append("\tchar c;\n")
-    code.append(f"\tint val_size=0;\n")
-    code.append('''
-    assert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
-    val_size++;
-    while (1) {
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {
-            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
-            val_size++;
-        } else if (c == ']') {
-            break;
-        } else {
-            assert(0);
-        }
-    }
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');
-    fclose(file1);\n''')
-    code.append('''\tfor(int i = 0; i < {0}; i++) {{
-        for(int j = 0; j < 512; j++) {{
-            assert(fscanf(file2, "%f,", &x[i*512+j]) == 1);
-        }}
-    }}
-    fclose(file2);\n'''.format(rpntr[-1]))
+    code.append("\tinit();\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
@@ -679,15 +295,10 @@ int lowestMultiple(int x, int y) {
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
     code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\tfree(x);\n")
+    code.append("\tfree(val);\n")
     code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
-    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
-    code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
-    code.append("\t\t}\n")
-    code.append("\t}\n")
-    code.append("}\n")
-    with open(os.path.join(dir_name, filename+".c"), "w") as f:
-        f.writelines(code)
+    return code
 
 def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: int):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
@@ -936,27 +547,5 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".cu"), "w") as f:
         f.writelines(code)
-    time2 = time.time_ns() // 1_000
-    return time2-time1
-
-def vbr_spmv_codegen(filename: str, density: int, dir_name: str, vbr_dir: str, threads: int):
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
-    time1 = time.time_ns() // 1_000
-    if threads == 1:
-        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
-    else:
-        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
-    time2 = time.time_ns() // 1_000
-    return time2-time1
-
-def vbr_spmm_codegen(filename: str, density: int, dir_name: str, vbr_dir: str, threads: int):
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
-    time1 = time.time_ns() // 1_000
-    if threads == 1:
-        gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
-    else:
-        gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
     time2 = time.time_ns() // 1_000
     return time2-time1

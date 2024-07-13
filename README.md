@@ -65,3 +65,14 @@ python3 bench_sparse_cuda.py
 ```
 
 The corresponding files will be generated in `results/`.
+
+## Contributing guidelines
+
+### Formatting files
+
+Please run the following commands in order over files you have changed.
+
+```
+black <filename.py>
+isort <filename.py>
+```

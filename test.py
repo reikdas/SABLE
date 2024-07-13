@@ -3,7 +3,8 @@ import subprocess
 
 import numpy
 
-from src.codegen import *
+from ops import vbr_spmm_codegen, vbr_spmv_codegen
+from src.codegen import vbr_spmm_cuda_codegen, vbr_spmv_cuda_codegen
 from src.mtx_matrices_gen import vbr_to_mtx
 
 

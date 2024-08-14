@@ -54,6 +54,14 @@ python3 synthesize_matrices/gen.py -o vbr_to_spmv --cuda --dense-blocks-only
 
 The corresponding files will be generated in `Generated_SpMV_cuda/`, `Generated_SpMV_cuda_Sparse`, `Generated_SpMM_cuda` and `Generated_SpMM_cuda_Sparse/`.
 
+Generate files that perform SpMV and SpMM over these Matrices using cuSparse (baseline)
+
+```
+python3 gen_cusparse.py
+```
+
+The corresponding files will be generated in `Generated_SpMV_cuSparse/` and `Generated_SpMM_cuSparse/`.
+
 #### Benchmark SABLE
 
 ```
@@ -62,6 +70,7 @@ python3 bench_sparse.py
 python3 bench_manualvbr.py
 python3 bench_cuda.py
 python3 bench_sparse_cuda.py
+python3 bench_cusparse.py
 ```
 
 The corresponding files will be generated in `results/`.

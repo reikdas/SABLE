@@ -10,7 +10,7 @@ from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 from src.baseline import *
 
-from gen_cusparse import gen_cusparse_file
+from gen_cusparse import gen_spmv_cusparse_file, gen_spmm_cusparse_file
 
 
 def cmp_file(file1, file2):
@@ -169,7 +169,7 @@ def run_nonzeros_spmv():
 
 def run_spmv_cusparse():
     test_setup_file()
-    gen_cusparse_file(filename="example", dir_name="tests", vbr_dir="tests", testing=True)
+    gen_spmv_cusparse_file(filename="example", dir_name="tests", vbr_dir="tests", testing=True)
     subprocess.check_call(["nvcc", "-o", "example", "example.c", "-O3", "-lcusparse", "-Wno-deprecated-declarations"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
@@ -180,6 +180,15 @@ def run_nonzeros_spmm():
     test_setup_file()
     only_nonzeros_spmm(filename="example", dir_name="tests", vbr_dir="tests")
     subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
+def run_spmm_cusparse():
+    test_setup_file()
+    gen_spmm_cusparse_file(filename="example", dir_name="tests", vbr_dir="tests", testing=True)
+    subprocess.check_call(["nvcc", "-o", "example", "example.c", "-O3", "-lcusparse", "-Wno-deprecated-declarations"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -203,7 +212,7 @@ def test_spmm():
     run_spmm_cuda()
     run_spmm_libxsmm()
     run_spmm_cblas()
-    # run_spmm_cusparse() # Just for benchmarking
+    run_spmm_cusparse() # Just for benchmarking
 
 def test_baselines():
     run_nonzeros_spmv()

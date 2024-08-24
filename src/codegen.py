@@ -997,16 +997,16 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
                             count2+=1
                     if dense_count > (density * (sparse_count+dense_count))//100:
                         code.append(f"\tspmv<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                        code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
+                        # code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                     else:
                         code.append(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 else:
                     code.append(f"\tspmv<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
+                    # code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                 count+=1
-        code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
+        code.append("\tcudaDeviceSynchronize();\n")
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
     code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
@@ -1240,16 +1240,16 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
                             count2+=1
                     if dense_count > (density * (sparse_count+dense_count))//100:
                         code.append(f"\tspmm<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                        code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
+                        # code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                     else:
                         code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 else:
                     code.append(f"\tspmm<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
+                    # code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                 count+=1
-        code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
+        code.append("\tcudaDeviceSynchronize();\n")
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
     code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")

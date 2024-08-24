@@ -2,34 +2,51 @@ import scipy.io
 import pathlib
 import os
 import scipy.sparse
+from argparse import ArgumentParser
 
 from src.fileio import read_vbr
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
-def gen_spmv_cusparse_files():
-    dir_name = "Generated_SpMV_cuSparse"
+def gen_spmv_cusparse_files(dense_blocks_only):
+    if dense_blocks_only:
+        mm_dir = "Generated_MMarket"
+        dir_name = "Generated_SpMV_cuSparse"
+        vbr_dir = "Generated_VBR"
+    else:
+        mm_dir = "Generated_MMarket_Sparse"
+        dir_name = "Generated_SpMV_cuSparse_Sparse"
+        vbr_dir = "Generated_VBR_Sparse"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    mtx_files = os.listdir(os.path.join(BASE_PATH, "Generated_MMarket"))
+    mtx_files = os.listdir(os.path.join(BASE_PATH, mm_dir))
     for filename in mtx_files:
-        gen_spmv_cusparse_file(filename[:-4], dir_name, f'{BASE_PATH}/Generated_VBR/', False)
+        gen_spmv_cusparse_file(filename[:-4], dir_name, f'{BASE_PATH}/{vbr_dir}/', mm_dir, False)
 
-def gen_spmm_cusparse_files():
-    dir_name = "Generated_SpMM_cuSparse"
+def gen_spmm_cusparse_files(dense_blocks_only):
+    if dense_blocks_only:
+        mm_dir = "Generated_MMarket"
+        dir_name = "Generated_SpMM_cuSparse"
+        vbr_dir = "Generated_VBR"
+    else:
+        mm_dir = "Generated_MMarket_Sparse"
+        dir_name = "Generated_SpMM_cuSparse_Sparse"
+        vbr_dir = "Generated_VBR_Sparse"
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    mtx_files = os.listdir(os.path.join(BASE_PATH, "Generated_MMarket"))
+    mtx_files = os.listdir(os.path.join(BASE_PATH, mm_dir))
     for filename in mtx_files:
-        gen_spmm_cusparse_file(filename[:-4], dir_name, f'{BASE_PATH}/Generated_VBR/', False)
+        gen_spmm_cusparse_file(filename[:-4], dir_name, f'{BASE_PATH}/{vbr_dir}/', mm_dir, False)
 
-def gen_spmv_cusparse_file(filename, dir_name, vbr_dir, testing):
+def gen_spmv_cusparse_file(filename, dir_name, vbr_dir, mm_dir, testing):
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
     with open(os.path.join(BASE_PATH, dir_name, filename + ".c"), "w") as f:
         if testing:
             mtx = scipy.io.mmread(f'{dir_name}/{filename}.mtx')
         else:
-            mtx = scipy.io.mmread(f'{BASE_PATH}/Generated_MMarket/{filename}.mtx')
+            mtx = scipy.io.mmread(f'{BASE_PATH}/{mm_dir}/{filename}.mtx')
         vbr_path = f"{vbr_dir}/{filename}.vbr"
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
         csr = scipy.sparse.csr_matrix(mtx)
@@ -67,10 +84,6 @@ int main(void) {
         content += f"\tconst int A_nnz           = {csr.nnz};\n"
         content += f"\tint* hA_csrOffsets = malloc({len(csr.indptr)} * sizeof(int));\n"
         content += f"\tint* hA_columns = malloc({len(csr.indices)} * sizeof(int));\n"
-        for count, elem in enumerate(csr.indptr):
-            content += f"\thA_csrOffsets[{count}] = {elem};\n"
-        for count, elem in enumerate(csr.indices):
-            content += f"\thA_columns[{count}] = {elem};\n"
         content += f"\tfloat*    hA_values       = (float*)malloc({csr.nnz} * sizeof(float));\n"
         content += f"\tfloat* hX = (float*)malloc({rpntr[-1]} * sizeof(float));\n"
         val_file = os.path.join(dir_name, filename + ".cusparse")
@@ -81,9 +94,21 @@ int main(void) {
                     f2.write(",")
                 f2.write(f"{value}")
             f2.write("]\n")
+            f2.write("hA_csrOffsets=[")
+            for i, value in enumerate(csr.indptr):
+                if i != 0:
+                    f2.write(",")
+                f2.write(f"{value}")
+            f2.write("]\n")
+            f2.write("hA_columns=[")
+            for i, value in enumerate(csr.indices):
+                if i != 0:
+                    f2.write(",")
+                f2.write(f"{value}")
+            f2.write("]\n")
         content += f"\tFILE *file1 = fopen(\"{os.path.abspath(val_file)}\", \"r\");\n"
         content += "\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n"
-        content += '\tint x_size = 0, val_size = 0;\n'
+        content += '\tint x_size = 0, val_size = 0, offsets_size = 0, column_size = 0;\n'
         content += "\tchar c;\n"
         content += '''\tassert(fscanf(file1, "val=[%f", &hA_values[val_size]) == 1.0);
     val_size++;
@@ -92,6 +117,36 @@ int main(void) {
         if (c == ',') {
             assert(fscanf(file1, "%f", &hA_values[val_size]) == 1.0);
             val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    assert(fscanf(file1, "hA_csrOffsets=[%d", &hA_csrOffsets[offsets_size]) == 1.0);
+    offsets_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%d", &hA_csrOffsets[offsets_size]) == 1.0);
+            offsets_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    assert(fscanf(file1, "hA_columns=[%d", &hA_columns[column_size]) == 1.0);
+    column_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%d", &hA_columns[column_size]) == 1.0);
+            column_size++;
         } else if (c == ']') {
             break;
         } else {
@@ -119,24 +174,24 @@ int main(void) {
     struct timeval t1;
 	gettimeofday(&t1, NULL);
 	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
-    CHECK_CUDA( cudaMalloc((void**) &dA_csrOffsets,
-                           (A_num_rows + 1) * sizeof(int)) )
-    CHECK_CUDA( cudaMalloc((void**) &dA_columns, A_nnz * sizeof(int))        )
-    CHECK_CUDA( cudaMalloc((void**) &dA_values,  A_nnz * sizeof(float))      )
-    CHECK_CUDA( cudaMalloc((void**) &dX,         A_num_cols * sizeof(float)) )
-    CHECK_CUDA( cudaMalloc((void**) &dY,         A_num_rows * sizeof(float)) )
+    cudaMalloc((void**) &dA_csrOffsets,
+                           (A_num_rows + 1) * sizeof(int));
+    cudaMalloc((void**) &dA_columns, A_nnz * sizeof(int));
+    cudaMalloc((void**) &dA_values,  A_nnz * sizeof(float));
+    cudaMalloc((void**) &dX,         A_num_cols * sizeof(float));
+    cudaMalloc((void**) &dY,         A_num_rows * sizeof(float));
 
-    CHECK_CUDA( cudaMemcpy(dA_csrOffsets, hA_csrOffsets,
+    cudaMemcpy(dA_csrOffsets, hA_csrOffsets,
                            (A_num_rows + 1) * sizeof(int),
-                           cudaMemcpyHostToDevice) )
-    CHECK_CUDA( cudaMemcpy(dA_columns, hA_columns, A_nnz * sizeof(int),
-                           cudaMemcpyHostToDevice) )
-    CHECK_CUDA( cudaMemcpy(dA_values, hA_values, A_nnz * sizeof(float),
-                           cudaMemcpyHostToDevice) )
-    CHECK_CUDA( cudaMemcpy(dX, hX, A_num_cols * sizeof(float),
-                           cudaMemcpyHostToDevice) )
-    CHECK_CUDA( cudaMemcpy(dY, hY, A_num_rows * sizeof(float),
-                           cudaMemcpyHostToDevice) )
+                           cudaMemcpyHostToDevice);
+    cudaMemcpy(dA_columns, hA_columns, A_nnz * sizeof(int),
+                           cudaMemcpyHostToDevice);
+    cudaMemcpy(dA_values, hA_values, A_nnz * sizeof(float),
+                           cudaMemcpyHostToDevice);
+    cudaMemcpy(dX, hX, A_num_cols * sizeof(float),
+                           cudaMemcpyHostToDevice);
+    cudaMemcpy(dY, hY, A_num_rows * sizeof(float),
+                           cudaMemcpyHostToDevice);
     //--------------------------------------------------------------------------
     // CUSPARSE APIs
     cusparseHandle_t     handle = NULL;
@@ -144,33 +199,33 @@ int main(void) {
     cusparseDnVecDescr_t vecX, vecY;
     void*                dBuffer    = NULL;
     size_t               bufferSize = 0;
-    CHECK_CUSPARSE( cusparseCreate(&handle) )
+    cusparseCreate(&handle);
     // Create sparse matrix A in CSR format
-    CHECK_CUSPARSE( cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
+    cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
                                       dA_csrOffsets, dA_columns, dA_values,
                                       CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) )
+                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F);
     // Create dense vector X
-    CHECK_CUSPARSE( cusparseCreateDnVec(&vecX, A_num_cols, dX, CUDA_R_32F) )
+    cusparseCreateDnVec(&vecX, A_num_cols, dX, CUDA_R_32F);
     // Create dense vector y
-    CHECK_CUSPARSE( cusparseCreateDnVec(&vecY, A_num_rows, dY, CUDA_R_32F) )
+    cusparseCreateDnVec(&vecY, A_num_rows, dY, CUDA_R_32F);
     // allocate an external buffer if needed
-    CHECK_CUSPARSE( cusparseSpMV_bufferSize(
+    cusparseSpMV_bufferSize(
                                  handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, matA, vecX, &beta, vecY, CUDA_R_32F,
-                                 CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize) )
-    CHECK_CUDA( cudaMalloc(&dBuffer, bufferSize) )
+                                 CUSPARSE_SPMV_ALG_DEFAULT, &bufferSize);
+    cudaMalloc(&dBuffer, bufferSize);
 
     // execute SpMV
-    CHECK_CUSPARSE( cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
+    cusparseSpMV(handle, CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, matA, vecX, &beta, vecY, CUDA_R_32F,
-                                 CUSPARSE_SPMV_ALG_DEFAULT, dBuffer) )
+                                 CUSPARSE_SPMV_ALG_DEFAULT, dBuffer);
     
     struct timeval t2;
 	gettimeofday(&t2, NULL);
 	long t2s = t2.tv_sec * 1000000L + t2.tv_usec;'''
 
-        content += f'printf("{filename}= %lu\\n", t2s-t1s);\n'
+        content += f'printf("{filename} = %lu\\n", t2s-t1s);\n'
     
         content +='''// destroy matrix/vector descriptors
     CHECK_CUSPARSE( cusparseDestroySpMat(matA) )
@@ -202,12 +257,14 @@ int main(void) {
 '''
         f.write(content)
 
-def gen_spmm_cusparse_file(filename, dir_name, vbr_dir, testing):
+def gen_spmm_cusparse_file(filename, dir_name, vbr_dir, mm_dir, testing):
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
     with open(os.path.join(BASE_PATH, dir_name, filename + ".c"), "w") as f:
         if testing:
             mtx = scipy.io.mmread(f'{dir_name}/{filename}.mtx')
         else:
-            mtx = scipy.io.mmread(f'{BASE_PATH}/Generated_MMarket/{filename}.mtx')
+            mtx = scipy.io.mmread(f'{BASE_PATH}/{mm_dir}/{filename}.mtx')
         vbr_path = f"{vbr_dir}/{filename}.vbr"
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
         csr = scipy.sparse.csr_matrix(mtx)
@@ -252,10 +309,6 @@ int main(void) {
 """
         content += f"\tint* hA_csrOffsets = malloc({len(csr.indptr)} * sizeof(int));\n"
         content += f"\tint* hA_columns = malloc({len(csr.indices)} * sizeof(int));\n"
-        for count, elem in enumerate(csr.indptr):
-            content += f"\thA_csrOffsets[{count}] = {elem};\n"
-        for count, elem in enumerate(csr.indices):
-            content += f"\thA_columns[{count}] = {elem};\n"
         content += f"\tfloat*    hA_values       = (float*)malloc({csr.nnz} * sizeof(float));\n"
         val_file = os.path.join(dir_name, filename + ".cusparse")
         with open(val_file, "w") as f2:
@@ -265,9 +318,21 @@ int main(void) {
                     f2.write(",")
                 f2.write(f"{value}")
             f2.write("]\n")
+            f2.write("hA_csrOffsets=[")
+            for i, value in enumerate(csr.indptr):
+                if i != 0:
+                    f2.write(",")
+                f2.write(f"{value}")
+            f2.write("]\n")
+            f2.write("hA_columns=[")
+            for i, value in enumerate(csr.indices):
+                if i != 0:
+                    f2.write(",")
+                f2.write(f"{value}")
+            f2.write("]\n")
         content += f"\tFILE *file1 = fopen(\"{os.path.abspath(val_file)}\", \"r\");\n"
         content += "\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n"
-        content += '\tint x_size = 0, val_size = 0;\n'
+        content += '\tint x_size = 0, val_size = 0, offsets_size = 0, column_size = 0;\n'
         content += "\tchar c;\n"
         content += '''\tassert(fscanf(file1, "val=[%f", &hA_values[val_size]) == 1.0);
     val_size++;
@@ -276,6 +341,36 @@ int main(void) {
         if (c == ',') {
             assert(fscanf(file1, "%f", &hA_values[val_size]) == 1.0);
             val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    assert(fscanf(file1, "hA_csrOffsets=[%d", &hA_csrOffsets[offsets_size]) == 1.0);
+    offsets_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%d", &hA_csrOffsets[offsets_size]) == 1.0);
+            offsets_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    assert(fscanf(file1, "hA_columns=[%d", &hA_columns[column_size]) == 1.0);
+    column_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%d", &hA_columns[column_size]) == 1.0);
+            column_size++;
         } else if (c == ']') {
             break;
         } else {
@@ -304,24 +399,24 @@ int main(void) {
     struct timeval t1;
 	gettimeofday(&t1, NULL);
 	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
-    CHECK_CUDA( cudaMalloc((void**) &dA_csrOffsets,
-                           (A_num_rows + 1) * sizeof(int)) )
-    CHECK_CUDA( cudaMalloc((void**) &dA_columns, A_nnz * sizeof(int))    )
-    CHECK_CUDA( cudaMalloc((void**) &dA_values,  A_nnz * sizeof(float))  )
-    CHECK_CUDA( cudaMalloc((void**) &dB,         B_size * sizeof(float)) )
-    CHECK_CUDA( cudaMalloc((void**) &dC,         C_size * sizeof(float)) )
+    cudaMalloc((void**) &dA_csrOffsets,
+                           (A_num_rows + 1) * sizeof(int));
+    cudaMalloc((void**) &dA_columns, A_nnz * sizeof(int));
+    cudaMalloc((void**) &dA_values,  A_nnz * sizeof(float));
+    cudaMalloc((void**) &dB,         B_size * sizeof(float));
+    cudaMalloc((void**) &dC,         C_size * sizeof(float));
 
-    CHECK_CUDA( cudaMemcpy(dA_csrOffsets, hA_csrOffsets,
+    cudaMemcpy(dA_csrOffsets, hA_csrOffsets,
                            (A_num_rows + 1) * sizeof(int),
-                           cudaMemcpyHostToDevice) )
-    CHECK_CUDA( cudaMemcpy(dA_columns, hA_columns, A_nnz * sizeof(int),
-                           cudaMemcpyHostToDevice) )
-    CHECK_CUDA( cudaMemcpy(dA_values, hA_values, A_nnz * sizeof(float),
-                           cudaMemcpyHostToDevice) )
-    CHECK_CUDA( cudaMemcpy(dB, hB, B_size * sizeof(float),
-                           cudaMemcpyHostToDevice) )
-    CHECK_CUDA( cudaMemcpy(dC, hC, C_size * sizeof(float),
-                           cudaMemcpyHostToDevice) )
+                           cudaMemcpyHostToDevice);
+    cudaMemcpy(dA_columns, hA_columns, A_nnz * sizeof(int),
+                           cudaMemcpyHostToDevice);
+    cudaMemcpy(dA_values, hA_values, A_nnz * sizeof(float),
+                           cudaMemcpyHostToDevice);
+    cudaMemcpy(dB, hB, B_size * sizeof(float),
+                           cudaMemcpyHostToDevice);
+    cudaMemcpy(dC, hC, C_size * sizeof(float),
+                           cudaMemcpyHostToDevice);
     //--------------------------------------------------------------------------
     // CUSPARSE APIs
     cusparseHandle_t     handle = NULL;
@@ -329,38 +424,38 @@ int main(void) {
     cusparseDnMatDescr_t matB, matC;
     void*                dBuffer    = NULL;
     size_t               bufferSize = 0;
-    CHECK_CUSPARSE( cusparseCreate(&handle) )
+    cusparseCreate(&handle);
     // Create sparse matrix A in CSR format
-    CHECK_CUSPARSE( cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
+    cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
                                       dA_csrOffsets, dA_columns, dA_values,
                                       CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F) )
+                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F);
     // Create dense matrix B
-    CHECK_CUSPARSE( cusparseCreateDnMat(&matB, A_num_cols, B_num_cols, ldb, dB,
-                                        CUDA_R_32F, CUSPARSE_ORDER_COL) )
+    cusparseCreateDnMat(&matB, A_num_cols, B_num_cols, ldb, dB,
+                                        CUDA_R_32F, CUSPARSE_ORDER_COL);
     // Create dense matrix C
-    CHECK_CUSPARSE( cusparseCreateDnMat(&matC, A_num_rows, B_num_cols, ldc, dC,
-                                        CUDA_R_32F, CUSPARSE_ORDER_COL) )
+    cusparseCreateDnMat(&matC, A_num_rows, B_num_cols, ldc, dC,
+                                        CUDA_R_32F, CUSPARSE_ORDER_COL);
     // allocate an external buffer if needed
-    CHECK_CUSPARSE( cusparseSpMM_bufferSize(
+    cusparseSpMM_bufferSize(
                                  handle,
                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-                                 CUSPARSE_SPMM_ALG_DEFAULT, &bufferSize) )
-    CHECK_CUDA( cudaMalloc(&dBuffer, bufferSize) )
+                                 CUSPARSE_SPMM_ALG_DEFAULT, &bufferSize);
+    cudaMalloc(&dBuffer, bufferSize);
 
     // execute SpMM
-    CHECK_CUSPARSE( cusparseSpMM(handle,
+    cusparseSpMM(handle,
                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, matA, matB, &beta, matC, CUDA_R_32F,
-                                 CUSPARSE_SPMM_ALG_DEFAULT, dBuffer) )
+                                 CUSPARSE_SPMM_ALG_DEFAULT, dBuffer);
 
     struct timeval t2;
 	gettimeofday(&t2, NULL);
 	long t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n'''
-        content += f'printf("{filename}= %lu\\n", t2s-t1s);\n'
+        content += f'printf("{filename} = %lu\\n", t2s-t1s);\n'
         content +='''// destroy matrix descriptors
     CHECK_CUSPARSE( cusparseDestroySpMat(matA) )
     CHECK_CUSPARSE( cusparseDestroyDnMat(matB) )
@@ -392,5 +487,13 @@ int main(void) {
         f.write(content)
 
 if __name__ == "__main__":
-    gen_spmv_cusparse_files()
-    gen_spmm_cusparse_files()
+    parser = ArgumentParser(description='Gen cuSparse')
+    parser.add_argument("--dense-blocks-only", action="store_true", default=False, required=False)
+    args = parser.parse_args()
+    dense_blocks_only = args.dense_blocks_only
+    if dense_blocks_only:
+        gen_spmv_cusparse_files(dense_blocks_only=True)
+        gen_spmm_cusparse_files(dense_blocks_only=True)
+    else:
+        gen_spmv_cusparse_files(dense_blocks_only=False)
+        gen_spmm_cusparse_files(dense_blocks_only=False)

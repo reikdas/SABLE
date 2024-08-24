@@ -169,7 +169,7 @@ def run_nonzeros_spmv():
 
 def run_spmv_cusparse():
     test_setup_file()
-    gen_spmv_cusparse_file(filename="example", dir_name="tests", vbr_dir="tests", testing=True)
+    gen_spmv_cusparse_file(filename="example", dir_name="tests", vbr_dir="tests", mm_dir="tests", testing=True)
     subprocess.check_call(["nvcc", "-o", "example", "example.c", "-O3", "-lcusparse", "-Wno-deprecated-declarations"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
@@ -187,7 +187,7 @@ def run_nonzeros_spmm():
 
 def run_spmm_cusparse():
     test_setup_file()
-    gen_spmm_cusparse_file(filename="example", dir_name="tests", vbr_dir="tests", testing=True)
+    gen_spmm_cusparse_file(filename="example", dir_name="tests", vbr_dir="tests", mm_dir="tests", testing=True)
     subprocess.check_call(["nvcc", "-o", "example", "example.c", "-O3", "-lcusparse", "-Wno-deprecated-declarations"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:

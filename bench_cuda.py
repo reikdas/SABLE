@@ -85,9 +85,9 @@ def bench_spmm():
             fname = filename[:-len(".vbr")]
             spmm_file = fname + ".cu"
             print(filename, flush=True)
-            # compile the generated code for SpMV operation
+            # compile the generated code for SpMM operation
             vbr_spmm_cuda_codegen(fname, density=0, dir_name="Generated_SpMM_cuda", vbr_dir="Generated_VBR")
-            subprocess.run(["nvcc", "-O3", "-mprefer-vector-width=512", "-mavx", "-o", fname, spmm_file], cwd="Generated_SpMM_cuda")
+            subprocess.run(["nvcc", "-O3", "-o", fname, spmm_file], cwd="Generated_SpMM_cuda")
             output = subprocess.run(["./"+fname], capture_output=True, cwd="Generated_SpMM_cuda")
             execution_times = []
             for i in range(BENCHMARK_FREQ):

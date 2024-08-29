@@ -11,6 +11,7 @@ from utils.mtx_matrices_gen import vbr_to_mtx
 from src.baseline import *
 
 from gen_cusparse import gen_spmv_cusparse_file, gen_spmm_cusparse_file
+from gen_cublas import gen_spmm_cublas_file
 
 
 def cmp_file(file1, file2):
@@ -194,6 +195,15 @@ def run_spmm_cusparse():
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
+def run_spmm_cublas():
+    test_setup_file()
+    gen_spmm_cublas_file(filename="example", dir_name="tests", vbr_dir="tests", mm_dir="tests", testing=True)
+    subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3", "-lcublas"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
@@ -213,6 +223,7 @@ def test_spmm():
     run_spmm_libxsmm()
     run_spmm_cblas()
     run_spmm_cusparse() # Just for benchmarking
+    run_spmm_cublas()
 
 def test_baselines():
     run_nonzeros_spmv()

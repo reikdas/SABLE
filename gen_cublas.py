@@ -62,11 +62,11 @@ int main(void) {
     cudaStream_t stream = NULL;
 """
         content += f"\tconst int m = {mtx.shape[0]};\n"
-        content += f"\tconst int n = {mtx.shape[1]};\n"
-        content += "\tconst int k = 512;\n"
-        content += f"\tconst int lda = {mtx.shape[0]};\n"
-        content += f"\tconst int ldb = {512};\n"
-        content += f"\tconst int ldc = {mtx.shape[0]};\n"
+        content += f"\tconst int n = 512;\n"
+        content += f"\tconst int k = {mtx.shape[1]};\n"
+        content += "\tconst int lda = k;\n"
+        content += "\tconst int ldb = n;\n"
+        content += "\tconst int ldc = m;\n"
         content += f"\tconst int A_size = {mtx.shape[0] * mtx.shape[1]};\n"
         content += f"\tconst int B_size = {512 * mtx.shape[1]};\n"
         content += f"\tconst int C_size = {mtx.shape[0] * 512};\n"
@@ -114,8 +114,8 @@ int main(void) {
     float *d_A = nullptr;
     float *d_B = nullptr;
     float *d_C = nullptr;
-    cublasOperation_t transa = CUBLAS_OP_N;
-    cublasOperation_t transb = CUBLAS_OP_N;
+    cublasOperation_t transa = CUBLAS_OP_T;
+    cublasOperation_t transb = CUBLAS_OP_T;
     CUBLAS_CHECK(cublasCreate(&cublasH));
     CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
     CUBLAS_CHECK(cublasSetStream(cublasH, stream));
@@ -130,7 +130,7 @@ int main(void) {
     struct timeval t1;
 	gettimeofday(&t1, NULL);
 	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
-    cublasSgemm(cublasH, transa, transb, n, m, k, &alpha, d_B, n, d_A, k, &beta, d_C, n);
+    cublasSgemm(cublasH, transa, transb, m, n, k, &alpha, d_A, lda, d_B, ldb, &beta, d_C, ldc);
     struct timeval t2;
 	gettimeofday(&t2, NULL);
 	long t2s = t2.tv_sec * 1000000L + t2.tv_usec;
@@ -141,8 +141,8 @@ int main(void) {
     '''    
         content += f'printf("{filename} = %lu\\n", t2s-t1s);\n'
         content += '''\tfor(int i = 0; i < {0}; i++) {{
-        for(int j = 0; j < 512; j++) {{
-            printf("%f\\n", C[i+j*ldb]);
+        for(int j = 0; j < n; j++) {{
+            printf("%f\\n", C[j*m+i]);
         }}
     }}\n'''.format(mtx.shape[0])
         content += '''\tCUDA_CHECK(cudaFree(d_A));

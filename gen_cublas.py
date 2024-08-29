@@ -130,7 +130,7 @@ int main(void) {
     struct timeval t1;
 	gettimeofday(&t1, NULL);
 	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
-    cublasSgemm(cublasH, transa, transb, n, m, k, &alpha, d_B, ldb, d_A, lda, &beta, d_C, ldc);
+    cublasSgemm(cublasH, transa, transb, n, m, k, &alpha, d_B, n, d_A, k, &beta, d_C, n);
     struct timeval t2;
 	gettimeofday(&t2, NULL);
 	long t2s = t2.tv_sec * 1000000L + t2.tv_usec;
@@ -142,7 +142,7 @@ int main(void) {
         content += f'printf("{filename} = %lu\\n", t2s-t1s);\n'
         content += '''\tfor(int i = 0; i < {0}; i++) {{
         for(int j = 0; j < 512; j++) {{
-            printf("%f\\n", C[i*512+j]);
+            printf("%f\\n", C[i+j*ldb]);
         }}
     }}\n'''.format(mtx.shape[0])
         content += '''\tCUDA_CHECK(cudaFree(d_A));

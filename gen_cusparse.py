@@ -171,9 +171,7 @@ int main(void) {
     int   *dA_csrOffsets, *dA_columns;
     float *dA_values, *dX, *dY;
     
-    struct timeval t1;
-	gettimeofday(&t1, NULL);
-	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
+
     cudaMalloc((void**) &dA_csrOffsets,
                            (A_num_rows + 1) * sizeof(int));
     cudaMalloc((void**) &dA_columns, A_nnz * sizeof(int));
@@ -192,6 +190,9 @@ int main(void) {
                            cudaMemcpyHostToDevice);
     cudaMemcpy(dY, hY, A_num_rows * sizeof(float),
                            cudaMemcpyHostToDevice);
+        struct timeval t1;
+	gettimeofday(&t1, NULL);
+	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
     //--------------------------------------------------------------------------
     // CUSPARSE APIs
     cusparseHandle_t     handle = NULL;
@@ -396,9 +397,6 @@ int main(void) {
     // Device memory management
     int   *dA_csrOffsets, *dA_columns;
     float *dA_values, *dB, *dC;
-    struct timeval t1;
-	gettimeofday(&t1, NULL);
-	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
     cudaMalloc((void**) &dA_csrOffsets,
                            (A_num_rows + 1) * sizeof(int));
     cudaMalloc((void**) &dA_columns, A_nnz * sizeof(int));
@@ -417,6 +415,9 @@ int main(void) {
                            cudaMemcpyHostToDevice);
     cudaMemcpy(dC, hC, C_size * sizeof(float),
                            cudaMemcpyHostToDevice);
+        struct timeval t1;
+	gettimeofday(&t1, NULL);
+	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
     //--------------------------------------------------------------------------
     // CUSPARSE APIs
     cusparseHandle_t     handle = NULL;
@@ -451,7 +452,7 @@ int main(void) {
                                  CUSPARSE_OPERATION_NON_TRANSPOSE,
                                  &alpha, matA, matB, &beta, matC, CUDA_R_32F,
                                  CUSPARSE_SPMM_ALG_DEFAULT, dBuffer);
-
+    cudaDeviceSynchronize();
     struct timeval t2;
 	gettimeofday(&t2, NULL);
 	long t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n'''

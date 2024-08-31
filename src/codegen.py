@@ -1178,11 +1178,15 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
     code.append("\tfloat *y, *x, *val;\n")
-    code.append(f"\tgpuErrchk(cudaMallocManaged(&y, {rpntr[-1]*512}*sizeof(float)));\n")
-    code.append(f"\tgpuErrchk(cudaMallocManaged(&x, {cpntr[-1]*512}*sizeof(float)));\n")
-    code.append(f"\tgpuErrchk(cudaMallocManaged(&val, {len(val)}*sizeof(float)));\n")
+    # code.append(f"\tgpuErrchk(cudaMallocManaged(&y, {rpntr[-1]*512}*sizeof(float)));\n")
+    # code.append(f"\tgpuErrchk(cudaMallocManaged(&x, {cpntr[-1]*512}*sizeof(float)));\n")
+    # code.append(f"\tgpuErrchk(cudaMallocManaged(&val, {len(val)}*sizeof(float)));\n")
     # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(x, {rpntr[-1] + 1}*sizeof(float), cudaCpuDeviceId));\n")
     # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(val, {len(val) + 1}*sizeof(float), cudaCpuDeviceId));\n")
+    code.append(f"\ty=(float*)malloc({rpntr[-1]*512}*sizeof(float));\n")
+    code.append(f"\tx = (float*)malloc({cpntr[-1]*512}*sizeof(float));\n")
+    code.append(f"\tval = (float*)malloc({len(val)}*sizeof(float));\n")
+    code.append(f"\tfloat *x_d, *val_d, *y_d;\n")
     code.append("\tchar c;\n")
     code.append(f"\tint val_size=0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
@@ -1215,6 +1219,11 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(val, {len(val) + 1}*sizeof(float), id));\n")
     code.append("\tint blockSize, minGridSize, gridSize;\n")
     code.append("\tcudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, spmm, 0, 0);\n")
+    code.append(f"\tgpuErrchk(cudaMalloc((void**)&y_d, {rpntr[-1]*512}*sizeof(float)));\n")
+    code.append(f"\tgpuErrchk(cudaMalloc((void**)&x_d, {cpntr[-1]*512}*sizeof(float)));\n")
+    code.append(f"\tgpuErrchk(cudaMalloc((void**)&val_d, {len(val)}*sizeof(float)));\n")
+    code.append(f"\tgpuErrchk(cudaMemcpy(x_d, x, {cpntr[-1]*512}*sizeof(float), cudaMemcpyHostToDevice));\n")
+    code.append(f"\tgpuErrchk(cudaMemcpy(val_d, val, {len(val)}*sizeof(float), cudaMemcpyHostToDevice));\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
@@ -1238,14 +1247,14 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
                             else:
                                 dense_count+=1
                             count2+=1
-                    if dense_count > (density * (sparse_count+dense_count))//100:
-                        code.append(f"\tspmm<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    if ((sparse_count + dense_count) > 1000):
+                        code.append(f"\tspmm<<<gridSize, blockSize>>>(y_d, x_d, val_d, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                         # code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                     else:
                         code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 else:
-                    code.append(f"\tspmm<<<gridSize, blockSize>>>(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append(f"\tspmm<<<gridSize, blockSize>>>(y_d, x_d, val_d, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     # code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                 count+=1
@@ -1254,14 +1263,18 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     code.append("\tgettimeofday(&t2, NULL);\n")
     code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
     code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append(f"\tgpuErrchk(cudaMemcpy(y, y_d, {rpntr[-1]*512}*sizeof(float), cudaMemcpyDeviceToHost));\n")
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tfor (int j=0; j<512; j++) {\n")
     code.append("\t\t\tprintf(\"%f\\n\", y[i*512+j]);\n")
     code.append("\t\t}\n")
     code.append("\t}\n")
-    code.append("\tgpuErrchk(cudaFree(y));\n")
-    code.append("\tgpuErrchk(cudaFree(x));\n")
-    code.append("\tgpuErrchk(cudaFree(val));\n")
+    code.append("\tgpuErrchk(cudaFree(y_d));\n")
+    code.append("\tgpuErrchk(cudaFree(x_d));\n")
+    code.append("\tgpuErrchk(cudaFree(val_d));\n")
+    code.append("\tfree(y);\n")
+    code.append("\tfree(x);\n")
+    code.append("\tfree(val);\n")
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".cu"), "w") as f:
         f.writelines(code)

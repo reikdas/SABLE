@@ -131,6 +131,7 @@ int main(void) {
 	gettimeofday(&t1, NULL);
 	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
     cublasSgemm(cublasH, transa, transb, m, n, k, &alpha, d_A, lda, d_B, ldb, &beta, d_C, ldc);
+    cudaDeviceSynchronize();
     struct timeval t2;
 	gettimeofday(&t2, NULL);
 	long t2s = t2.tv_sec * 1000000L + t2.tv_usec;

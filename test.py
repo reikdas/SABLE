@@ -144,7 +144,7 @@ def run_spmm_cblas():
 def run_spmm_cuda():
     test_setup_file()
     vbr_spmm_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", density=0)
-    subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3"], cwd="tests")
+    subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3", "-lcublas"], cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -204,6 +204,14 @@ def run_spmm_cublas():
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
+def run_spmm_pytorch():
+    test_setup_file()
+    vbr_spmm_pytorch_codegen(filename="example", dir_name="tests", vbr_dir="tests")
+    output = subprocess.check_output(["python3", "example.py"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
@@ -222,9 +230,10 @@ def test_spmm():
     run_spmm_cuda()
     run_spmm_libxsmm()
     run_spmm_cblas()
-    run_spmm_cusparse() # Just for benchmarking
-    run_spmm_cublas()
-
+    
 def test_baselines():
     run_nonzeros_spmv()
     run_nonzeros_spmm()
+    run_spmm_cublas()
+    run_spmm_pytorch()
+    run_spmm_cusparse()

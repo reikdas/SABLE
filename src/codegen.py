@@ -1149,40 +1149,47 @@ def vbr_spmm_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: i
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
     code = []
-    code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
-    code.append("#include <stdlib.h>\n")
-    code.append("#include <assert.h>\n\n")
-    code.append('''#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
-{
-   if (code != cudaSuccess) 
-   {
-      fprintf(stderr,"GPUassert: %s %s %d\\n", cudaGetErrorString(code), file, line);
-      if (abort) exit(code);
-   }
-}\n\n''')
-    code.append("__global__ void spmm(float *y, float* x, float* val, int i_start, int i_end, int j_start, int j_end, int offset) {\n")
-    code.append("\tint i_len = i_end - i_start;\n")
-    code.append("\tfor (int i=blockIdx.x * blockDim.x + threadIdx.x; i<i_len; i+=blockDim.x * gridDim.x) {\n")
-    code.append("\t\t for (int j=blockIdx.y * blockDim.y + threadIdx.y; j<(j_end - j_start); j+=blockDim.y * gridDim.y) {\n")
-    code.append("\t\t\t for (int k=0; k<512; k++) {\n")
-    code.append("\t\t\t\ty[((i+i_start)*512) + k] += (&val[offset])[(j*i_len) + i] * x[((j+j_start)*512)+k];\n")
-    code.append("\t\t\t}\n")
-    code.append("\t\t}\n")
-    code.append("\t}\n")
-    code.append("}\n\n")
-    code.append("int main() {\n")
+    code.append("""#include <cublas_v2.h>
+#include <cuda_runtime.h>
+#include <stdio.h>            // printf
+#include <stdlib.h>           // EXIT_FAILURE
+#include <assert.h>
+#include <sys/time.h>
+
+#define CUDA_CHECK(func)                                                       \\
+{                                                                              \\
+    cudaError_t status = (func);                                               \\
+    if (status != cudaSuccess) {                                               \\
+        printf("CUDA API failed at line %d with error: %s (%d)",             \\
+               __LINE__, cudaGetErrorString(status), status);                  \\
+        return EXIT_FAILURE;                                                   \\
+    }                                                                          \\
+}
+
+#define CUBLAS_CHECK(func)                                                       \\
+{                                                                              \\
+    cublasStatus_t status = (func);                                               \\
+    if (status != CUBLAS_STATUS_SUCCESS) {                                               \\
+        printf("CUDA API failed at line %d with error: (%d)",             \\
+               __LINE__, status);                  \\
+        return EXIT_FAILURE;                                                   \\
+    }                                                                          \\
+}
+
+int main(void) {
+    cublasHandle_t cublasH = NULL;
+    cudaStream_t stream = NULL;
+    CUBLAS_CHECK(cublasCreate(&cublasH));
+    CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+    CUBLAS_CHECK(cublasSetStream(cublasH, stream));
+    const float alpha = 1.0f;
+    const float beta = 0.0f;
+""")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
     code.append("\tfloat *y, *x, *val;\n")
-    # code.append(f"\tgpuErrchk(cudaMallocManaged(&y, {rpntr[-1]*512}*sizeof(float)));\n")
-    # code.append(f"\tgpuErrchk(cudaMallocManaged(&x, {cpntr[-1]*512}*sizeof(float)));\n")
-    # code.append(f"\tgpuErrchk(cudaMallocManaged(&val, {len(val)}*sizeof(float)));\n")
-    # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(x, {rpntr[-1] + 1}*sizeof(float), cudaCpuDeviceId));\n")
-    # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(val, {len(val) + 1}*sizeof(float), cudaCpuDeviceId));\n")
     code.append(f"\ty=(float*)malloc({rpntr[-1]*512}*sizeof(float));\n")
     code.append(f"\tx = (float*)malloc({cpntr[-1]*512}*sizeof(float));\n")
     code.append(f"\tval = (float*)malloc({len(val)}*sizeof(float));\n")
@@ -1211,19 +1218,11 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         }}
     }}
     fclose(file2);\n'''.format(rpntr[-1]))
-    # code.append(f"\tint id = cudaGetDevice(&id);\n")
-    # code.append(f"\tgpuErrchk(cudaMemAdvise(x, {rpntr[-1] + 1}*sizeof(float), cudaMemAdviseSetReadMostly, id));\n")
-    # code.append(f"\tgpuErrchk(cudaMemAdvise(val, {len(val) + 1}, cudaMemAdviseSetReadMostly, id));\n")
-    # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(y, {rpntr[-1]}*sizeof(float), id));\n")
-    # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(x, {rpntr[-1] + 1}*sizeof(float), id));\n")
-    # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(val, {len(val) + 1}*sizeof(float), id));\n")
-    code.append("\tint blockSize, minGridSize, gridSize;\n")
-    code.append("\tcudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, spmm, 0, 0);\n")
-    code.append(f"\tgpuErrchk(cudaMalloc((void**)&y_d, {rpntr[-1]*512}*sizeof(float)));\n")
-    code.append(f"\tgpuErrchk(cudaMalloc((void**)&x_d, {cpntr[-1]*512}*sizeof(float)));\n")
-    code.append(f"\tgpuErrchk(cudaMalloc((void**)&val_d, {len(val)}*sizeof(float)));\n")
-    code.append(f"\tgpuErrchk(cudaMemcpy(x_d, x, {cpntr[-1]*512}*sizeof(float), cudaMemcpyHostToDevice));\n")
-    code.append(f"\tgpuErrchk(cudaMemcpy(val_d, val, {len(val)}*sizeof(float), cudaMemcpyHostToDevice));\n")
+    code.append(f"\tCUDA_CHECK(cudaMalloc((void**)&y_d, {rpntr[-1]*512}*sizeof(float)));\n")
+    code.append(f"\tCUDA_CHECK(cudaMalloc((void**)&x_d, {cpntr[-1]*512}*sizeof(float)));\n")
+    code.append(f"\tCUDA_CHECK(cudaMalloc((void**)&val_d, {len(val)}*sizeof(float)));\n")
+    code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(x_d, x, {cpntr[-1]*512}*sizeof(float), cudaMemcpyHostToDevice, stream));\n")
+    code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(val_d, val, {len(val)}*sizeof(float), cudaMemcpyHostToDevice, stream));\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
@@ -1232,46 +1231,24 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         if bpntrb[a] == -1:
             continue
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        code.append(f"\tgridSize = ({rpntr[a+1] - rpntr[a]} + blockSize - 1)/blockSize;\n")
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                if density > 0:
-                    sparse_count = 0
-                    dense_count = 0
-                    count2 = 0
-                    # Check if the block is more than 25% dense
-                    for _ in range(rpntr[a], rpntr[a+1]):
-                        for _ in range(cpntr[b], cpntr[b+1]):
-                            if val[indx[count]+count2] == 0.0:
-                                sparse_count+=1
-                            else:
-                                dense_count+=1
-                            count2+=1
-                    if ((sparse_count + dense_count) > 1000):
-                        code.append(f"\tspmm<<<gridSize, blockSize>>>(y_d, x_d, val_d, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                        # code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
-                    # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
-                    else:
-                        code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
-                else:
-                    code.append(f"\tspmm<<<gridSize, blockSize>>>(y_d, x_d, val_d, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    # code.append("\tgpuErrchk(cudaPeekAtLastError());\n")
-                    # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
+                code.append(f"cublasSgemm(cublasH, CUBLAS_OP_N, CUBLAS_OP_T, {rpntr[a+1] - rpntr[a]}, 512, {cpntr[b+1] - cpntr[b]}, &alpha, &val_d[{indx[count]}], {rpntr[a+1] - rpntr[a]}, &x_d[{cpntr[b]*512}], 512, &beta, &y_d[{rpntr[a] * 512}], {rpntr[a+1] - rpntr[a]});\n")
                 count+=1
         code.append("\tcudaDeviceSynchronize();\n")
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
     code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
     code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
-    code.append(f"\tgpuErrchk(cudaMemcpy(y, y_d, {rpntr[-1]*512}*sizeof(float), cudaMemcpyDeviceToHost));\n")
+    code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(y, y_d, {rpntr[-1]*512}*sizeof(float), cudaMemcpyDeviceToHost, stream));\n")
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tfor (int j=0; j<512; j++) {\n")
-    code.append("\t\t\tprintf(\"%f\\n\", y[i*512+j]);\n")
+    code.append(f"\t\t\tprintf(\"%f\\n\", y[j*{rpntr[-1]} + i]);\n")
     code.append("\t\t}\n")
     code.append("\t}\n")
-    code.append("\tgpuErrchk(cudaFree(y_d));\n")
-    code.append("\tgpuErrchk(cudaFree(x_d));\n")
-    code.append("\tgpuErrchk(cudaFree(val_d));\n")
+    code.append("\tCUDA_CHECK(cudaFree(y_d));\n")
+    code.append("\tCUDA_CHECK(cudaFree(x_d));\n")
+    code.append("\tCUDA_CHECK(cudaFree(val_d));\n")
     code.append("\tfree(y);\n")
     code.append("\tfree(x);\n")
     code.append("\tfree(val);\n")
@@ -1280,6 +1257,48 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         f.writelines(code)
     time2 = time.time_ns() // 1_000
     return time2-time1
+
+def vbr_spmm_pytorch_codegen(filename: str, dir_name: str, vbr_dir: str):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+    time1 = time.time_ns() // 1_000
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
+    code = []
+    code.append("import torch\n")
+    code.append("import ast\n")
+    code.append("import time\n")
+    code.append(f"""with open(\"{os.path.abspath(vbr_path)}\", 'r') as file:
+    first_line = file.readline().strip()
+values_str = first_line.split('=')[1]
+values_list = ast.literal_eval(values_str)
+A = torch.tensor(values_list, dtype=torch.float32,device="cuda")
+with open(\"{os.path.abspath(matrix_path)}\", 'r') as file:
+    content = file.readline().strip()
+values_str_list = content.split(',')
+values_float_list = [float(value) for value in values_str_list]
+B = torch.tensor(values_float_list, dtype=torch.float32,device="cuda")
+out = torch.empty({rpntr[-1]} * 512,device="cuda")
+start = time.perf_counter()\n""")
+    count = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                code.append(f"""out[{rpntr[a]*512}:{rpntr[a+1]*512}].view({rpntr[a+1]-rpntr[a]}, 512).add_(torch.mm(A[{indx[count]}:{indx[count]+(rpntr[a+1]-rpntr[a])*(cpntr[b+1]-cpntr[b])}].view({cpntr[b+1]-cpntr[b]}, {rpntr[a+1]-rpntr[a]}).t(), 
+                            B[{cpntr[b]*512}:{cpntr[b+1]*512}].view({cpntr[b+1]-cpntr[b]}, 512)))\n""")
+                count+=1
+    code.append("torch.cuda.synchronize()\n")
+    code.append("end = time.perf_counter()\n")
+    code.append(f"print(\"{filename} = \", (end - start) * 1_000_000)\n")
+    code.append(f"for i in range({rpntr[-1] * 512}):\n")
+    code.append(f"\tprint(out[i].item())\n")
+    with open(os.path.join(dir_name, filename+".py"), "w") as f:
+        f.writelines(code)
+
 
 def vbr_spmv_codegen(filename: str, density: int, dir_name: str, vbr_dir: str, threads: int):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")

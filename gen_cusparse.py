@@ -303,10 +303,10 @@ int main(void) {
         content += f"\tconst int A_nnz           = {csr.nnz};\n"
         content += f"\tint B_num_rows = A_num_cols;\n"
         content += f"\tint B_num_cols = 512;\n"
-        content += """int   ldb             = B_num_rows;
-    int   ldc             = A_num_rows;
-    int   B_size          = ldb * B_num_cols;
-    int   C_size          = ldc * B_num_cols;
+        content += """int   ldb             = B_num_cols;
+    int   ldc             = 512;
+    int   B_size          = B_num_rows * B_num_cols;
+    int   C_size          = A_num_rows * B_num_cols;
 """
         content += f"\tint* hA_csrOffsets = malloc({len(csr.indptr)} * sizeof(int));\n"
         content += f"\tint* hA_columns = malloc({len(csr.indices)} * sizeof(int));\n"
@@ -397,27 +397,25 @@ int main(void) {
     // Device memory management
     int   *dA_csrOffsets, *dA_columns;
     float *dA_values, *dB, *dC;
-    cudaMalloc((void**) &dA_csrOffsets,
-                           (A_num_rows + 1) * sizeof(int));
-    cudaMalloc((void**) &dA_columns, A_nnz * sizeof(int));
-    cudaMalloc((void**) &dA_values,  A_nnz * sizeof(float));
-    cudaMalloc((void**) &dB,         B_size * sizeof(float));
-    cudaMalloc((void**) &dC,         C_size * sizeof(float));
+    CHECK_CUDA(cudaMalloc((void**) &dA_csrOffsets,
+                           (A_num_rows + 1) * sizeof(int)));
+    CHECK_CUDA(cudaMalloc((void**) &dA_columns, A_nnz * sizeof(int)));
+    CHECK_CUDA(cudaMalloc((void**) &dA_values,  A_nnz * sizeof(float)));
+    CHECK_CUDA(cudaMalloc((void**) &dB,         B_size * sizeof(float)));
+    CHECK_CUDA(cudaMalloc((void**) &dC,         C_size * sizeof(float)));
 
-    cudaMemcpy(dA_csrOffsets, hA_csrOffsets,
+    CHECK_CUDA(cudaMemcpy(dA_csrOffsets, hA_csrOffsets,
                            (A_num_rows + 1) * sizeof(int),
-                           cudaMemcpyHostToDevice);
-    cudaMemcpy(dA_columns, hA_columns, A_nnz * sizeof(int),
-                           cudaMemcpyHostToDevice);
-    cudaMemcpy(dA_values, hA_values, A_nnz * sizeof(float),
-                           cudaMemcpyHostToDevice);
-    cudaMemcpy(dB, hB, B_size * sizeof(float),
-                           cudaMemcpyHostToDevice);
-    cudaMemcpy(dC, hC, C_size * sizeof(float),
-                           cudaMemcpyHostToDevice);
-        struct timeval t1;
-	gettimeofday(&t1, NULL);
-	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
+                           cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(dA_columns, hA_columns, A_nnz * sizeof(int),
+                           cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(dA_values, hA_values, A_nnz * sizeof(float),
+                           cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(dB, hB, B_size * sizeof(float),
+                           cudaMemcpyHostToDevice));
+    CHECK_CUDA(cudaMemcpy(dC, hC, C_size * sizeof(float),
+                           cudaMemcpyHostToDevice));
+
     //--------------------------------------------------------------------------
     // CUSPARSE APIs
     cusparseHandle_t     handle = NULL;
@@ -427,16 +425,19 @@ int main(void) {
     size_t               bufferSize = 0;
     cusparseCreate(&handle);
     // Create sparse matrix A in CSR format
-    cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
+    CHECK_CUSPARSE(cusparseCreateCsr(&matA, A_num_rows, A_num_cols, A_nnz,
                                       dA_csrOffsets, dA_columns, dA_values,
                                       CUSPARSE_INDEX_32I, CUSPARSE_INDEX_32I,
-                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F);
+                                      CUSPARSE_INDEX_BASE_ZERO, CUDA_R_32F));
     // Create dense matrix B
-    cusparseCreateDnMat(&matB, A_num_cols, B_num_cols, ldb, dB,
-                                        CUDA_R_32F, CUSPARSE_ORDER_COL);
+    CHECK_CUSPARSE(cusparseCreateDnMat(&matB, A_num_cols, B_num_cols, ldb, dB,
+                                        CUDA_R_32F, CUSPARSE_ORDER_ROW));
     // Create dense matrix C
-    cusparseCreateDnMat(&matC, A_num_rows, B_num_cols, ldc, dC,
-                                        CUDA_R_32F, CUSPARSE_ORDER_COL);
+    CHECK_CUSPARSE(cusparseCreateDnMat(&matC, A_num_rows, B_num_cols, ldc, dC,
+                                        CUDA_R_32F, CUSPARSE_ORDER_ROW));
+    struct timeval t1;
+	gettimeofday(&t1, NULL);
+	long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
     // allocate an external buffer if needed
     cusparseSpMM_bufferSize(
                                  handle,
@@ -467,7 +468,7 @@ int main(void) {
                            cudaMemcpyDeviceToHost) )
     for (int i = 0; i < A_num_rows; i++) {
         for (int j=0; j<B_num_cols; j++)
-            printf("%f\\n", hC[i+j*ldb]);
+            printf("%f\\n", hC[i*B_num_cols+j]);
     }
     //--------------------------------------------------------------------------
     // device memory deallocation

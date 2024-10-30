@@ -12,6 +12,7 @@ from src.baseline import *
 
 from gen_cusparse import gen_spmv_cusparse_file, gen_spmm_cusparse_file
 from gen_cublas import gen_spmm_cublas_file
+from gen_scorch import gen_spmm_scorch_file
 
 
 def cmp_file(file1, file2):
@@ -212,6 +213,14 @@ def run_spmm_pytorch():
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
+def run_spmm_scorch():
+    test_setup_file()
+    gen_spmm_scorch_file(filename="example", dir_name="tests", mm_dir="tests")
+    output = subprocess.check_output(["python3", "example.py"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
@@ -237,3 +246,4 @@ def test_baselines():
     run_spmm_cublas()
     run_spmm_pytorch()
     run_spmm_cusparse()
+    run_spmm_scorch() # Just for benchmarking

@@ -1,12 +1,12 @@
 import os
 import pathlib
 
-import scipy
+from scipy.io import mmread
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
-def convert_dense_to_vbr(dense, rpntr, cpntr, fname):
+def convert_dense_to_vbr(dense, rpntr, cpntr, fname, dst_dir):
     '''
     Converts a dense matrix to a VBR matrix.
     Example:
@@ -77,9 +77,9 @@ def convert_dense_to_vbr(dense, rpntr, cpntr, fname):
             bpntrb.append(-1)
             bpntre.append(-1)
     
-    if not os.path.exists(f"{BASE_PATH}/manual_vbr"):
-        os.makedirs(f"{BASE_PATH}/manual_vbr")
-    with open(f"{BASE_PATH}/manual_vbr/{fname}.vbr", "w") as f:
+    if not os.path.exists(f"{BASE_PATH}/{dst_dir}"):
+        os.makedirs(f"{BASE_PATH}/{dst_dir}")
+    with open(f"{BASE_PATH}/{dst_dir}/{fname}.vbr", "w") as f:
         f.write(f"val=[{','.join(map(str, val))}]\n")
         f.write(f"indx=[{','.join(map(str, indx))}]\n")
         f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
@@ -116,5 +116,5 @@ if __name__ == "__main__":
         [0, 30, 50, 82, 103, 205, 335, 462],
     ]
     for mtx_name, (rpntr, cpntr) in d.items():
-        mtx = scipy.io.mmread(f'{BASE_PATH}/manual_mtx/{mtx_name}')
-        convert_dense_to_vbr(mtx.todense(), rpntr, cpntr, mtx_name[:-4])
+        mtx = mmread(f'{BASE_PATH}/manual_mtx/{mtx_name}')
+        convert_dense_to_vbr(mtx.todense(), rpntr, cpntr, mtx_name[:-4], "manual_vbr")

@@ -2,6 +2,11 @@ from numpy import count_nonzero
 from os import makedirs
 from os.path import exists, join
 from src.vbr import VBR
+import pathlib
+import os
+
+FILEPATH = pathlib.Path(__file__).resolve().parent
+BASE_PATH = os.path.join(FILEPATH, "..")
 
 def write_vbr_matrix(filename: str, vbr_matrix: VBR, dir_name: str):
     
@@ -29,13 +34,19 @@ def write_vbr_matrix(filename: str, vbr_matrix: VBR, dir_name: str):
 
 def write_dense_vector(val: float, size: int):
     filename = f"generated_vector_{size}.vector"
-    with open(filename, "w") as f:
+    dir_name = os.path.join(BASE_PATH, "Generated_dense_tensors")
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(os.path.join(dir_name, filename), "w") as f:
         x = [val] * size
         f.write(f"{','.join(map(str, x))}\n")
 
 def write_dense_matrix(val: float, m: int, n: int):
     filename = f"generated_matrix_{m}x{n}.matrix"
-    with open(filename, "w") as f:
+    dir_name = os.path.join(BASE_PATH, "Generated_dense_tensors")
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    with open(os.path.join(dir_name, filename), "w") as f:
         x = [val] * n * m
         f.write(f"{','.join(map(str, x))}\n")
 

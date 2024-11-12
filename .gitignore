@@ -8,6 +8,8 @@ Generated_SpMV*/
 Generated_SpMM*/
 Generated_dense_tensors/
 manual_vbr/
+Real_mtx/
+Real_vbr/
 tests_spmv/
 tests_spmm/
 tests/a.out

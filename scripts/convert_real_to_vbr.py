@@ -77,9 +77,7 @@ def convert_dense_to_vbr(dense, rpntr, cpntr, fname, dst_dir):
             bpntrb.append(-1)
             bpntre.append(-1)
     
-    if not os.path.exists(f"{BASE_PATH}/{dst_dir}"):
-        os.makedirs(f"{BASE_PATH}/{dst_dir}")
-    with open(f"{BASE_PATH}/{dst_dir}/{fname}.vbr", "w") as f:
+    with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
         f.write(f"val=[{','.join(map(str, val))}]\n")
         f.write(f"indx=[{','.join(map(str, indx))}]\n")
         f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
@@ -116,5 +114,9 @@ if __name__ == "__main__":
         [0, 30, 50, 82, 103, 205, 335, 462],
     ]
     for mtx_name, (rpntr, cpntr) in d.items():
-        mtx = mmread(f'{BASE_PATH}/manual_mtx/{mtx_name}')
-        convert_dense_to_vbr(mtx.todense(), rpntr, cpntr, mtx_name[:-4], "manual_vbr")
+        filename = pathlib.Path(os.path.join(BASE_PATH, "manual_mtx", mtx_name))
+        dst_dir = pathlib.Path(os.path.join(BASE_PATH, "manual_vbr"))
+        if not os.path.exists(dst_dir):
+            os.makedirs(dst_dir)
+        mtx = mmread(filename)
+        convert_dense_to_vbr(mtx.todense(), rpntr, cpntr, filename.resolve().stem, dst_dir)

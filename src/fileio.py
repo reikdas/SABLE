@@ -79,3 +79,7 @@ def write_mm_file(filename, M):
             for j in range(M.shape[1]):
                 if M[i][j] != 0:
                     f.write(f"{i+1} {j+1} {M[i][j]}\n")
+
+def cleanup(*args):
+    for arg in args:
+        os.rmdir(arg)

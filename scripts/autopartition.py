@@ -1,10 +1,11 @@
-import numpy as np
-from scipy.io import mmread
-from scipy.sparse import csr_matrix
 import os
 import pathlib
+from multiprocessing import cpu_count
+
+import numpy as np
 import scipy
 from convert_real_to_vbr import convert_dense_to_vbr
+from smtx_to_mtx import parallel_dispatch
 
 src_dir = "Real_mtx"
 dst_dir = "Real_vbr"
@@ -39,6 +40,7 @@ def cut_indices(A, cut_threshold):
     return col_indices, row_indices
 
 def similarity(a, b):
+    # RuntimeWarning: invalid value encountered in long_scalars
     return (a.dot(b) + a[1:].dot(b[:-1])+a[:-1].dot(b[1:])) / (3*max(np.count_nonzero(a), np.count_nonzero(b)))
 
 # Example usage
@@ -58,10 +60,16 @@ def similarity(a, b):
 # print("Column indices:", col_indices)
 # print("Row indices:", row_indices)
 
+def my_convert_dense_to_vbr(file_info):
+    src_path, dest_path = file_info
+    mtx = scipy.io.mmread(src_path)
+    A = scipy.sparse.csr_matrix(mtx)
+    cut_threshold = 0.2
+    cpntr, rpntr = cut_indices(A, cut_threshold)
+    convert_dense_to_vbr(mtx.todense(), rpntr, cpntr, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
+
 if __name__ == "__main__":
-    for filename in os.listdir(f"{BASE_PATH}/{src_dir}"):
-        mtx = scipy.io.mmread(f'{BASE_PATH}/{src_dir}/{filename}')
-        A = scipy.sparse.csr_matrix(mtx)
-        cut_threshold = 0.2
-        cpntr, rpntr = cut_indices(A, cut_threshold)
-        convert_dense_to_vbr(mtx.todense(), rpntr, cpntr, filename[:-4], dst_dir)
+    src_dir = pathlib.Path(os.path.join(BASE_PATH, "Real_mtx"))
+    dest_dir = pathlib.Path(os.path.join(BASE_PATH, "Real_vbr"))
+    
+    parallel_dispatch(src_dir, dest_dir, cpu_count(), my_convert_dense_to_vbr, ".mtx", ".vbr")

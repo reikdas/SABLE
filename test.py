@@ -4,6 +4,7 @@ import subprocess
 import numpy
 
 from src.codegen import *
+from src.fileio import write_dense_matrix, write_dense_vector
 from src.mtx_matrices_gen import vbr_to_mtx
 
 
@@ -40,6 +41,8 @@ def test_setup_file():
                                 [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  8., 12.]])
     assert(numpy.array_equal(dense, dense_canon))
     assert(cmp_file("tests/example.mtx", "tests/example-canon.mtx"))
+    write_dense_vector(1.0, 11)
+    write_dense_matrix(1.0, 11, 512)
 
 def run_spmv(threads):
     test_setup_file()

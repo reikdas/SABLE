@@ -1,12 +1,16 @@
 import inspect
 import itertools
 import os
+import pathlib
 import time
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Union
 
 from src.fileio import read_vbr
+
+FILEPATH = pathlib.Path(__file__).resolve().parent
+BASE_PATH = os.path.join(FILEPATH, "..")
 
 curr_block_instructions = []
 
@@ -250,7 +254,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    vector_path = f"generated_vector_{rpntr[-1]}.vector"
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{rpntr[-1]}.vector")
     code = []
     code.append("#include <stdio.h>\n")
     code.append("#include <sys/time.h>\n")
@@ -330,7 +334,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
 
 def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    vector_path = f"generated_vector_{rpntr[-1]}.vector"
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{rpntr[-1]}.vector")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.write("#include <stdio.h>\n")
         f.write("#include <sys/time.h>\n")
@@ -449,7 +453,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
 
 def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
+    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     code = []
@@ -551,7 +555,7 @@ int lowestMultiple(int x, int y) {
 
 def gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
+    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     code = []
@@ -696,7 +700,7 @@ def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: i
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    vector_path = f"generated_vector_{rpntr[-1]}.vector"
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{rpntr[-1]}.vector")
     code = []
     code.append("#include <stdio.h>\n")
     code.append("#include <sys/time.h>\n")
@@ -818,7 +822,7 @@ def vbr_spmm_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: i
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    matrix_path = f"generated_matrix_{rpntr[-1]}x512.matrix"
+    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
     code = []
     code.append("#include <stdio.h>\n")
     code.append("#include <sys/time.h>\n")

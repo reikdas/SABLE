@@ -6,6 +6,7 @@ Generated_VBR*/
 Generated_MMarket*/
 Generated_SpMV*/
 Generated_SpMM*/
+Generated_dense_tensors/
 manual_vbr/
 tests_spmv/
 tests_spmm/

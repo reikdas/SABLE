@@ -1,18 +1,20 @@
 import os
 import pathlib
 
+import scipy
 from scipy.io import mmread
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
-def convert_dense_to_vbr(dense, rpntr, cpntr, fname, dst_dir):
+
+def convert_sparse_to_vbr(csc_mat, rpntr, cpntr, fname, dst_dir):
     '''
-    Converts a dense matrix to a VBR matrix.
+    Converts a CSC matrix to a VBR matrix.
     Example:
     Inputs:
     dense = [
-        [ 4.  2. | 0.  0.  0. | 1. | 0.  0.  0. |-1.  1.]
+        [ 4.  2. | 0.  0.  0. | 1. | 0.  0.  0. |0.  1.]
         [ 1.  5. | 0.  0.  0. | 2. | 0.  0.  0. | 0. -1.]
         -------------------------------------------------
         [ 0.  0. | 6.  1.  2. | 2. | 0.  0.  0. | 0.  0.]
@@ -25,8 +27,8 @@ def convert_dense_to_vbr(dense, rpntr, cpntr, fname, dst_dir):
         [ 0.  0. | 0.  0.  0. | 3. | 3. 11.  3. | 0.  0.]
         [ 0.  0. | 0.  0.  0. | 0. | 2.  0.  7. | 0.  0.]
         -------------------------------------------------
-        [ 8.  4. | 0.  0.  0. | 0. | 0.  0.  0. |25.  3.]
-        [-2.  3. | 0.  0.  0. | 0. | 0.  0.  0. | 8. 12.]
+        [ 8.  4. | 0.  0.  0. | 0. | 0.  0.  0. |0.  3.]
+        [-2.  3. | 0.  0.  0. | 0. | 0.  0.  0. | 0. 12.]
     ]
     Returns:
     VBR(val=[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, -1.0, 0.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 0.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 0.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 25.0, 8.0, 3.0, 12.0],
@@ -44,38 +46,62 @@ def convert_dense_to_vbr(dense, rpntr, cpntr, fname, dst_dir):
     bpntrb = []
     bpntre = []
 
-    num_blocks = 0    
-    for r in range(len(rpntr)-1):
-        blocks_in_row_partition = 0
-        blocks_found = False
-        for c in range(len(cpntr)-1):
-            r0 = rpntr[r]
-            r1 = rpntr[r+1]
-            c0 = cpntr[c]
-            c1 = cpntr[c+1]
-            
-            non_zero_element_found = False
-            values = []
-            for j in range(c0, c1):
-                for i in range(r0, r1):
-                    if dense[i, j] != 0:
-                        non_zero_element_found = True
-                        blocks_found = True
-                    values.append(dense[i, j])
-                        
-            if non_zero_element_found:
-                blocks_in_row_partition += 1
-                val.extend(values)
-                indx.append(len(val))
-                bindx.append(c)
-                
-        if blocks_found:
+    # Dictionary to store partition mappings
+    d = {}
+
+    row_part_lookup = {}
+    for i in range(len(rpntr) - 1):
+        start, end = rpntr[i], rpntr[i + 1]
+        for idx in range(start, end):
+            row_part_lookup[idx] = (start, end)
+    
+    # Find containing partitions and build dictionary
+    for c in range(0, len(cpntr)-1):
+        for j in range(cpntr[c], cpntr[c+1]):
+            ridxs = csc_mat.indices[csc_mat.indptr[j]:csc_mat.indptr[j+1]]
+            dense_parts = {row_part_lookup[num] for num in ridxs}         
+            if len(dense_parts) > 0:
+                d[(cpntr[c], cpntr[c+1])] = dense_parts
+                break
+    
+    # Collect all unique row partitions
+    all_row_parts = set()
+    for row_parts in d.values():
+        all_row_parts.update(row_parts)
+    all_row_parts = sorted(all_row_parts)
+
+    col_part_to_index = {(cpntr[i], cpntr[i+1]): i for i in range(len(cpntr)-1)}
+    
+    val = []
+    num_blocks = 0
+    # Process each row partition
+    for row_part in all_row_parts:
+        # Find all column partitions that contain this row partition
+        relevant_cols = sorted(
+            col_part for col_part, row_parts in d.items() 
+            if row_part in row_parts
+        )
+        if len(relevant_cols) > 0:
             bpntrb.append(num_blocks)
-            bpntre.append(num_blocks + blocks_in_row_partition)
-            num_blocks += blocks_in_row_partition
+            bpntre.append(num_blocks + len(relevant_cols))
+            num_blocks += len(relevant_cols)
+            for col_part in relevant_cols:
+                # Find the index of col_part in cpntr partitions
+                bindx.append(col_part_to_index[col_part])
+                col_start, col_end = col_part
+                row_start, row_end = row_part
+                
+                # Extract the submatrix for this partition
+                submat = csc_mat[row_start:row_end, col_start:col_end]
+                
+                # Convert to dense array and flatten in column-major order (F-order)
+                submat_values = submat.toarray().flatten(order='F')
+                val.extend(submat_values)
+                indx.append(len(val))
         else:
             bpntrb.append(-1)
             bpntre.append(-1)
+            continue
     
     with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
         f.write(f"val=[{','.join(map(str, val))}]\n")
@@ -119,4 +145,4 @@ if __name__ == "__main__":
         if not os.path.exists(dst_dir):
             os.makedirs(dst_dir)
         mtx = mmread(filename)
-        convert_dense_to_vbr(mtx.todense(), rpntr, cpntr, filename.resolve().stem, dst_dir)
+        convert_sparse_to_vbr(scipy.sparse.csc_matrix(mtx), rpntr, cpntr, filename.resolve().stem, dst_dir)

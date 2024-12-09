@@ -2,7 +2,9 @@ import os
 import subprocess
 
 import numpy
+import scipy
 
+from scripts.convert_real_to_vbr import convert_sparse_to_vbr
 from src.codegen import *
 from src.fileio import write_dense_matrix, write_dense_vector
 from src.mtx_matrices_gen import vbr_to_mtx
@@ -43,6 +45,28 @@ def test_setup_file():
     assert(cmp_file("tests/example.mtx", "tests/example-canon.mtx"))
     write_dense_vector(1.0, 11)
     write_dense_matrix(1.0, 11, 512)
+
+def test_partition():
+    dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., 0.,  1.],
+                                [ 1.,  5.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0., -1.],
+                                [ 0.,  0.,  6.,  1.,  2.,  2.,  0.,  0.,  0.,  0.,  0.],
+                                [ 0.,  0.,  2.,  7.,  1.,  0.,  0.,  0.,  0.,  0.,  0.],
+                                [ 0.,  0., -1.,  2.,  9.,  3.,  0.,  0.,  0.,  0.,  0.],
+                                [ 2.,  1.,  3.,  4.,  5., 10.,  4.,  3.,  2.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  4., 13.,  4.,  2.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  3.,  3., 11.,  3.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  7.,  0.,  0.],
+                                [ 8.,  4.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 0.,  3.],
+                                [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 12.]])
+    sparse = scipy.sparse.csc_matrix(dense)
+    rpntr = [0, 2, 5, 6, 9, 11]
+    cpntr = [0, 2, 5, 6, 9, 11]
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example", "tests")
+    assert(val ==  [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 0, 0.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 0.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 0.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 0, 0, 3.0, 12.0])
+    assert(indx==[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51])
+    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
+    assert(bpntrb==[0, 3, 5, 9, 11])
+    assert(bpntre==[3, 5, 9, 11, 13])
 
 def run_spmv(threads):
     test_setup_file()

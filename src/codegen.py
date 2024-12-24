@@ -451,8 +451,9 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t}\n")
         f.write("}\n")
 
-def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
+def only_nonzeros(filename: str, dir_name: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
     matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -509,8 +510,201 @@ int lowestMultiple(int x, int y) {
             assert(fscanf(file2, "%f,", &x[i*512+j]) == 1);
         }}
     }}
-    fclose(file2);\n'''.format(rpntr[-1]))
-    code.append("\tint count = 0;\n")
+    fclose(file2);\n'''.format(cpntr[-1]))
+    code.append("\tstruct timeval t1;\n")
+    code.append("\tgettimeofday(&t1, NULL);\n")
+    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    count = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                for i in range(rpntr[a], rpntr[a+1]):
+                    for j in range(cpntr[b], cpntr[b+1]):
+                        v_idx = indx[count] + ((j-cpntr[b])*(rpntr[a+1]-rpntr[a])) + (i-rpntr[a])
+                        v = val[v_idx]
+                        if v != 0:
+                            code.append("\tfor (int k = 0; k < 512; k++) {\n")
+                            code.append(f"\t\ty[{i*512}+k] += val[{v_idx}] * x[{j*512}+k];\n")
+                            code.append("\t}\n")
+                count += 1
+    code.append("\tstruct timeval t2;\n")
+    code.append("\tgettimeofday(&t2, NULL);\n")
+    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
+    code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n")
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+
+def gen_spmm_libxsmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name: str, filename: str, vbr_dir: str):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <sys/time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <assert.h>\n")
+    code.append("#include <libxsmm_source.h>\n\n")
+    code.append("""
+int lowestMultiple(int x, int y) {
+    if (x % y == 0) {
+        return x;
+    }
+    else if (y % x == 0) {
+        return y;
+    }
+    else {
+        return ((x / y) + 1) * y;
+    }
+}\n""")
+    code.append("int main() {\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append(f"\tfloat *y = (float*)aligned_alloc(64, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(y, 0, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *x = (float*)aligned_alloc(64, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(x, 0, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *val = (float*)aligned_alloc(64, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(val, 0, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint val_size=0;\n")
+    code.append('''
+    assert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    fclose(file1);\n''')
+    code.append('''\tfor(int i = 0; i < {0}; i++) {{
+        for(int j = 0; j < 512; j++) {{
+            assert(fscanf(file2, "%f,", &x[i*512+j]) == 1);
+        }}
+    }}
+    fclose(file2);\n'''.format(cpntr[-1]))
+    code.append("\tconst char trans='T';\n")
+    code.append("\tconst char notrans='N';\n")
+    code.append("\tconst float alpha = 1.0;\n")
+    code.append("\tlibxsmm_blasint i_range;\n")
+    code.append("\tlibxsmm_blasint j_range;\n")
+    code.append("\tconst libxsmm_blasint k_range = 512;\n")
+    code.append("\tstruct timeval t1;\n")
+    code.append("\tgettimeofday(&t1, NULL);\n")
+    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    count = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                code.append(f"\ti_range = {rpntr[a+1] - rpntr[a]};\n")
+                code.append(f"\tj_range = {cpntr[b+1] - cpntr[b]};\n")
+                code.append(f"\tlibxsmm_sgemm(&notrans, &trans, &i_range, &k_range, &j_range, &alpha, &val[{indx[count]}], &i_range, &x[{cpntr[b]*512}], &k_range, &alpha, &y[{rpntr[a] * 512}], &i_range);\n")
+                count+=1
+    code.append("\tstruct timeval t2;\n")
+    code.append("\tgettimeofday(&t2, NULL);\n")
+    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
+    code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n")
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+
+def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <sys/time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append("""
+int lowestMultiple(int x, int y) {
+    if (x % y == 0) {
+        return x;
+    }
+    else if (y % x == 0) {
+        return y;
+    }
+    else {
+        return ((x / y) + 1) * y;
+    }
+}\n""")
+    code.append("int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
+    code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
+    code.append("\t\t\tfor (int k = 0; k < 512; k++) {\n")
+    code.append("\t\t\t\ty[i*512 + k] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[((j*512) + k)]);\n")
+    code.append("\t\t\t}\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    code.append("int main() {\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append(f"\tfloat *y = (float*)aligned_alloc(64, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(y, 0, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *x = (float*)aligned_alloc(64, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(x, 0, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *val = (float*)aligned_alloc(64, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(val, 0, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint val_size=0;\n")
+    code.append('''
+    assert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    fclose(file1);\n''')
+    code.append('''\tfor(int i = 0; i < {0}; i++) {{
+        for(int j = 0; j < 512; j++) {{
+            assert(fscanf(file2, "%f,", &x[i*512+j]) == 1);
+        }}
+    }}
+    fclose(file2);\n'''.format(cpntr[-1]))
+    # code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
@@ -534,11 +728,14 @@ int lowestMultiple(int x, int y) {
                                 dense_count+=1
                             count2+=1
                     if (dense_count/(dense_count + sparse_count))*100 > density:
-                        code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                        # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                        code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     else:
                         code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 else:
-                    code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                    # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
+                    code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -809,6 +1006,123 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     code.append("\tgpuErrchk(cudaFree(y));\n")
     code.append("\tgpuErrchk(cudaFree(x));\n")
     code.append("\tgpuErrchk(cudaFree(val));\n")
+    code.append("}\n")
+    with open(os.path.join(dir_name, filename+".cu"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000
+    return time2-time1
+
+def vbr_spmm_cuda_codegen_cublas(filename: str, dir_name: str, vbr_dir: str, density: int):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+    time1 = time.time_ns() // 1_000
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
+    code = []
+    code.append("""#include <cublas_v2.h>
+#include <cuda_runtime.h>
+#include <stdio.h>            // printf
+#include <stdlib.h>           // EXIT_FAILURE
+#include <assert.h>
+#include <sys/time.h>
+
+#define CUDA_CHECK(func)                                                       \\
+{                                                                              \\
+    cudaError_t status = (func);                                               \\
+    if (status != cudaSuccess) {                                               \\
+        printf("CUDA API failed at line %d with error: %s (%d)",             \\
+               __LINE__, cudaGetErrorString(status), status);                  \\
+        return EXIT_FAILURE;                                                   \\
+    }                                                                          \\
+}
+
+#define CUBLAS_CHECK(func)                                                       \\
+{                                                                              \\
+    cublasStatus_t status = (func);                                               \\
+    if (status != CUBLAS_STATUS_SUCCESS) {                                               \\
+        printf("CUDA API failed at line %d with error: (%d)",             \\
+               __LINE__, status);                  \\
+        return EXIT_FAILURE;                                                   \\
+    }                                                                          \\
+}
+
+int main(void) {
+    cublasHandle_t cublasH = NULL;
+    cudaStream_t stream = NULL;
+    CUBLAS_CHECK(cublasCreate(&cublasH));
+    CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
+    CUBLAS_CHECK(cublasSetStream(cublasH, stream));
+    const float alpha = 1.0f;
+    const float beta = 0.0f;
+""")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append("\tfloat *y, *x, *val;\n")
+    code.append(f"\ty=(float*)malloc({rpntr[-1]*512}*sizeof(float));\n")
+    code.append(f"\tx = (float*)malloc({cpntr[-1]*512}*sizeof(float));\n")
+    code.append(f"\tval = (float*)malloc({len(val)}*sizeof(float));\n")
+    code.append(f"\tfloat *x_d, *val_d, *y_d;\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint val_size=0;\n")
+    code.append('''\tassert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    fclose(file1);\n''')
+    code.append('''\tfor(int i = 0; i < {0}; i++) {{
+        for(int j = 0; j < 512; j++) {{
+            assert(fscanf(file2, "%f,", &x[i*512+j]) == 1);
+        }}
+    }}
+    fclose(file2);\n'''.format(rpntr[-1]))
+    code.append(f"\tCUDA_CHECK(cudaMalloc((void**)&y_d, {rpntr[-1]*512}*sizeof(float)));\n")
+    code.append(f"\tCUDA_CHECK(cudaMalloc((void**)&x_d, {cpntr[-1]*512}*sizeof(float)));\n")
+    code.append(f"\tCUDA_CHECK(cudaMalloc((void**)&val_d, {len(val)}*sizeof(float)));\n")
+    code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(x_d, x, {cpntr[-1]*512}*sizeof(float), cudaMemcpyHostToDevice, stream));\n")
+    code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(val_d, val, {len(val)}*sizeof(float), cudaMemcpyHostToDevice, stream));\n")
+    code.append("\tstruct timeval t1;\n")
+    code.append("\tgettimeofday(&t1, NULL);\n")
+    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    count = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                code.append(f"cublasSgemm(cublasH, CUBLAS_OP_N, CUBLAS_OP_T, {rpntr[a+1] - rpntr[a]}, 512, {cpntr[b+1] - cpntr[b]}, &alpha, &val_d[{indx[count]}], {rpntr[a+1] - rpntr[a]}, &x_d[{cpntr[b]*512}], 512, &beta, &y_d[{rpntr[a] * 512}], {rpntr[a+1] - rpntr[a]});\n")
+                count+=1
+        code.append("\tcudaDeviceSynchronize();\n")
+    code.append("\tstruct timeval t2;\n")
+    code.append("\tgettimeofday(&t2, NULL);\n")
+    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(y, y_d, {rpntr[-1]*512}*sizeof(float), cudaMemcpyDeviceToHost, stream));\n")
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tfor (int j=0; j<512; j++) {\n")
+    code.append(f"\t\t\tprintf(\"%f\\n\", y[j*{rpntr[-1]} + i]);\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("\tCUDA_CHECK(cudaFree(y_d));\n")
+    code.append("\tCUDA_CHECK(cudaFree(x_d));\n")
+    code.append("\tCUDA_CHECK(cudaFree(val_d));\n")
+    code.append("\tfree(y);\n")
+    code.append("\tfree(x);\n")
+    code.append("\tfree(val);\n")
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".cu"), "w") as f:
         f.writelines(code)

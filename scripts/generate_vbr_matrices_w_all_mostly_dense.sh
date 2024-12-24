@@ -2,7 +2,7 @@
 
 rows=10000
 cols=10000
-partition_types="uniform non-uniform"
+partition_types="non-uniform"
 percentage_dense="20 15 10 5 1"
 percentage_sparse="0"
 row_splits="50 100"

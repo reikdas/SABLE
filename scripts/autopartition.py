@@ -4,8 +4,8 @@ from multiprocessing import cpu_count
 
 import numpy as np
 import scipy
-from convert_real_to_vbr import convert_sparse_to_vbr
-from smtx_to_mtx import parallel_dispatch
+from scripts.convert_real_to_vbr import convert_sparse_to_vbr
+from scripts.smtx_to_mtx import parallel_dispatch
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")

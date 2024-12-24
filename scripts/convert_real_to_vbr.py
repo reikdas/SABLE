@@ -64,11 +64,7 @@ def convert_sparse_to_vbr(csc_mat, rpntr, cpntr, fname, dst_dir):
                 d[(cpntr[c], cpntr[c+1])] = dense_parts
                 break
     
-    # Collect all unique row partitions
-    all_row_parts = set()
-    for row_parts in d.values():
-        all_row_parts.update(row_parts)
-    all_row_parts = sorted(all_row_parts)
+    all_row_parts = list(zip(rpntr[:-1], rpntr[1:]))
 
     col_part_to_index = {(cpntr[i], cpntr[i+1]): i for i in range(len(cpntr)-1)}
     

@@ -1,12 +1,15 @@
 import os
 import pathlib
 import subprocess
+from argparse import ArgumentParser
+
+from tqdm import tqdm
 
 from check_partition import check_partition_iter
 from scripts.autopartition import my_convert_dense_to_vbr
-from src.codegen import vbr_spmm_codegen
-from src.fileio import write_dense_matrix
-from tqdm import tqdm
+from src.codegen import vbr_spmm_codegen, vbr_spmv_codegen
+from src.fileio import write_dense_matrix, write_dense_vector
+from testbench import Operation
 
 BENCHMARK_FREQ = 5
 
@@ -39,7 +42,7 @@ def check_file_matches_parent_dir(filepath):
     
     return file_name == parent_dir
 
-if __name__ == "__main__":
+def full_suitesparse_spmm():
     # Iterate over all files in Suitesparse
     mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
     vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_vbr"))
@@ -111,3 +114,63 @@ if __name__ == "__main__":
                 except:
                     f.write(f"{fname}, ERROR\n")
                     f.flush()
+
+def matrix_spmv(fname: str, mtx_dir: str):
+    file_path = os.path.join(mtx_dir, fname)
+    fname = pathlib.Path(file_path).resolve().stem
+    
+    codegen_dir = pathlib.Path(os.path.join("/tmp", "SABLE"))
+    dest_path = pathlib.Path(os.path.join("/tmp", "SABLE", fname+".vbr"))
+    # Where to write the VBR file
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    # Add nested progress bars for benchmarking
+    with tqdm(total=6, desc="Steps", leave=False) as step_bar:
+        # Convert matrix to VBR format
+        step_bar.set_description("Converting to VBR")
+        my_convert_dense_to_vbr((str(file_path), str(dest_path)))
+        step_bar.update(1)
+        # Check partitioning
+        step_bar.set_description("Checking partition")
+        rpntr, cpntr, nnz_blocks, mean_nnz, var_nnz, mean_density, var_density, mean_size, var_size, total_sparsity, new_sparsity = check_partition_iter(dest_path)
+        step_bar.update(1)
+        # Evaluate using SABLE
+        # Generate code
+        step_bar.set_description("Generating code")
+        vbr_spmv_codegen(fname, density=1, dir_name=codegen_dir, vbr_dir=os.path.dirname(dest_path), threads=1)
+        write_dense_vector(1.0, rpntr[-1])
+        step_bar.update(1)
+        # Compile it
+        step_bar.set_description("Compiling")
+        subprocess.run(["gcc", "-O3", "-march=native", "-funroll-all-loops", "-mavx", "-mprefer-vector-width=512", "-o", fname, fname+".c"], cwd=codegen_dir, check=True)
+        step_bar.update(1)
+        # Benchmark
+        step_bar.set_description("Benchmarking SABLE")
+        subprocess.run(["./" + fname], cwd=codegen_dir, capture_output=True, check=True)
+        execution_times = []
+        for _ in range(BENCHMARK_FREQ):
+            output = subprocess.run(["./" + fname], cwd=codegen_dir, capture_output=True, check=True)
+            execution_time = output.stdout.decode("utf-8").split("\n")[0].split(" = ")[1]
+            execution_times.append(execution_time)
+        step_bar.update(1)
+    print(f"{fname}, {rpntr[-1]}, {cpntr[-1]}, {nnz_blocks}, {avg(execution_times)}\n")
+
+
+if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("-o", "--operation", type=Operation, choices=list(Operation), required=True)
+    parser.add_argument("-m", "--matrix", type=str, required=True, help="'Suitesparse' if you want the full suitesparse suit; explicit matrix name otherwise")
+    parser.add_argument("-d", "--dir", type=str, help="If explicit matrix supplied, where is it?")
+    args = parser.parse_args()
+    if args.operation == Operation.SPMM:
+        if args.matrix.lower() == "suitesparse":
+            full_suitesparse_spmm()
+        else:
+            raise NotImplementedError
+    else:
+        if args.matrix.lower() == "suitesparse":
+            raise NotImplementedError
+        else:
+            if args.dir is None:
+                raise ValueError("Need to provide directory for explicit matrix")
+            matrix_spmv(args.matrix, args.dir)

@@ -254,7 +254,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{rpntr[-1]}.vector")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     code = []
     code.append("#include <stdio.h>\n")
     code.append("#include <sys/time.h>\n")
@@ -266,7 +266,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
     code.append(f"\tfloat* y = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-    code.append(f"\tfloat* x = (float*)calloc({rpntr[-1] + 1}, sizeof(float));\n")
+    code.append(f"\tfloat* x = (float*)calloc({cpntr[-1] + 1}, sizeof(float));\n")
     code.append(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
@@ -290,8 +290,8 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
     while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
         x_size++;
     }}
-    fclose(file2);\n'''.format(rpntr[-1]))
-    code.append("\tint count = 0;\n")
+    fclose(file2);\n'''.format(cpntr[-1]))
+    # code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\tgettimeofday(&t1, NULL);\n")
     code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
@@ -334,7 +334,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
 
 def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{rpntr[-1]}.vector")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.write("#include <stdio.h>\n")
         f.write("#include <sys/time.h>\n")
@@ -406,7 +406,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
         f.write("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
         f.write(f"\ty = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-        f.write(f"\tx = (float*)calloc({rpntr[-1] + 1}, sizeof(float));\n")
+        f.write(f"\tx = (float*)calloc({cpntr[-1] + 1}, sizeof(float));\n")
         f.write(f"\tval = (float*)calloc({len(val) + 1}, sizeof(float));\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
@@ -431,7 +431,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
         x_size++;
     }}
-    fclose(file2);\n'''.format(rpntr[-1]))
+    fclose(file2);\n'''.format(cpntr[-1]))
         f.write("\tstruct timeval t1;\n")
         f.write("\tgettimeofday(&t1, NULL);\n")
         f.write("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")

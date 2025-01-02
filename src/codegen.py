@@ -621,7 +621,7 @@ int lowestMultiple(int x, int y) {
             if b in valid_cols:
                 code.append(f"\ti_range = {rpntr[a+1] - rpntr[a]};\n")
                 code.append(f"\tj_range = {cpntr[b+1] - cpntr[b]};\n")
-                code.append(f"\tlibxsmm_sgemm(&notrans, &trans, &i_range, &k_range, &j_range, &alpha, &val[{indx[count]}], &i_range, &x[{cpntr[b]*512}], &k_range, &alpha, &y[{rpntr[a] * 512}], &i_range);\n")
+                code.append(f"\tlibxsmm_sgemm(&notrans, &trans, &k_range, &i_range, &j_range, &alpha, &x[{cpntr[b]*512}], &k_range, &val[{indx[count]}], &i_range, &alpha, &y[{rpntr[a] * 512}], &k_range);\n")
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -1276,5 +1276,16 @@ def vbr_spmm_codegen(filename: str, density: int, dir_name: str, vbr_dir: str, t
         gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
     else:
         gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
+    time2 = time.time_ns() // 1_000
+    return time2-time1
+
+def vbr_spmm_codegen_libxsmm(filename: str, density: int, dir_name: str, vbr_dir: str, threads: int):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+    time1 = time.time_ns() // 1_000
+    if threads == 1:
+        gen_spmm_libxsmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename, vbr_dir)
+    else:
+        raise NotImplementedError
     time2 = time.time_ns() // 1_000
     return time2-time1

@@ -636,6 +636,97 @@ int lowestMultiple(int x, int y) {
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
 
+def gen_spmm_cblas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name: str, filename: str, vbr_dir: str):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <sys/time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <assert.h>\n")
+    code.append("#include <cblas.h>\n\n")
+    code.append("""
+int lowestMultiple(int x, int y) {
+    if (x % y == 0) {
+        return x;
+    }
+    else if (y % x == 0) {
+        return y;
+    }
+    else {
+        return ((x / y) + 1) * y;
+    }
+}\n""")
+    code.append("int main() {\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append(f"\tfloat *y = (float*)aligned_alloc(64, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(y, 0, lowestMultiple({rpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *x = (float*)aligned_alloc(64, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(x, 0, lowestMultiple({cpntr[-1] * 512}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tfloat *val = (float*)aligned_alloc(64, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append(f"\tmemset(val, 0, lowestMultiple({len(val)}*sizeof(float), 64*sizeof(float)));\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint val_size=0;\n")
+    code.append('''
+    assert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    fclose(file1);\n''')
+    code.append('''\tfor(int i = 0; i < {0}; i++) {{
+        for(int j = 0; j < 512; j++) {{
+            assert(fscanf(file2, "%f,", &x[i*512+j]) == 1);
+        }}
+    }}
+    fclose(file2);\n'''.format(cpntr[-1]))
+    code.append("\tconst float alpha = 1.0;\n")
+    code.append("\tint i_range;\n")
+    code.append("\tint j_range;\n")
+    code.append("\tconst int k_range = 512;\n")
+    code.append("\tstruct timeval t1;\n")
+    code.append("\tgettimeofday(&t1, NULL);\n")
+    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    count = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                code.append(f"\ti_range = {rpntr[a+1] - rpntr[a]};\n")
+                code.append(f"\tj_range = {cpntr[b+1] - cpntr[b]};\n")
+                code.append(f"\tcblas_sgemm(CblasColMajor, CblasNoTrans, CblasTrans, k_range, i_range, j_range, alpha, &x[{cpntr[b]*512}], k_range, &val[{indx[count]}], i_range, alpha, &y[{rpntr[a] * 512}], k_range);\n")
+                count+=1
+    code.append("\tstruct timeval t2;\n")
+    code.append("\tgettimeofday(&t2, NULL);\n")
+    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
+    code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n")
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+
 def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")

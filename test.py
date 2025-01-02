@@ -95,6 +95,29 @@ def run_spmm(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
+def test_spmm_libxsmm():
+    filename = "example"
+    dir_name = "tests"
+    test_setup_file()
+    vbr_path = os.path.join(dir_name, filename + ".vbr")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+    gen_spmm_libxsmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename, dir_name)
+    subprocess.check_call([
+    "gcc",
+    "-o", "example",
+    "example.c",
+    "-march=native",
+    "-O3",
+    "-I", "/local/scratch/a/das160/libxsmm/include",
+    "-L", "/local/scratch/a/das160/libxsmm/lib",
+    "-lblas",
+    "-lm"
+], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
 def run_spmm_cuda():
     test_setup_file()
     vbr_spmm_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", density=0)

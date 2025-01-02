@@ -14,6 +14,42 @@ def get_mean_var(results):
   var = round(sum((xi - mean) ** 2 for xi in results) / len(results), 2)
   return mean, var
 
+def check_partition_iter2(full_path):
+    val, _, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(full_path)
+    nnz_blocks = 0
+    count = 0
+    one_by_one_blocks = 0
+    one_d_blocks = 0
+    density = []
+    large_block_sizes = []
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                r_len = rpntr[a+1] - rpntr[a]
+                c_len = cpntr[b+1] - cpntr[b]
+                size = r_len * c_len
+                if size == 1:
+                    one_by_one_blocks += 1
+                    one_d_blocks += 1
+                else:
+                    if r_len == 1 or c_len == 1:
+                        one_d_blocks += 1
+                    large_block_sizes.append(size)
+                    nnz_count = 0
+                    for i in range(count, count + size):
+                        if val[i] != 0:
+                            nnz_count += 1
+                    density.append(nnz_count / size)
+                count += size
+                nnz_blocks += 1
+    perc_one_d_blocks = round((one_d_blocks/nnz_blocks) * 100, 2)
+    avg_density = 1 if len(density)==0 else round(sum(density)/len(density), 2)
+    avg_block_size = 1 if len(large_block_sizes)==0 else round(sum(large_block_sizes)/len(large_block_sizes), 2)
+    return round((one_by_one_blocks/nnz_blocks) * 100, 2), perc_one_d_blocks, avg_block_size, avg_density, rpntr[-1], cpntr[-1], nnz_blocks
+
 def check_partition_iter(full_path):
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(full_path)
     nnz_blocks = 0

@@ -6,10 +6,10 @@ from argparse import ArgumentParser
 from check_partition import check_partition_iter
 from tqdm import tqdm
 
-from scripts.testbench import Operation
 from src.autopartition import my_convert_dense_to_vbr
 from src.codegen import vbr_spmm_codegen, vbr_spmv_codegen
-from utils.fileio import write_dense_matrix, write_dense_vector, read_vbr
+from studies.testbench import Operation
+from utils.fileio import read_vbr, write_dense_matrix, write_dense_vector
 
 BENCHMARK_FREQ = 5
 COMPILE_TIMEOUT = 60 * 30

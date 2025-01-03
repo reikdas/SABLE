@@ -1,7 +1,0 @@
-[submodule "partially-strided-codelet"]
-	path = partially-strided-codelet
-	url = git@github.com:reikdas/partially-strided-codelet.git
-	branch = bench
-[submodule "sparse-register-tiling"]
-	path = sparse-register-tiling
-	url = git@github.com:reikdas/sparse-register-tiling.git

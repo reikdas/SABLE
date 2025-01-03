@@ -7,7 +7,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Union
 
-from src.fileio import read_vbr
+from utils.fileio import read_vbr
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")

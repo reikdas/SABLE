@@ -74,15 +74,15 @@ def parallel_dispatch(src_dir, dest_dir, num_processes, f, src_suffix, dst_suffi
             desc="Converting matrices"
         ))
 
-    # for file_pair in file_pairs:
-    #     f(file_pair)
+    for file_pair in file_pairs:
+        f(file_pair)
     
     # Report results
-    # successful = sum(1 for r in results if r)
-    # failed = len(results) - successful
-    # print(f"\nConversion complete:")
-    # print(f"Successfully converted: {successful} files")
-    # print(f"Failed conversions: {failed} files")
+    successful = sum(1 for r in results if r)
+    failed = len(results) - successful
+    print(f"\nConversion complete:")
+    print(f"Successfully converted: {successful} files")
+    print(f"Failed conversions: {failed} files")
 
 if __name__ == "__main__":
     src_dir = pathlib.Path(os.path.join(BASE_PATH, "dlmc"))

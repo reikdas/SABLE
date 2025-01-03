@@ -1,10 +1,16 @@
 import os
 import pathlib
+import sys
+
 from tqdm import tqdm
 
-from src.fileio import read_vbr
+FILEPATH = pathlib.Path(__file__).resolve().parent.parent
 
-FILEPATH = pathlib.Path(__file__).resolve().parent
+# Import hack - is there an alternative?
+sys.path.append(str(FILEPATH))
+
+from utils.fileio import read_vbr
+
 
 def get_mean_var(results):
   # calculate mean

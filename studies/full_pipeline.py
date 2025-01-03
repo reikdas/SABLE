@@ -3,13 +3,13 @@ import pathlib
 import subprocess
 from argparse import ArgumentParser
 
+from check_partition import check_partition_iter
 from tqdm import tqdm
 
-from check_partition import check_partition_iter
-from scripts.autopartition import my_convert_dense_to_vbr
+from scripts.testbench import Operation
+from src.autopartition import my_convert_dense_to_vbr
 from src.codegen import vbr_spmm_codegen, vbr_spmv_codegen
-from src.fileio import write_dense_matrix, write_dense_vector
-from testbench import Operation
+from utils.fileio import write_dense_matrix, write_dense_vector
 
 BENCHMARK_FREQ = 5
 

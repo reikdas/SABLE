@@ -1,15 +1,16 @@
+import math
+import multiprocessing
 import os
+import pathlib
 import subprocess
 import time
 
-from src.codegen import vbr_spmv_codegen, vbr_spmm_codegen
-from src.fileio import write_dense_matrix, write_dense_vector
-from src.fileio import read_vbr, cleanup
-import pathlib
-import multiprocessing as mp
-from multiprocessing import cpu_count
-import tqdm
-from functools import partial
+from tqdm import tqdm
+from tqdm.contrib.concurrent import process_map
+
+from src.codegen import vbr_spmm_codegen, vbr_spmv_codegen
+from utils.fileio import (cleanup, read_vbr, write_dense_matrix,
+                        write_dense_vector)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 

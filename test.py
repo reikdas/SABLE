@@ -4,10 +4,10 @@ import subprocess
 import numpy
 import scipy
 
-from scripts.convert_real_to_vbr import convert_sparse_to_vbr
 from src.codegen import *
-from src.fileio import write_dense_matrix, write_dense_vector
-from src.mtx_matrices_gen import vbr_to_mtx
+from utils.convert_real_to_vbr import convert_sparse_to_vbr
+from utils.fileio import write_dense_matrix, write_dense_vector
+from utils.mtx_matrices_gen import vbr_to_mtx
 
 
 def cmp_file(file1, file2):
@@ -24,7 +24,6 @@ def cmp_file(file1, file2):
                 # If they aren't numeric, compare them as strings
                 if line1 != line2:
                     return False
-
     return True
 
 def test_setup_file():
@@ -61,7 +60,7 @@ def test_partition():
     sparse = scipy.sparse.csc_matrix(dense)
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example", "tests")
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "foo", "tests")
     assert(val ==  [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 0, 0.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 0.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 0.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 0, 0, 3.0, 12.0])
     assert(indx==[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51])
     assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
@@ -146,6 +145,15 @@ def run_spmm_cuda():
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
+# def test_spmm_cuda_cublas():
+#     test_setup_file()
+#     vbr_spmm_cuda_codegen_cublas(filename="example", dir_name="tests", vbr_dir="tests", density=0)
+#     subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3", "-lcublas"], cwd="tests")
+#     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+#     with open(os.path.join("tests", "output.txt"), "w") as f:
+#         f.write("\n".join(output))
+#     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
 def test_spmv():
     run_spmv(1)

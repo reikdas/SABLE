@@ -1382,3 +1382,14 @@ def vbr_spmm_codegen_libxsmm(filename: str, density: int, dir_name: str, vbr_dir
         raise NotImplementedError
     time2 = time.time_ns() // 1_000
     return time2-time1
+
+def vbr_spmm_codegen_cblas(filename: str, density: int, dir_name: str, vbr_dir: str, threads: int):
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+    time1 = time.time_ns() // 1_000
+    if threads == 1:
+        gen_spmm_cblas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename, vbr_dir)
+    else:
+        raise NotImplementedError
+    time2 = time.time_ns() // 1_000
+    return time2-time1

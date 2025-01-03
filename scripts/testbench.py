@@ -19,8 +19,8 @@ def exec_spmv(filename, threads):
 def exec_spmv_cuda(filename):
     vbr_spmv_cuda_codegen(filename, vbr_dir="tests", dir_name="testing_cuda")
 
-def exec_spmm(filename, threads):
-    vbr_spmm_codegen(filename, threads=threads)
+def exec_spmm(filename, threads, density_threshold):
+    vbr_spmm_codegen(filename, threads=threads, density=density_threshold, dir_name="Generated_SpMM", vbr_dir="Generated_VBR")
     subprocess.run(["gcc", "-O3", "-mprefer-vector-width=512", "-mavx", "-funroll-all-loops", "-march=native", "-pthread", "-o", "testbench", sys.argv[1]+".c"], cwd="Generated_SpMM")
     sum = 0
     for _ in range(5):
@@ -36,6 +36,7 @@ if __name__ == "__main__":
     parser.add_argument("-c", "--cuda", action='store_true')
     parser.add_argument("-o", "--operation", type=Operation, choices=list(Operation), required=True)
     parser.add_argument("-t", "--threads", type=int, default=1)
+    parser.add_argument("-d", "--density_threshold", type=int, default=0)
     parser.add_argument("filename", type=str)
     args = parser.parse_args()
     if (args.cuda):
@@ -49,6 +50,6 @@ if __name__ == "__main__":
         if (args.operation == Operation.SPMV):
             exec_spmv(args.filename, args.threads)
         elif (args.operation == Operation.SPMM):
-            exec_spmm(args.filename, args.threads)
+            exec_spmm(args.filename, args.threads, args.density_threshold)
         else:
             raise Exception("Unknown operation")

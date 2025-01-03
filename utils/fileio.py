@@ -1,9 +1,11 @@
-from numpy import count_nonzero
+import os
+import pathlib
 from os import makedirs
 from os.path import exists, join
+
+from numpy import count_nonzero
+
 from src.vbr import VBR
-import pathlib
-import os
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")

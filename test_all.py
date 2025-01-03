@@ -1,10 +1,12 @@
-import subprocess
-import os
-import numpy
 import ast
+import os
+import subprocess
 from concurrent.futures import ThreadPoolExecutor
 
-from src.codegen import vbr_spmv_codegen, vbr_spmm_codegen
+import numpy
+
+from src.codegen import vbr_spmm_codegen, vbr_spmv_codegen
+
 
 def is_valid_list_string(s):
     try:

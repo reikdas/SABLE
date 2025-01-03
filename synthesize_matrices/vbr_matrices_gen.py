@@ -3,6 +3,7 @@ from random import sample
 from src.fileio import write_vbr_matrix
 from src.vbr import VBR
 
+
 def cumsum_list(l):
     '''
     method to calculate cumulative sum list of a list

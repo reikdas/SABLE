@@ -1,7 +1,7 @@
-import subprocess
 import os
+import subprocess
 
-from src.codegen import vbr_spmv_cuda_codegen, vbr_spmm_cuda_codegen
+from src.codegen import vbr_spmm_cuda_codegen, vbr_spmv_cuda_codegen
 
 BENCHMARK_FREQ = 5
 

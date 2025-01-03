@@ -1,8 +1,8 @@
-import subprocess
 import os
+import subprocess
 import time
 
-from src.codegen import vbr_spmv_codegen, vbr_spmm_codegen
+from src.codegen import vbr_spmm_codegen, vbr_spmv_codegen
 
 BENCHMARK_FREQ = 5
 

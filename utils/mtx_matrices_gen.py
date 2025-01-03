@@ -1,8 +1,8 @@
 import os
-import numpy
-from concurrent.futures import ThreadPoolExecutor
 
-from src.fileio import read_vbr, write_mm_file
+import numpy
+
+from utils.fileio import read_vbr, write_mm_file
 
 '''
 This file contains functionality to convert VBR matrices to Matrix Market format.
@@ -13,7 +13,6 @@ def find_nonneg(l):
         if ele != -1:
             return ele
     assert(False)
-    return -1
 
 def convert_all_vbr_to_mtx(dense_blocks_only: bool):
     if (dense_blocks_only):

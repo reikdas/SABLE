@@ -2,10 +2,15 @@ import random
 from argparse import ArgumentParser
 from enum import Enum
 
-from src.mtx_matrices_gen import convert_all_vbr_to_mtx
-from src.vbr_matrices_gen import vbr_matrix_gen
-from src.codegen import vbr_spmv_codegen_for_all, vbr_spmm_codegen_for_all, vbr_spmv_cuda_codegen_for_all, vbr_spmm_cuda_codegen_for_all
-from src.fileio import write_dense_matrix, write_dense_vector
+from vbr_matrices_gen import vbr_matrix_gen
+
+from src.codegen import (vbr_spmm_codegen_for_all,
+                         vbr_spmm_cuda_codegen_for_all,
+                         vbr_spmv_codegen_for_all,
+                         vbr_spmv_cuda_codegen_for_all)
+from utils.fileio import write_dense_matrix, write_dense_vector
+from utils.mtx_matrices_gen import convert_all_vbr_to_mtx
+
 
 class PartitionType(Enum):
     uniform = 'uniform'

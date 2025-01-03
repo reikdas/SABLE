@@ -2,8 +2,8 @@ import os
 import subprocess
 import time
 
-from src.codegen import vbr_spmv_codegen, vbr_spmm_codegen
-from src.fileio import write_dense_matrix, write_dense_vector
+from src.codegen import vbr_spmm_codegen, vbr_spmv_codegen
+from utils.fileio import write_dense_matrix, write_dense_vector
 
 BENCHMARK_FREQ = 10
 

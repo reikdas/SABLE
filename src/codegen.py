@@ -568,6 +568,7 @@ int lowestMultiple(int x, int y) {
     }
 }\n""")
     code.append("int main() {\n")
+    code.append("\tlibxsmm_init();\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(matrix_path)}\", \"r\");\n")
@@ -632,6 +633,7 @@ int lowestMultiple(int x, int y) {
     code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
     code.append("\t\t}\n")
     code.append("\t}\n")
+    code.append("\tlibxsmm_finalize();\n")
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)

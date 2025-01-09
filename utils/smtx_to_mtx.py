@@ -64,25 +64,9 @@ def get_file_pairs(src_dir, dest_dir, src_suffix, dst_suffix):
 def parallel_dispatch(src_dir, dest_dir, num_processes, f, src_suffix, dst_suffix):
     # Get all file pairs first
     file_pairs = get_file_pairs(src_dir, dest_dir, src_suffix, dst_suffix)
-    
-    # Create the process pool and process files
-    with Pool(processes=num_processes) as pool:
-        # Use tqdm to show progress
-        results = list(tqdm.tqdm(
-            pool.imap_unordered(f, file_pairs),
-            total=len(file_pairs),
-            desc="Converting matrices"
-        ))
 
     for file_pair in file_pairs:
         f(file_pair)
-    
-    # Report results
-    successful = sum(1 for r in results if r)
-    failed = len(results) - successful
-    print(f"\nConversion complete:")
-    print(f"Successfully converted: {successful} files")
-    print(f"Failed conversions: {failed} files")
 
 if __name__ == "__main__":
     src_dir = pathlib.Path(os.path.join(BASE_PATH, "dlmc"))

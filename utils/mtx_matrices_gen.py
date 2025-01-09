@@ -28,6 +28,8 @@ def convert_all_vbr_to_mtx(dense_blocks_only: bool):
 
 def vbr_to_mtx(filename: str, dir_name, vbr_dir):
     assert(filename.endswith(".vbr"))
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, filename))
     filename = filename[:-len(".vbr")]
     M = numpy.zeros((rpntr[-1], cpntr[-1]))

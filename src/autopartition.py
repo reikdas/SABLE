@@ -11,13 +11,6 @@ from utils.smtx_to_mtx import parallel_dispatch
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
-# Read the matrix from a .mtx file
-# matrix = mmread("/Users/amir/Documents/Pratyush/matrices/bcspwr06.mtx")
-# boolean_matrix = matrix != 0
-# A = csr_matrix(boolean_matrix)
-
-# def similarity(a, b):
-#     return a.dot(b) / max(np.count_nonzero(a), np.count_nonzero(b))
 
 def cut_indices1(A, cut_threshold):
     col_indices = [0]  # Start with the first column index
@@ -79,7 +72,7 @@ def similarity(a, b):
     return max(a.dot(b),a[1:].dot(b[:-1]),a[:-1].dot(b[1:])) / max(np.count_nonzero(a), np.count_nonzero(b))
 
 # Example usage
-# cut_threshold = 0.01
+# cut_threshold = 0.2
 # col_indices, row_indices = cut_indices(A, cut_threshold)
 # print("Column indices:", col_indices)
 # print("Row indices:", row_indices)
@@ -90,7 +83,7 @@ def similarity(a, b):
 # print("Row indices:", row_indices)
 
 # # Example usage
-# cut_threshold = 0.04
+# cut_threshold = 0.4
 # col_indices, row_indices = cut_indices(A, cut_threshold)
 # print("Column indices:", col_indices)
 # print("Row indices:", row_indices)

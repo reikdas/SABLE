@@ -4,6 +4,7 @@ from multiprocessing import cpu_count
 
 import numpy as np
 import scipy
+import gc
 
 from utils.convert_real_to_vbr import convert_sparse_to_vbr
 from utils.smtx_to_mtx import parallel_dispatch
@@ -92,9 +93,12 @@ def my_convert_dense_to_vbr(file_info, cut_threshold, cut_indices):
     src_path, dest_path = file_info
     mtx = scipy.io.mmread(src_path)
     A = scipy.sparse.csc_matrix(mtx, copy=False)
+    del mtx
+    gc.collect()
     cpntr, rpntr = cut_indices(A, cut_threshold)
     convert_sparse_to_vbr(A, rpntr, cpntr, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
-
+    del A, cpntr, rpntr
+    gc.collect()
 # def partition_dlmc(mtx_dir, vbr_dir):
 #     src_dir = pathlib.Path(os.path.join(BASE_PATH, mtx_dir))
 #     dest_dir = pathlib.Path(os.path.join(BASE_PATH, vbr_dir))

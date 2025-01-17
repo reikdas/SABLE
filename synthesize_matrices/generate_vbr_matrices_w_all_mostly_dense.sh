@@ -10,5 +10,5 @@ col_splits="50 100"
 percentage_of_zeros="99 75 50 40 30 20 10 0"
 jobs=12
 
-parallel -j $jobs python3 gen.py --dense-blocks-only  --num-rows {1} --num-cols {2} --partition-type {3} --row-split {4}  --col-split {5} --percentage-dense {6} --percentage-sparse $percentage_sparse --percentage-of-zeros {8} \
+parallel -j $jobs python3 synthesize_matrices/gen.py --dense-blocks-only  --num-rows {1} --num-cols {2} --partition-type {3} --row-split {4}  --col-split {5} --percentage-dense {6} --percentage-sparse $percentage_sparse --percentage-of-zeros {8} \
                                 ::: $rows      ::: $cols      ::: $partition_types ::: $row_splits  ::: $col_splits ::: $percentage_dense ::: $percentage_sparse ::: $percentage_of_zeros

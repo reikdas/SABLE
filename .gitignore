@@ -21,3 +21,4 @@ tests/output.txt
 tests/foo.vbr
 dlmc/
 Suitesparse*/
+split-and-binaries/

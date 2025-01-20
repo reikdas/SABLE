@@ -28,6 +28,8 @@ def check_partition_iter2(full_path):
     one_d_blocks = 0
     density = []
     large_block_sizes = []
+    size = []
+    nnz_count = []
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
             continue
@@ -36,25 +38,29 @@ def check_partition_iter2(full_path):
             if b in valid_cols:
                 r_len = rpntr[a+1] - rpntr[a]
                 c_len = cpntr[b+1] - cpntr[b]
-                size = r_len * c_len
+                size.append(r_len * c_len)
+                nnz_count.append(0)
+                for i in range(count, count + size[-1]):
+                    if val[i] != 0:
+                        nnz_count[-1] += 1
                 if size == 1:
                     one_by_one_blocks += 1
                     one_d_blocks += 1
                 else:
                     if r_len == 1 or c_len == 1:
                         one_d_blocks += 1
-                    large_block_sizes.append(size)
-                    nnz_count = 0
-                    for i in range(count, count + size):
-                        if val[i] != 0:
-                            nnz_count += 1
-                    density.append(nnz_count / size)
-                count += size
+                    large_block_sizes.append(size[-1])
+                    density.append(nnz_count[-1] / size[-1])
+                count += size[-1]
                 nnz_blocks += 1
     perc_one_d_blocks = round((one_d_blocks/nnz_blocks) * 100, 2)
     avg_density = 1 if len(density)==0 else round(sum(density)/len(density), 2)
     avg_block_size = 1 if len(large_block_sizes)==0 else round(sum(large_block_sizes)/len(large_block_sizes), 2)
-    return round((one_by_one_blocks/nnz_blocks) * 100, 2), perc_one_d_blocks, avg_block_size, avg_density, rpntr[-1], cpntr[-1], nnz_blocks
+    perc_one_by_one = round((one_by_one_blocks/nnz_blocks) * 100, 2)
+    total_size = rpntr[-1] * cpntr[-1]
+    total_sparsity = round((total_size - sum(nnz_count)) / total_size, 2)
+    new_sparsity = round((total_size - sum(size)) / total_size, 2)
+    return perc_one_by_one, perc_one_d_blocks, avg_block_size, avg_density, rpntr[-1], cpntr[-1], nnz_blocks, total_sparsity, new_sparsity
 
 def check_partition_iter(full_path):
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(full_path)

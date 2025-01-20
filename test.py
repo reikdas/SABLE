@@ -8,6 +8,7 @@ from src.codegen import *
 from utils.convert_real_to_vbr import convert_sparse_to_vbr
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
+from src.baseline import *
 
 
 def cmp_file(file1, file2):
@@ -94,7 +95,7 @@ def run_spmm(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
-def test_spmm_libxsmm():
+def run_spmm_libxsmm():
     filename = "example"
     dir_name = "tests"
     test_setup_file()
@@ -117,7 +118,7 @@ def test_spmm_libxsmm():
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
-def test_spmm_cblas():
+def run_spmm_cblas():
     filename = "example"
     dir_name = "tests"
     test_setup_file()
@@ -155,6 +156,24 @@ def run_spmm_cuda():
 #         f.write("\n".join(output))
 #     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
+def run_nonzeros_spmv():
+    test_setup_file()
+    only_nonzeros_spmv(filename="example", dir_name="tests", vbr_dir="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
+
+def run_nonzeros_spmm():
+    test_setup_file()
+    only_nonzeros_spmm(filename="example", dir_name="tests", vbr_dir="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
+
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
@@ -170,3 +189,9 @@ def test_spmm():
     run_spmm(8)
     run_spmm(16)
     run_spmm_cuda()
+    run_spmm_libxsmm()
+    run_spmm_cblas()
+
+def test_baselines():
+    run_nonzeros_spmv()
+    run_nonzeros_spmm()

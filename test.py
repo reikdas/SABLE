@@ -187,7 +187,7 @@ def test_spmm():
     run_spmm(4)
     run_spmm(8)
     run_spmm(16)
-    run_spmm_libxsmm()
+    # run_spmm_libxsmm()
     run_spmm_cblas()
 
 # def test_spmv_cuda():

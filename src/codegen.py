@@ -650,7 +650,7 @@ int lowestMultiple(int x, int y) {
 
 def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
+    matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     code = []

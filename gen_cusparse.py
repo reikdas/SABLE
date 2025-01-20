@@ -4,7 +4,7 @@ import os
 import scipy.sparse
 from argparse import ArgumentParser
 
-from src.fileio import read_vbr
+from utils.fileio import read_vbr
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
@@ -85,7 +85,7 @@ int main(void) {
         content += f"\tint* hA_csrOffsets = malloc({len(csr.indptr)} * sizeof(int));\n"
         content += f"\tint* hA_columns = malloc({len(csr.indices)} * sizeof(int));\n"
         content += f"\tfloat*    hA_values       = (float*)malloc({csr.nnz} * sizeof(float));\n"
-        content += f"\tfloat* hX = (float*)malloc({rpntr[-1]} * sizeof(float));\n"
+        content += f"\tfloat* hX = (float*)malloc({cpntr[-1]} * sizeof(float));\n"
         val_file = os.path.join(dir_name, filename + ".cusparse")
         with open(val_file, "w") as f2:
             f2.write("val=[")
@@ -156,7 +156,7 @@ int main(void) {
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');
     fclose(file1);\n'''
-        content += f'\tFILE *file2 = fopen("{BASE_PATH}/generated_vector_{rpntr[-1]}.vector", "r");\n'
+        content += f'\tFILE *file2 = fopen("{BASE_PATH}/generated_vector_{cpntr[-1]}.vector", "r");\n'
         content += '\tif (file2 == NULL) { printf("Error opening file2"); return 1; }'
         content += '''
     while (x_size < {0} && fscanf(file2, "%f,", &hX[x_size]) == 1) {{

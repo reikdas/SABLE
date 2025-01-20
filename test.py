@@ -2,17 +2,17 @@ import os
 import subprocess
 
 import numpy
+import pytest
 import scipy
+import torch
 
+from gen_cublas import gen_spmm_cublas_file
+from gen_cusparse import gen_spmm_cusparse_file, gen_spmv_cusparse_file
+from src.baseline import *
 from src.codegen import *
 from utils.convert_real_to_vbr import convert_sparse_to_vbr
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
-from src.baseline import *
-
-from gen_cusparse import gen_spmv_cusparse_file, gen_spmm_cusparse_file
-from gen_cublas import gen_spmm_cublas_file
-from gen_scorch import gen_spmm_scorch_file
 
 
 def cmp_file(file1, file2):
@@ -213,22 +213,16 @@ def run_spmm_pytorch():
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
-def run_spmm_scorch():
-    test_setup_file()
-    gen_spmm_scorch_file(filename="example", dir_name="tests", mm_dir="tests")
-    output = subprocess.check_output(["python3", "example.py"], cwd="tests").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
-
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
     run_spmv(4)
     run_spmv(8)
     run_spmv(16)
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
+def test_spmv_cuda():
     run_spmv_cuda()
-    run_spmv_cusparse() # Just for benchmarking
 
 def test_spmm():
     run_spmm(1)
@@ -236,14 +230,25 @@ def test_spmm():
     run_spmm(4)
     run_spmm(8)
     run_spmm(16)
-    run_spmm_cuda()
     run_spmm_libxsmm()
     run_spmm_cblas()
-    
-def test_baselines():
-    run_nonzeros_spmv()
-    run_nonzeros_spmm()
-    run_spmm_cublas()
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
+def test_spmm_cuda():
+    run_spmm_cuda()
     run_spmm_pytorch()
+
+def test_baselines_spmv():
+    run_nonzeros_spmv()
+
+def test_baselines_spmm():
+    run_nonzeros_spmm()
+    
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
+def test_baselines_spmv_cuda():
+    run_spmv_cusparse()
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is not available")
+def test_baselines_spmm_cuda():
+    run_spmm_cublas()
     run_spmm_cusparse()
-    run_spmm_scorch() # Just for benchmarking

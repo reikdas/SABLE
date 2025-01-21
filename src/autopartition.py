@@ -99,9 +99,9 @@ def similarity2(a, b):
 def my_convert_dense_to_vbr(file_info, cut_threshold, cut_indices, similarity):
     src_path, dest_path = file_info
     mtx = scipy.io.mmread(src_path)
+    A = scipy.sparse.csc_matrix(mtx, copy=False)
     del mtx
     gc.collect()
-    A = scipy.sparse.csc_matrix(mtx, copy=False)
     cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
     convert_sparse_to_vbr(A, rpntr, cpntr, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
 

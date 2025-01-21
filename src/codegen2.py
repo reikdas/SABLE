@@ -21,7 +21,7 @@ def _codegen(f):
         curr_block_instructions = []
         f()
         if len(curr_block_instructions) > 0:
-            res = ";\n".join(str(e) for e in curr_block_instructions if e!="")
+            res = ";".join(str(e) for e in curr_block_instructions if e!="")
             res += ";"
         else:
             res = ""
@@ -88,7 +88,7 @@ class ConcreteArrayVal:
     def slice(self, start: int):
         name = f"{self.name}_slice"
         n = f"{fresh_name(name)}"
-        curr_block_instructions.append(f"float* {n} = &({self.name}[{start}])")
+        curr_block_instructions.append(f"\nfloat* {n} = &({self.name}[{start}])")
         return ConcreteArrayVal(n, self.value[start:])
 
     def __getitem__(self, idx: int):
@@ -462,7 +462,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t}\n")
         f.write("}\n")
 
-
 def gen_spmm_libxsmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
@@ -651,7 +650,6 @@ int lowestMultiple(int x, int y) {
 
 def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-
     matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -673,15 +671,40 @@ int lowestMultiple(int x, int y) {
         return ((x / y) + 1) * y;
     }
 }\n""")
-    code.append("int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
-    code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
-    code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
-    code.append("\t\t\tfor (int k = 0; k < 512; k++) {\n")
-    code.append("\t\t\t\ty[i*512 + k] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[((j*512) + k)]);\n")
-    code.append("\t\t\t}\n")
-    code.append("\t\t}\n")
-    code.append("\t}\n")
-    code.append("}\n\n")
+#     code.append("""
+# int min(int a, int b) {
+#     return (a < b) ? a : b;
+# }\n""")
+    # tile_i = 32
+    # tile_j = 32
+    # tile_k = 64
+#     code.append(f"""
+# int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {{
+#     for (int jj = j_start; jj < j_end; jj += {tile_j}) {{
+#         for (int ii = i_start; ii < i_end; ii += {tile_i}) {{
+#             for (int kk = 0; kk < 512; kk += {tile_k}) {{
+#                 for (int j = jj; j < min(jj + {tile_j}, j_end); j++) {{
+#                     for (int i = ii; i < min(ii + {tile_i}, i_end); i++) {{
+#                         for (int k = kk; k < min(kk + {tile_k}, 512); k++) {{
+#                             y[i * 512 + k] += ((&val[val_offset])[(((j - j_start) * (i_end - i_start)) + (i - i_start))] 
+#                                                * x[(j * 512) + k]);
+#                         }}
+#                     }}
+#                 }}
+#             }}
+#         }}
+#     }}
+# }}\n""")
+    code.append("""
+int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {
+	for (int i = i_start; i < i_end; i++) {
+		for (int j = j_start; j < j_end; j++) {
+			for (int k = 0; k < 512; k++) {
+				y[i*512 + k] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[((j*512) + k)]);
+			}
+		}
+	}
+}\n\n""")
     code.append("int main() {\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
@@ -749,7 +772,6 @@ int lowestMultiple(int x, int y) {
                 else:
                     # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -1068,7 +1090,6 @@ int main(void) {
     CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
     CUBLAS_CHECK(cublasSetStream(cublasH, stream));
     const float alpha = 1.0f;
-
     const float beta = 1.0f;
 """)
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")

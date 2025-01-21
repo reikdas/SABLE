@@ -20,3 +20,7 @@ tests/example.cu
 tests/output.txt
 tests/foo.vbr
 dlmc/
+Suitesparse*/
+split-and-binaries/
+studies/threshold_results.csv
+

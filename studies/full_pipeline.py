@@ -2,7 +2,6 @@ import os
 import pathlib
 import subprocess
 from argparse import ArgumentParser
-
 import statistics
 import sys
 
@@ -23,7 +22,6 @@ COMPILE_TIMEOUT = 60 * 30
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH.parent)
-
 
 def avg(l):
     return round((sum(float(x) for x in l)/len(l)), 2)
@@ -56,7 +54,6 @@ def full_suitesparse_spmm():
     mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
     vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_vbr_fullnums"))
     codegen_dir = os.path.join(BASE_PATH, "Generated_SpMM_fullnums")
-
     # Get total number of files to process for the progress bar
     total_files = sum(1 for file_path in mtx_dir.rglob("*") 
                      if file_path.is_file() and 

@@ -462,7 +462,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t}\n")
         f.write("}\n")
 
-
 def gen_spmm_libxsmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
     matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
@@ -651,7 +650,6 @@ int lowestMultiple(int x, int y) {
 
 def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
     vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-
     matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -749,7 +747,6 @@ int lowestMultiple(int x, int y) {
                 else:
                     # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -1068,7 +1065,6 @@ int main(void) {
     CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
     CUBLAS_CHECK(cublasSetStream(cublasH, stream));
     const float alpha = 1.0f;
-
     const float beta = 1.0f;
 """)
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")

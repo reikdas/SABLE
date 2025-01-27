@@ -4,11 +4,11 @@ import subprocess
 import numpy
 import scipy
 
+from src.baseline import *
 from src.codegen import *
 from utils.convert_real_to_vbr import convert_sparse_to_vbr
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
-from src.baseline import *
 
 
 def cmp_file(file1, file2):
@@ -180,7 +180,6 @@ def test_spmv():
     run_spmv(4)
     run_spmv(8)
     run_spmv(16)
-    run_spmv_cuda()
 
 def test_spmm():
     run_spmm(1)
@@ -188,10 +187,15 @@ def test_spmm():
     run_spmm(4)
     run_spmm(8)
     run_spmm(16)
-    run_spmm_cuda()
-    run_spmm_libxsmm()
-    run_spmm_cblas()
+    # run_spmm_libxsmm()
+    # run_spmm_cblas()
 
+# def test_spmv_cuda():
+#     run_spmv_cuda()
+
+# def test_spmm_cuda():
+#     run_spmm_cuda()
+    
 def test_baselines():
     run_nonzeros_spmv()
     run_nonzeros_spmm()

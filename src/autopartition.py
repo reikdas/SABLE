@@ -1,6 +1,7 @@
 import os
 import pathlib
 from multiprocessing import cpu_count
+import gc
 
 import numpy as np
 import scipy
@@ -96,7 +97,10 @@ def my_convert_dense_to_vbr(file_info, cut_threshold, cut_indices, similarity):
     del mtx
     gc.collect()
     cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
-    convert_sparse_to_vbr(A, rpntr, cpntr, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
+    if val is None:
+        return False
+    return True
 
 # def partition_dlmc(mtx_dir, vbr_dir):
 #     src_dir = pathlib.Path(os.path.join(BASE_PATH, mtx_dir))

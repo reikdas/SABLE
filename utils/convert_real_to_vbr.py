@@ -1,8 +1,10 @@
 import os
 import pathlib
+import gc
 
 import scipy
 from scipy.io import mmread
+import numpy
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
@@ -91,8 +93,15 @@ def convert_sparse_to_vbr(csc_mat, rpntr, cpntr, fname, dst_dir):
                 submat = csc_mat[row_start:row_end, col_start:col_end]
                 
                 # Convert to dense array and flatten in column-major order (F-order)
-                submat_values = submat.toarray().flatten(order='F')
+                try:
+                    submat_values = submat.toarray().flatten(order='F')
+                except numpy._core._exceptions.ArrayMemoryError:
+                    print(f"Skipping {fname} due to memory error")
+                    return None, None, None, None, None
                 val.extend(submat_values)
+                del submat
+                del submat_values
+                gc.collect()
                 indx.append(len(val))
         else:
             bpntrb.append(-1)

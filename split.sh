@@ -10,6 +10,7 @@
 #
 # Depends on GHC being installed
 #
+AFFINITY=$(cat /proc/$$/status | grep Cpus_allowed_list | cut -f2)
 N=$1 # number of chunks; 64 can be decreased but can't go higher than 89
 N1=$(($N + 9)) # start from 10 rather than from 1
 FILE=$2
@@ -27,7 +28,7 @@ NOTE: If you create a backup copy of '$FILE' called '$FILE.orig' before running 
 we will use it to restore the original on every run."
 FILE=$SCRIPT_DIR/split-and-binaries/$SAVE_DIR/$SAVE_DIR.c
 echo '1. Extract the original foo-calls in `body.ins` and put foo$i-calls instead'
-runhaskell "$SCRIPT_DIR/replace_foo.hs" $N $FILE split-and-binaries/$SAVE_DIR
+taskset -a -c $AFFINITY runhaskell "$SCRIPT_DIR/replace_foo.hs" $N $FILE split-and-binaries/$SAVE_DIR
 echo "2. Split 'body.ins' into N"
 split -n r/$N $SCRIPT_DIR/split-and-binaries/$SAVE_DIR/body.ins $SCRIPT_DIR/split-and-binaries/$SAVE_DIR/foo --numeric-suffixes=10 --additional-suffix=".c"
 echo "3. Patch the foo\$i.c: add funciton header and footer"
@@ -49,8 +50,8 @@ void foo(float *y, const float* x, const float* val, int i_start, int i_end, int
 " > $SCRIPT_DIR/split-and-binaries/$SAVE_DIR/foo.h
 echo "5. Compiling and linking the result"
 for f in $SCRIPT_DIR/split-and-binaries/$SAVE_DIR/foo*.c; do
-    gcc -c -O3 -mavx -mprefer-vector-width=512 -funroll-all-loops -o ${f%.c}.o $f &
+    taskset -a -c $AFFINITY gcc -c -O3 -mavx -mprefer-vector-width=512 -funroll-all-loops -o ${f%.c}.o $f &
 done
 wait
-gcc -c -O3 -mavx -mprefer-vector-width=512 -funroll-all-loops -Wno-implicit-function-declaration -o ${FILE%.c}.o $FILE
-gcc -O3 -mavx -mprefer-vector-width=512 -funroll-all-loops -o $SCRIPT_DIR/split-and-binaries/$SAVE_DIR/$SAVE_DIR ${FILE%.c}.o $SCRIPT_DIR/split-and-binaries/$SAVE_DIR/foo*.o
+taskset -a -c $AFFINITY gcc -c -O3 -mavx -mprefer-vector-width=512 -funroll-all-loops -Wno-implicit-function-declaration -o ${FILE%.c}.o $FILE
+taskset -a -c $AFFINITY gcc -O3 -mavx -mprefer-vector-width=512 -funroll-all-loops -o $SCRIPT_DIR/split-and-binaries/$SAVE_DIR/$SAVE_DIR ${FILE%.c}.o $SCRIPT_DIR/split-and-binaries/$SAVE_DIR/foo*.o

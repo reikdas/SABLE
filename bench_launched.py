@@ -6,7 +6,7 @@ import statistics
 import psutil
 
 import pandas as pd
-from mpi4py import MPI
+# from mpi4py import MPI
 
 from src.codegen2 import vbr_spmv_codegen
 from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbr
@@ -18,26 +18,29 @@ BASE_PATH = os.path.join(FILEPATH)
 BENCHMARK_FREQ = 5
 COMPILE_TIMEOUT = 60 * 60 * 4
 
-mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_large"))
-vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_vbr_thresh0.2_cut2_sim2"))
 codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_suitesparse_thresh0.2_cut2_sim2_fastc")
 
 if __name__ == "__main__":
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
+    # comm = MPI.COMM_WORLD
+    # rank = comm.Get_rank()
     pid = os.getpid()
     core = psutil.Process(pid).cpu_num()
-    mat_dist = pd.read_csv("mat_dist.csv", header=None)
-    matrices = mat_dist.iloc[rank:rank+1].values[~pd.isnull(mat_dist.iloc[rank:rank+1].values)]
-    with open("mat_dist_" + str(rank) + ".csv", "w") as f:
+    # mat_dist = pd.read_csv("mat_dist.csv", header=None)
+    # matrices = mat_dist.iloc[rank:rank+1].values[~pd.isnull(mat_dist.iloc[rank:rank+1].values)]
+    # with open("mat_dist_" + str(rank) + ".csv", "w") as f:
+    with open("deleteme.csv", "w") as f:
+        matrices = ["/local/scratch/a/Suitesparse/invextr1_new/invextr1_new.mtx"]
         f.write("Filename,Codegen(ms),Compile(ms),SABLE(us),PSC(us),Speedup\n")
         for file_path in matrices:
             file_path = pathlib.Path(file_path)
             fname = file_path.resolve().stem
-            print(f"Rank {rank}: Process {fname} on core {core}")
+            # print(f"Rank {rank}: Process {fname} on core {core}")
             try:
-                relative_path = file_path.relative_to(mtx_dir)
-                dest_path = vbr_dir / relative_path.with_suffix(".vbr")
+                # relative_path = file_path.relative_to(mtx_dir)
+                # print("Relative path:", relative_path)
+                # dest_path = vbr_dir / relative_path.with_suffix(".vbr")
+                # print(dest_path)
+                dest_path = pathlib.Path(os.path.join(BASE_PATH, "vbr_dir", fname, fname + ".vbr"))
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
                 success = my_convert_dense_to_vbr((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2)
                 if not success:

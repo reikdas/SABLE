@@ -91,7 +91,7 @@ def process(matrix):
     for _ in range(BENCHMARK_FREQ):
         output = subprocess.run(["taskset", "-a", "-c", str(core), bin], capture_output=True, check=True)
         execution_time = output.stdout.decode("utf-8").split("\n")[0].split(" = ")[1]
-        execution_time_unroll.append(execution_time)
+        execution_time_unroll.append(float(execution_time))
 
     # PSC bench
     # TODO: comment out for now
@@ -104,7 +104,7 @@ Results ({fname}):
 Codegen:      {codegen_time}ms
 Compile time: {compile_time}s,
 Sable Median: {statistics.median(execution_time_unroll)}us,
-Sable  stdev: {statistics.stdev([float(x) for x in execution_time_unroll])}
+Sable  stdev: {statistics.stdev(execution_time_unroll)}
     """)
 # PSC Median: {statistics.median(psc_times)}us,
 # Speedup:    {round(float(statistics.median(psc_times))/float(statistics.median(execution_time_unroll)), 2)}

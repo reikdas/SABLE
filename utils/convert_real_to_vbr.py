@@ -95,7 +95,7 @@ def convert_sparse_to_vbr(csc_mat, rpntr, cpntr, fname, dst_dir):
                 # Convert to dense array and flatten in column-major order (F-order)
                 try:
                     submat_values = submat.toarray().flatten(order='F')
-                except numpy._core._exceptions.ArrayMemoryError:
+                except numpy._core._exceptions._ArrayMemoryError:
                     print(f"Skipping {fname} due to memory error")
                     return None, None, None, None, None
                 val.extend(submat_values)

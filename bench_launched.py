@@ -63,9 +63,10 @@ if __name__ == "__main__":
                 for _ in range(BENCHMARK_FREQ):
                     output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/split-and-binaries/{fname}/{fname}"], capture_output=True, check=True)
                     execution_time = output.stdout.decode("utf-8").split("\n")[0].split(" = ")[1]
-                    execution_time_unroll.append(execution_time)
+                    execution_time_unroll.append(float(execution_time))
                 output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/../partially-strided-codelet/build/DDT", "-m", str(file_path), "-n", "SPMV", "-s", "CSR", "--bench_executor", "-t", str(1)], capture_output=True, check=True).stdout.decode("utf-8")
                 psc_times = output.split("\n")[:-1]
+                psc_times = [float(time) for time in psc_times]
                 if float(statistics.median(execution_time_unroll)) == 0:
                     f.write(f"{fname},{codegen_time}ms,{compile_time}ms,{statistics.median(execution_time_unroll)}us,{statistics.median(psc_times)}us,Div by Zero\n")
                 else:

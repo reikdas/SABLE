@@ -6,7 +6,7 @@ import scipy
 
 from src.baseline import *
 from src.codegen import *
-from utils.convert_real_to_vbr import convert_sparse_to_vbr
+from utils.convert_real_to_vbr import convert_sparse_to_vbr, convert_vbr_to_compressed
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 
@@ -183,6 +183,50 @@ def run_nonzeros_spmm():
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
 
+def run_compression():
+    dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., 0.,  1.],
+                        [ 1.,  5.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0., -1.],
+                        [ 0.,  0.,  6.,  1.,  2.,  2.,  0.,  0.,  0.,  0.,  0.],
+                        [ 0.,  0.,  2.,  7.,  1.,  0.,  0.,  0.,  0.,  0.,  0.],
+                        [ 0.,  0., -1.,  2.,  9.,  3.,  0.,  0.,  0.,  0.,  0.],
+                        [ 2.,  1.,  3.,  4.,  5., 10.,  4.,  3.,  2.,  0.,  0.],
+                        [ 0.,  0.,  0.,  0.,  0.,  4., 13.,  4.,  2.,  0.,  0.],
+                        [ 0.,  0.,  0.,  0.,  0.,  3.,  3., 11.,  3.,  0.,  0.],
+                        [ 0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  7.,  0.,  0.],
+                        [ 8.,  4.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 0.,  3.],
+                        [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 12.]])
+    sparse = scipy.sparse.csc_matrix(dense)
+    rpntr = [0, 2, 5, 6, 9, 11]
+    cpntr = [0, 2, 5, 6, 9, 11]
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "foo", "tests")
+    val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 80, "foo", "tests")
+    assert(val2== [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 3.0, 12.0])
+    assert(indx2==[0.0, 4.0, 6.0, 8.0, 17.0, 19.0, 21.0, 24.0, 25.0, 28.0, 30.0, 39.0, 43.0, 45.0])
+    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
+    assert(bpntrb==[0, 3, 5, 9, 11])
+    assert(bpntre==[3, 5, 9, 11, 13])
+    assert(ublocks==[2, 4, 9, 12])
+    assert(coo_i==[0, 1, 2, 4, 6, 7, 9, 10])
+    assert(coo_j==[10, 10, 5, 5, 5, 5, 10, 10])
+
+def run_compression_codegen():
+    rpntr = [0, 2, 5, 6, 9, 11]
+    cpntr = [0, 2, 5, 6, 9, 11]
+    val2= [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 3.0, 12.0]
+    indx2=[0, 4, 6, 8, 17, 19, 21, 24, 25, 28, 30, 39, 43, 45]
+    bindx=[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]
+    bpntrb=[0, 3, 5, 9, 11]
+    bpntre=[3, 5, 9, 11, 13]
+    ublocks=[2, 4, 9, 12]
+    coo_i = [0, 1, 2, 4, 6, 7, 9, 10]
+    coo_j = [10, 10, 5, 5, 5, 5, 10, 10]
+    gen_single_threaded_spmv_compressed(val2, indx2, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, "tests", "example", "tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
+
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
@@ -203,8 +247,8 @@ def test_spmm():
     run_spmm(4)
     run_spmm(8)
     run_spmm(16)
-    # run_spmm_libxsmm()
-    # run_spmm_cblas()
+#     run_spmm_libxsmm()
+#     run_spmm_cblas()
 
 # def test_spmv_cuda():
 #     run_spmv_cuda()
@@ -215,3 +259,7 @@ def test_spmm():
 def test_baselines():
     run_nonzeros_spmv()
     run_nonzeros_spmm()
+
+def test_vbr_compression():
+    run_compression()
+    run_compression_codegen()

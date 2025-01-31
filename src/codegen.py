@@ -250,6 +250,87 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
         runtimes[core_name] = run_time
     return runtimes
 
+def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir):
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    vbr_path = os.path.join(vbr_dir, filename + ".vbr2")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <sys/time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append("int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
+    code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
+    code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    code.append("int main() {\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append(f"\tfloat* y = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
+    code.append(f"\tfloat* x = (float*)calloc({cpntr[-1] + 1}, sizeof(float));\n")
+    code.append(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint x_size=0, val_size=0;\n")
+    code.append('''\tassert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    fclose(file1);\n''')
+    code.append('''
+    while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
+        x_size++;
+    }}
+    fclose(file2);\n'''.format(cpntr[-1]))
+    # code.append("\tint count = 0;\n")
+    code.append("\tstruct timeval t1;\n")
+    code.append("\tgettimeofday(&t1, NULL);\n")
+    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    count = 0
+    count2 = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if count not in ublocks:
+                    code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                else:
+                    num_elems = indx[count+1] - indx[count]
+                    code.append("\n")
+                    for i, j, v in zip(coo_i[count2:count2+num_elems], coo_j[count2:count2+num_elems], [elem for elem in range(indx[count],indx[count+1])]):
+                        code.append(f"\ty[{i}] += val[{v}] * x[{j}];")
+                    code.append("\n")
+                    count2 += num_elems
+                count+=1
+    code.append("\n\tstruct timeval t2;\n")
+    code.append("\tgettimeofday(&t2, NULL);\n")
+    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tprintf(\"%f\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("}\n")
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+
 def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)

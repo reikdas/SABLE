@@ -77,6 +77,15 @@ def run_spmv(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
 
+def run_spmv_unroll(threads):
+    test_setup_file()
+    vbr_spmv_codegen(filename="example", density=80, dir_name="tests", threads=threads, vbr_dir="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
+
 def run_spmv_cuda():
     test_setup_file()
     vbr_spmv_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", density=0)
@@ -180,6 +189,13 @@ def test_spmv():
     run_spmv(4)
     run_spmv(8)
     run_spmv(16)
+
+def test_spmv_unroll():
+    run_spmv_unroll(1)
+    run_spmv_unroll(2)
+    run_spmv_unroll(4)
+    run_spmv_unroll(8)
+    run_spmv_unroll(16)
 
 def test_spmm():
     run_spmm(1)

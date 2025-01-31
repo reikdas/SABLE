@@ -9,6 +9,55 @@ import numpy
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
+def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, density, fname, dst_dir):
+    val2 = []
+    indx2 = [0]
+    ublocks = []
+    coo_i = []
+    coo_j = []
+    count = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                sparse_count = 0
+                count2 = 0
+                dense_elems = []
+                idxs_i = []
+                idxs_j = []
+                for idx_j in range(cpntr[b], cpntr[b+1]):
+                    for idx_i in range(rpntr[a], rpntr[a+1]):
+                        if val[indx[count]+count2] == 0.0:
+                            sparse_count+=1
+                        else:
+                            dense_elems += [val[indx[count]+count2]]
+                            idxs_i.append(idx_i)
+                            idxs_j.append(idx_j)
+                        count2+=1
+                dense_count = len(dense_elems)
+                if (dense_count/(dense_count + sparse_count))*100 > density:
+                    val2.extend(val[indx[count]:indx[count+1]])
+                else:
+                    val2.extend(dense_elems)
+                    ublocks.append(count)
+                    coo_i.extend(idxs_i)
+                    coo_j.extend(idxs_j)
+                indx2.append(len(val2))
+                count+=1
+    with open(os.path.join(dst_dir, f"{fname}.vbr2"), "w") as f:
+        f.write(f"val=[{','.join(map(str, val2))}]\n")
+        f.write(f"indx=[{','.join(map(str, indx2))}]\n")
+        f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
+        f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
+        f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
+        f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
+        f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
+        f.write(f"ublocks=[{','.join(map(str, ublocks))}]\n")
+        f.write(f"coo_i=[{','.join(map(str, coo_i))}]\n")
+        f.write(f"coo_j=[{','.join(map(str, coo_j))}]\n")
+    return val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j
 
 def convert_sparse_to_vbr(csc_mat, rpntr, cpntr, fname, dst_dir):
     '''

@@ -8,7 +8,7 @@ import psutil
 import pandas as pd
 from mpi4py import MPI
 
-from src.codegen2 import vbr_spmv_codegen
+from codegen import vbr_spmv_codegen
 from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbr
 from utils.fileio import read_vbr, write_dense_vector
 

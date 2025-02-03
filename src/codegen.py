@@ -251,6 +251,7 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
     return runtimes
 
 def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir):
+    time1 = time.time_ns() // 1_000_000
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
@@ -330,6 +331,8 @@ def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, 
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
 
 def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir):
     if not os.path.exists(dir_name):

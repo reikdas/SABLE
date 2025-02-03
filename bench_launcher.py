@@ -8,9 +8,9 @@ import psutil
 import pandas as pd
 from mpi4py import MPI
 
-from codegen import vbr_spmv_codegen
+from src.codegen import gen_single_threaded_spmv_compressed
 from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbr
-from utils.fileio import read_vbr, write_dense_vector
+from utils.fileio import write_dense_vector
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
@@ -39,15 +39,14 @@ if __name__ == "__main__":
                 relative_path = file_path.relative_to(mtx_dir)
                 dest_path = vbr_dir / relative_path.with_suffix(".vbr")
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
-                success = my_convert_dense_to_vbr((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2)
-                if not success:
+                val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j = my_convert_dense_to_vbr((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2)
+                if val is None:
                     f.write(f"{fname},ERROR2,ERROR2,ERROR2,ERROR2,ERROR2\n")
                     f.flush()
                     print(f"Done {fname}")
                     continue
-                _, _, _, _, cpntr, _, _ = read_vbr(dest_path)
                 write_dense_vector(1.0, cpntr[-1])
-                codegen_time = vbr_spmv_codegen(fname, density=8, dir_name=codegen_dir, vbr_dir=dest_path.parent, threads=1)
+                codegen_time = gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, codegen_dir, fname, dest_path.parent)
                 try:
                     time1 = time.time_ns() // 1_000_000
                     subprocess.run(["taskset", "-a", "-c", str(core), "./split.sh", "64", codegen_dir + "/" + fname + ".c"], cwd=BASE_PATH, check=True, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)
@@ -59,13 +58,11 @@ if __name__ == "__main__":
                     print(f"Done {fname}")
                     continue
                 subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/split-and-binaries/{fname}/{fname}"], capture_output=True, check=True)
-                comm.Barrier()
                 execution_time_unroll = []
                 for _ in range(BENCHMARK_FREQ):
                     output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/split-and-binaries/{fname}/{fname}"], capture_output=True, check=True)
                     execution_time = output.stdout.decode("utf-8").split("\n")[0].split(" = ")[1]
                     execution_time_unroll.append(float(execution_time))
-                comm.Barrier()
                 output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/../partially-strided-codelet/build/DDT", "-m", str(file_path), "-n", "SPMV", "-s", "CSR", "--bench_executor", "-t", str(1)], capture_output=True, check=True).stdout.decode("utf-8")
                 psc_times = output.split("\n")[:-1]
                 psc_times = [float(time) for time in psc_times]
@@ -76,7 +73,6 @@ if __name__ == "__main__":
                     f.write(f"{fname},{codegen_time}ms,{compile_time}ms,{statistics.median(execution_time_unroll)}us,{statistics.median(psc_times)}us,{round(float(statistics.median(psc_times))/float(statistics.median(execution_time_unroll)), 2)}\n")
                 f.flush()
                 print(f"Done {fname}")
-                comm.Barrier()
             except Exception as e:
                 f.write(f"{fname},ERROR3,ERROR3,ERROR3,ERROR3,ERROR3\n")
                 f.flush()

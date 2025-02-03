@@ -6,8 +6,7 @@ import gc
 import numpy as np
 import scipy
 
-from utils.convert_real_to_vbr import convert_sparse_to_vbr
-from utils.smtx_to_mtx import parallel_dispatch
+from utils.convert_real_to_vbr import convert_sparse_to_vbr, convert_vbr_to_compressed
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
@@ -98,9 +97,8 @@ def my_convert_dense_to_vbr(file_info, cut_threshold, cut_indices, similarity):
     gc.collect()
     cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
     val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
-    if val is None:
-        return False
-    return True
+    val, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 8, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
+    return val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j
 
 # def partition_dlmc(mtx_dir, vbr_dir):
 #     src_dir = pathlib.Path(os.path.join(BASE_PATH, mtx_dir))

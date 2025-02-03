@@ -28,6 +28,6 @@ prefixTest = not . ("long t1s" `isPrefixOf`) . trimStart
 fooEndTest :: String -> Bool
 fooEndTest = ("struct timeval t2;" /=) . trimStart
 replacement :: Int -> String
-replacement n = unlines $ [ "\tfoo" ++ show i ++ "(x,y,val);"| i <- [10..n+9]]
+replacement n = unlines $ [ "\tspmv_kernel" ++ show i ++ "(x,y,val);"| i <- [10..n+9]]
 trimStart :: String -> String
 trimStart = dropWhile isSpace

@@ -2,6 +2,9 @@ import pathlib
 import os
 import subprocess
 
+from utils.utils import check_file_matches_parent_dir
+from eval import eval_single_proc
+
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
@@ -33,28 +36,28 @@ skip = [
     "2cubes_sphere",
 ]
 
-def check_file_matches_parent_dir(filepath):
-    """
-    Check if a file's name (without suffix) matches its parent directory name.
+# def check_file_matches_parent_dir(filepath):
+#     """
+#     Check if a file's name (without suffix) matches its parent directory name.
     
-    Args:
-        filepath (str): Full path to the file
+#     Args:
+#         filepath (str): Full path to the file
         
-    Returns:
-        bool: True if file name (without suffix) matches parent directory name
+#     Returns:
+#         bool: True if file name (without suffix) matches parent directory name
         
-    Example:
-        >>> path = '/local/scratch/a/das160/SABLE/Suitesparse/GD96_a/GD96_a.mtx'
-        >>> check_file_matches_parent_dir(path)
-        True
-    """
-    # Get the file name without extension
-    file_name = os.path.splitext(os.path.basename(filepath))[0]
+#     Example:
+#         >>> path = '/local/scratch/a/das160/SABLE/Suitesparse/GD96_a/GD96_a.mtx'
+#         >>> check_file_matches_parent_dir(path)
+#         True
+#     """
+#     # Get the file name without extension
+#     file_name = os.path.splitext(os.path.basename(filepath))[0]
     
-    # Get the parent directory name
-    parent_dir = os.path.basename(os.path.dirname(filepath))
+#     # Get the parent directory name
+#     parent_dir = os.path.basename(os.path.dirname(filepath))
     
-    return file_name == parent_dir
+#     return file_name == parent_dir
 
 if __name__ == "__main__":
     files = []
@@ -81,10 +84,19 @@ if __name__ == "__main__":
                 f.write(f"{file},")
             f.write("\n")
             start = end
-    subprocess.run(["mpirun", "--cpu-list", ",".join(map(str, cpu_affinity)), "--bind-to", "cpu-list:ordered", "-np", str(num_cores), "python3", "bench_launcher.py"], check=True, env=dict(os.environ) | {"HWLOC_COMPONENTS": "-gl"})
-    with open(os.path.join(BASE_PATH, "results", "dist_fastc.csv"), "w") as f:
-        f.write("Filename,Codegen(ms),Compile(ms),SABLE(us),PSC(us),Speedup\n")
+    subprocess.run(["mpirun", "--cpu-list", ",".join(map(str, cpu_affinity)), "--bind-to", "cpu-list:ordered", "-np", str(num_cores), "python3", "bench_launched.py"], check=True, env=dict(os.environ) | {"HWLOC_COMPONENTS": "-gl"})
+    evaled_fnames = []
+    with open(os.path.join(BASE_PATH, "results", "compile_res.csv"), "w") as f:
+        f.write("Filename,Codegen(ms),Compile(ms)\n")
         for core in range(num_cores):
             with open(f"mat_dist_{core}.csv") as g:
+                for line in g:
+                    parts = line.strip().split(',')
+                    if parts[0] == "Filename":
+                        continue
+                    if 'ERROR' not in parts[1] and 'ERROR' not in parts[2]:
+                        f.write(line)
+                        evaled_fnames.append(parts[0])
                 f.write(g.read())
             os.remove(f"mat_dist_{core}.csv")
+    eval_single_proc(evaled_fnames)

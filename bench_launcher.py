@@ -2,7 +2,6 @@ import os
 import pathlib
 import subprocess
 import time
-import statistics
 import psutil
 
 import pandas as pd
@@ -30,7 +29,7 @@ if __name__ == "__main__":
     mat_dist = pd.read_csv("mat_dist.csv", header=None)
     matrices = mat_dist.iloc[rank:rank+1].values[~pd.isnull(mat_dist.iloc[rank:rank+1].values)]
     with open("mat_dist_" + str(rank) + ".csv", "w") as f:
-        f.write("Filename,Codegen(ms),Compile(ms),SABLE(us),PSC(us),Speedup\n")
+        f.write("Filename,Codegen(ms),Compile(ms)\n")
         for file_path in matrices:
             file_path = pathlib.Path(file_path)
             fname = file_path.resolve().stem
@@ -41,7 +40,7 @@ if __name__ == "__main__":
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
                 val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j = my_convert_dense_to_vbr((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2)
                 if val is None:
-                    f.write(f"{fname},ERROR2,ERROR2,ERROR2,ERROR2,ERROR2\n")
+                    f.write(f"{fname},ERROR2,ERROR2\n")
                     f.flush()
                     print(f"Done {fname}")
                     continue
@@ -53,27 +52,14 @@ if __name__ == "__main__":
                     time2 = time.time_ns() // 1_000_000
                     compile_time = time2-time1
                 except subprocess.TimeoutExpired:
-                    f.write(f"{fname},{codegen_time}ms,ERROR,ERROR,ERROR,ERROR\n")
+                    f.write(f"{fname},{codegen_time}ms,ERROR,ERROR\n")
                     f.flush()
                     print(f"Done {fname}")
                     continue
-                subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/split-and-binaries/{fname}/{fname}"], capture_output=True, check=True)
-                execution_time_unroll = []
-                for _ in range(BENCHMARK_FREQ):
-                    output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/split-and-binaries/{fname}/{fname}"], capture_output=True, check=True)
-                    execution_time = output.stdout.decode("utf-8").split("\n")[0].split(" = ")[1]
-                    execution_time_unroll.append(float(execution_time))
-                output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/../partially-strided-codelet/build/DDT", "-m", str(file_path), "-n", "SPMV", "-s", "CSR", "--bench_executor", "-t", str(1)], capture_output=True, check=True).stdout.decode("utf-8")
-                psc_times = output.split("\n")[:-1]
-                psc_times = [float(time) for time in psc_times]
-                if float(statistics.median(execution_time_unroll)) == 0:
-                    f.write(f"{fname},{codegen_time}ms,{compile_time}ms,{statistics.median(execution_time_unroll)}us,{statistics.median(psc_times)}us,Div by Zero\n")
-                else:
-                # step_bar.update(1)
-                    f.write(f"{fname},{codegen_time}ms,{compile_time}ms,{statistics.median(execution_time_unroll)}us,{statistics.median(psc_times)}us,{round(float(statistics.median(psc_times))/float(statistics.median(execution_time_unroll)), 2)}\n")
+                f.write(f"{fname},{codegen_time}ms,{compile_time}ms\n")
                 f.flush()
                 print(f"Done {fname}")
             except Exception as e:
-                f.write(f"{fname},ERROR3,ERROR3,ERROR3,ERROR3,ERROR3\n")
+                f.write(f"{fname},ERROR3,ERROR3\n")
                 f.flush()
                 print(f"Errored {fname} with exception: {e}")

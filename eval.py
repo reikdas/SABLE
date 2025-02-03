@@ -1,7 +1,8 @@
 import os
 import pathlib
-import subprocess
 import statistics
+import subprocess
+
 import psutil
 
 from utils.utils import check_file_matches_parent_dir

@@ -1,7 +1,6 @@
+import gc
 import os
 import pathlib
-from multiprocessing import cpu_count
-import gc
 
 import numpy as np
 import scipy

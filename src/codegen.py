@@ -260,7 +260,7 @@ def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, 
     code.append("#include <sys/time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <assert.h>\n\n")
-    code.append("int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("int spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
     code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
     code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
     code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
@@ -311,7 +311,7 @@ def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, 
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 if count not in ublocks:
-                    code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                 else:
                     num_elems = indx[count+1] - indx[count]
                     code.append("\n")
@@ -341,7 +341,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
     code.append("#include <sys/time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <assert.h>\n\n")
-    code.append("int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("int spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
     code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
     code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
     code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
@@ -404,12 +404,12 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
                             count2+=1
                     if (dense_count/(dense_count + sparse_count))*100 > density:
                         # code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                        code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                        code.append(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     else:
                         code.append(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 else:
                     # code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                    code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                 count+=1
     code.append("\n\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")
@@ -752,32 +752,8 @@ int lowestMultiple(int x, int y) {
         return ((x / y) + 1) * y;
     }
 }\n""")
-#     code.append("""
-# int min(int a, int b) {
-#     return (a < b) ? a : b;
-# }\n""")
-    # tile_i = 32
-    # tile_j = 32
-    # tile_k = 64
-#     code.append(f"""
-# int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {{
-#     for (int jj = j_start; jj < j_end; jj += {tile_j}) {{
-#         for (int ii = i_start; ii < i_end; ii += {tile_i}) {{
-#             for (int kk = 0; kk < 512; kk += {tile_k}) {{
-#                 for (int j = jj; j < min(jj + {tile_j}, j_end); j++) {{
-#                     for (int i = ii; i < min(ii + {tile_i}, i_end); i++) {{
-#                         for (int k = kk; k < min(kk + {tile_k}, 512); k++) {{
-#                             y[i * 512 + k] += ((&val[val_offset])[(((j - j_start) * (i_end - i_start)) + (i - i_start))] 
-#                                                * x[(j * 512) + k]);
-#                         }}
-#                     }}
-#                 }}
-#             }}
-#         }}
-#     }}
-# }}\n""")
     code.append("""
-int foo(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {
+int spmm_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {
 	for (int i = i_start; i < i_end; i++) {
 		for (int j = j_start; j < j_end; j++) {
 			for (int k = 0; k < 512; k++) {
@@ -847,12 +823,12 @@ int foo(float *y, const float* x, const float* val, int i_start, int i_end, int 
                             count2+=1
                     if (dense_count/(dense_count + sparse_count))*100 > density:
                         # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                        code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                        code.append(f"\tspmm_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     else:
                         code.append(codegen(lambda: spmm(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), RepRange(0, 512), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
                 else:
                     # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                    code.append(f"\tfoo(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append(f"\tspmm_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                 count+=1
     code.append("\tstruct timeval t2;\n")
     code.append("\tgettimeofday(&t2, NULL);\n")

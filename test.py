@@ -61,7 +61,7 @@ def test_partition():
     sparse = scipy.sparse.csc_matrix(dense)
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "foo", "tests")
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example2", "tests")
     assert(val ==  [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 0, 0.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 0.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 0.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 0, 0, 3.0, 12.0])
     assert(indx==[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51])
     assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
@@ -198,8 +198,8 @@ def run_compression():
     sparse = scipy.sparse.csc_matrix(dense)
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "foo", "tests")
-    val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 80, "foo", "tests")
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example2", "tests")
+    val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 80, "example2", "tests")
     assert(val2== [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 3.0, 12.0])
     assert(indx2==[0.0, 4.0, 6.0, 8.0, 17.0, 19.0, 21.0, 24.0, 25.0, 28.0, 30.0, 39.0, 43.0, 45.0])
     assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])

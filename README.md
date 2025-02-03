@@ -85,7 +85,8 @@ mkdir -p tmp && g++ -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
 # to eval specific files add it to eval [] array without .mtx
 # to skip specific files add it to skip [] array without .mtx 
 # before executing the python script
+# this will save the execution times in benchmark_results/csr_spmv.csv file
 python benchmark_scripts/benchmark_csr_spmv.py <threads>
 python benchmark_scripts/benchmark_csr_spmv.py 1
-python benchmark_scripts/benchmark_csr_spmv.py 1
+python benchmark_scripts/benchmark_csr_spmv.py 2
 ```

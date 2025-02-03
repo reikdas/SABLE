@@ -1,10 +1,10 @@
+import gc
 import os
 import pathlib
-import gc
 
+import numpy
 import scipy
 from scipy.io import mmread
-import numpy
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")

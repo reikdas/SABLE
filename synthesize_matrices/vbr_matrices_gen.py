@@ -1,13 +1,13 @@
-from random import sample
 import pathlib
 import sys
+from random import sample
 
 # FIXME: Hack to get imports
 FILEPATH = pathlib.Path(__file__).resolve().parent
 sys.path.append(str(FILEPATH.parent))
 
-from utils.fileio import write_vbr_matrix
 from src.vbr import VBR
+from utils.fileio import write_vbr_matrix
 
 
 def cumsum_list(l):

@@ -70,17 +70,22 @@ The corresponding files will be generated in `results/`.
 ## Benchmarking the CSR SpMV version
 ``` bash
 # to compile for multi-thread execution with OpenMP
-taskset -a -c 23 mkdir -p tmp && g++ -DOPENMP -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
+mkdir -p tmp && g++ -DOPENMP -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
 
 # to compile for single-thread execution
-taskset -a -c 23 mkdir -p tmp && g++ -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
+mkdir -p tmp && g++ -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
 
 # execute to evaluate individual matrix
+./tmp/csr-spmv <matrix> <threads>
 ./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 1
 ./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 2
 
 # edit the files in eval and skip lists in the file before running
 # benchmark_csr_spmv.py, if empty it will evaluate all matrices
+# to eval specific files add it to eval [] array without .mtx
+# to skip specific files add it to skip [] array without .mtx 
+# before executing the python script
+python benchmark_scripts/benchmark_csr_spmv.py <threads>
 python benchmark_scripts/benchmark_csr_spmv.py 1
 python benchmark_scripts/benchmark_csr_spmv.py 1
 ```

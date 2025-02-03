@@ -16,7 +16,7 @@ MTX_DIR = "/local/scratch/a/Suitesparse/"
 BENCHMARK_RESULTS = os.path.join(BASE_PATH, "benchmark_results")
 BENCHMARK_FILE = os.path.join(BENCHMARK_RESULTS, "csr_spmv.csv")
 
-eval = ["heart1"]
+eval = []
 skip = []
 
 if __name__ == "__main__":
@@ -80,14 +80,3 @@ if __name__ == "__main__":
             f.write(f"{fname}, {time_taken}\n")
 
     print(f"Processed {i} files")
-        
-        
-        
-        
-        
-        
-        
-        
-        
-        
-    

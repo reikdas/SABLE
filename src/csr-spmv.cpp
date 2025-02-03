@@ -211,8 +211,6 @@ void spmv(const CSR &csr, const float *x, float *y) {
 // Example usage
 int main(int argc, char *argv[]) {
 
-
-    // std::string filename = "matrix.mtx";
     // read the filename from the command line
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
@@ -225,16 +223,10 @@ int main(int argc, char *argv[]) {
     omp_set_num_threads(num_threads);
 
     COO cooMatrix = readMTXtoCOO(filename);
-
-    // std::cout << "Matrix dimensions: " << cooMatrix.rows << "x" << cooMatrix.cols << std::endl;
-    // std::cout << "Number of non-zeros: " << cooMatrix.row_indices.size() << std::endl;
-    // std::cout << "Number of non-zeros: " << cooMatrix.nnz << std::endl;
-
     CSR csrMatrix = coo_to_csr(cooMatrix);
 
     // create an array with the same size as the number of cols in the csrMatrix
     float *x = new float[csrMatrix.cols];
-
     // initialize the array with 0-1 random values
     for (int i = 0; i < csrMatrix.cols; i++) {
         x[i] = (float) rand() / RAND_MAX;
@@ -257,11 +249,6 @@ int main(int argc, char *argv[]) {
     // get the median of the execution time
     std::sort(exec_time, exec_time + 32);
     std::cout << "Time: " << exec_time[16] * 1e6 << " us" << std::endl;
-    
-
-    // print time in us
-    // std::cout << "Time: " << elapsed.count() * 1e6 << " us" << std::endl;
-
 
     return 0;
 }

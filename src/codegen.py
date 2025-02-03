@@ -253,7 +253,7 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
 def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr2")
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     code = []
     code.append("#include <stdio.h>\n")

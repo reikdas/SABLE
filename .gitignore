@@ -19,7 +19,7 @@ tests/example.c
 tests/example.cu
 tests/output.txt
 tests/foo.vbr
-tests/foo.vbr2
+tests/foo.vbrc
 dlmc/
 Suitesparse*/
 split-and-binaries/

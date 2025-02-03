@@ -46,7 +46,7 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, de
                     coo_j.extend(idxs_j)
                 indx2.append(len(val2))
                 count+=1
-    with open(os.path.join(dst_dir, f"{fname}.vbr2"), "w") as f:
+    with open(os.path.join(dst_dir, f"{fname}.vbrc"), "w") as f:
         f.write(f"val=[{','.join(map(str, val2))}]\n")
         f.write(f"indx=[{','.join(map(str, indx2))}]\n")
         f.write(f"bindx=[{','.join(map(str, bindx))}]\n")

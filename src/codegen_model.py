@@ -1,10 +1,11 @@
 import os
 import pathlib
 import time
+
 import joblib
 
+from src.codegen import ArrayVal, ConcreteArrayVal, RepRange, codegen, spmm
 from utils.fileio import read_vbr
-from src.codegen import codegen, spmm, ArrayVal, ConcreteArrayVal, RepRange, split_chunks
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")

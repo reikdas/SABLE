@@ -2,9 +2,9 @@ import os
 import pathlib
 import subprocess
 import time
-import psutil
 
 import pandas as pd
+import psutil
 from mpi4py import MPI
 
 from src.codegen import gen_single_threaded_spmv_compressed

@@ -63,6 +63,20 @@ def read_vbr(filename):
         bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
     return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
 
+def read_vbrc(filename):
+    with open(filename, "r") as f:
+        val = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
+        indx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        bindx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        rpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        cpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        bpntrb = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        ublocks = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        coo_i = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        coo_j = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j
+
 def read_vector(filename):
     with open(filename, "r") as f:
         x = list(map(float, f.readline().split("=")[1][1:-2].split(",")))

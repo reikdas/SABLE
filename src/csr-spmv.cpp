@@ -5,9 +5,12 @@
 #include <algorithm>
 #include <chrono>
 #include <set>
+#include <sys/time.h>
 #ifdef OPENMP
 #include <omp.h>
 #endif
+
+static int NUMBER_OF_RUNS = 31;
 
 struct COO {
     int rows, cols, nnz;
@@ -164,7 +167,6 @@ COO readMTXtoCOO(const std::string &filename) {
         }
         // Skip comments (lines starting with '%')
         else if (line[0] == '%') {
-            // std::cout << line << std::endl;
             i++;
             continue;
         }
@@ -265,6 +267,9 @@ void spmv(const CSR &csr, const float *x, float *y) {
 // Example usage
 int main(int argc, char *argv[]) {
 
+    struct timeval t1;
+    struct timeval t2;
+
     // read the filename from the command line
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
@@ -292,19 +297,20 @@ int main(int argc, char *argv[]) {
     float *y = new float[csrMatrix.rows];
 
     // calculate the matrix-vector product and time it
-    float* exec_time = new float[32];
+    float* exec_time = new float[NUMBER_OF_RUNS];
     spmv(csrMatrix, x, y);
-    for (int i = 0; i < 32; i++) {
-        auto start = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < NUMBER_OF_RUNS; i++) {
+        gettimeofday(&t1, NULL);
         spmv(csrMatrix, x, y);
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<float> elapsed = end - start;
-        exec_time[i] = elapsed.count();
+	    gettimeofday(&t2, NULL);
+        long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
+	    long t2s = t2.tv_sec * 1000000L + t2.tv_usec;
+        exec_time[i] = t2s-t1s;
     }
     
     // get the median of the execution time
-    std::sort(exec_time, exec_time + 32);
-    std::cout << "Time: " << exec_time[16] * 1e6 << " us" << std::endl;
+    std::sort(exec_time, exec_time + NUMBER_OF_RUNS);
+    std::cout << "Time: " << exec_time[15] << " us" << std::endl;
 
     return 0;
 }

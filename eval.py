@@ -30,7 +30,7 @@ def eval_single_proc(eval):
     thread = 1
     compile_csr_spmv_code(core)
     with open(os.path.join(BASE_PATH, "results", "res.csv"), "w") as f:
-        f.write("Filename,SABLE,PSC,CSRSpmv,Speedup\n")
+        f.write("Filename,SABLE,PSC,CSRSpmv,SpeedupOverPSC,SpeedupOverCSRSpmv\n")
         for fname in eval:
             execution_time_unroll: list[float] = []
             for _ in range(BENCHMARK_FREQ):
@@ -46,10 +46,14 @@ def eval_single_proc(eval):
             output = subprocess.run([f"{BASE_PATH}/tmp/csr-spmv", file_path, f"{1}"], capture_output=True, check=True, text=True)
             csr_spmv_exec_time = float(output.stdout.split(" ")[1])
             
-            if float(statistics.median(execution_time_unroll)) == 0:
-                f.write(f"{fname},{statistics.median(execution_time_unroll)}us,{statistics.median(psc_times)}us,{csr_spmv_exec_time}us,Div by Zero\n")
+            median_psc_time = float(statistics.median(psc_times))
+            median_exec_time_unroll = float(statistics.median(execution_time_unroll))
+            if median_exec_time_unroll == 0:
+                f.write(f"{fname},{median_exec_time_unroll}us,{median_psc_time}us,{csr_spmv_exec_time}us,Div by Zero,Div by Zero\n")
             else:
-                f.write(f"{fname},{statistics.median(execution_time_unroll)}us,{statistics.median(psc_times)}us,{csr_spmv_exec_time}us,{round(float(statistics.median(psc_times))/float(statistics.median(execution_time_unroll)), 2)}\n")
+                speedup_over_psc = round(median_psc_time / median_exec_time_unroll, 2)
+                speedup_over_csr_spmv = round(csr_spmv_exec_time / median_exec_time_unroll, 2)
+                f.write(f"{fname},{median_exec_time_unroll}us,{median_psc_time}us,{csr_spmv_exec_time}us,{speedup_over_psc},{speedup_over_csr_spmv}\n")
             f.flush()
             print(f"Done {fname}")
 

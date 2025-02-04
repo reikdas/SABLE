@@ -14,7 +14,6 @@ BASE_PATH = os.path.join(BASE_PATH, "..")
 MTX_DIR = "/local/scratch/a/Suitesparse/"
 
 BENCHMARK_RESULTS = os.path.join(BASE_PATH, "benchmark_results")
-BENCHMARK_FILE = os.path.join(BENCHMARK_RESULTS, "csr_spmv.csv")
 
 eval = []
 skip = []
@@ -55,6 +54,8 @@ if __name__ == "__main__":
         output = subprocess.run(["g++", "-O3", f"src/csr-spmv.cpp", "-o", f"tmp/csr-spmv", "-fopenmp"], cwd=BASE_PATH, check=True, capture_output=True, text=True)
     
     # write "Filename, Time" to the benchmark file
+    # change benchmark file to have the number of threads in the name
+    BENCHMARK_FILE = os.path.join(BENCHMARK_RESULTS, f"csr_spmv_{threads}.csv")
     with open(BENCHMARK_FILE, "w") as f:
         f.write("Filename, Time(us)\n")
     

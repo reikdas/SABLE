@@ -2,6 +2,7 @@
 **.pytest_cache**
 **.venv**
 .mypy_cache/
+.tmp/
 Generated_VBR*/
 Generated_MMarket*/
 Generated_SpMV*/

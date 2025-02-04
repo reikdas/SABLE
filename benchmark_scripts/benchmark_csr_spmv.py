@@ -10,10 +10,8 @@ import tqdm as tqdm
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 BASE_PATH = os.path.join(BASE_PATH, "..")
-
-MTX_DIR = "/local/scratch/a/Suitesparse/"
-
-BENCHMARK_RESULTS = os.path.join(BASE_PATH, "benchmark_results")
+MTX_DIR = os.path.join("/local", "scratch", "a", "Suitesparse")
+BENCHMARK_RESULTS = os.path.join(BASE_PATH, "results")
 
 eval = []
 skip = []

@@ -4,7 +4,10 @@
 #include <sstream>
 #include <algorithm>
 #include <chrono>
+#include <set>
+#ifdef OPENMP
 #include <omp.h>
+#endif
 
 struct COO {
     int rows, cols, nnz;
@@ -12,30 +15,56 @@ struct COO {
     std::vector<int> col_indices;
     std::vector<float> values;
 
-    // Sort by (row, column)
-    void sort() {
-        std::vector<int> indices(row_indices.size());
-        for (size_t i = 0; i < indices.size(); i++) indices[i] = i;
-
-        std::sort(indices.begin(), indices.end(), [&](int a, int b) {
-            return (row_indices[a] < row_indices[b]) || 
-                   (row_indices[a] == row_indices[b] && col_indices[a] < col_indices[b]);
-        });
-
-        std::vector<int> sorted_row(row_indices.size()), sorted_col(col_indices.size());
-        std::vector<float> sorted_vals(values.size());
-
-        for (size_t i = 0; i < indices.size(); i++) {
-            sorted_row[i] = row_indices[indices[i]];
-            sorted_col[i] = col_indices[indices[i]];
-            sorted_vals[i] = values[indices[i]];
+    void remove_duplicates() {
+        // write a function to remove duplicates using set
+        std::set<std::tuple<int, int, float>> unique_entries;
+        for (int i = 0; i < nnz; i++) {
+            if (col_indices[i] >= cols || row_indices[i] >= rows) {
+                std::cerr << "Error: Invalid matrix entry22\n";
+                exit(1);
+            }
+            unique_entries.insert({row_indices[i], col_indices[i], values[i]});
         }
 
-        row_indices = std::move(sorted_row);
-        col_indices = std::move(sorted_col);
-        values = std::move(sorted_vals);
+        row_indices.clear();
+        col_indices.clear();
+        values.clear();
+
+        for (const auto &entry : unique_entries) {
+            row_indices.push_back(std::get<0>(entry));
+            col_indices.push_back(std::get<1>(entry));
+            values.push_back(std::get<2>(entry));
+        }
+        nnz = row_indices.size();
+    }
+
+    // Sort by (row, column)
+    void sort() {
+        std::vector<std::tuple<int, int, float>> entries;
+        for (int i = 0; i < nnz; i++) {
+            entries.push_back({row_indices[i], col_indices[i], values[i]});
+        }
+
+        std::sort(entries.begin(), entries.end(), [&](const auto &a, const auto &b) {
+            return std::tie(std::get<0>(a), std::get<1>(a)) < std::tie(std::get<0>(b), std::get<1>(b));
+        });
+
+        for (int i = 0; i < nnz; i++) {
+            row_indices[i] = std::get<0>(entries[i]);
+            col_indices[i] = std::get<1>(entries[i]);
+            values[i] = std::get<2>(entries[i]);
+        }
     }
 };
+
+void iterate_and_check(const COO &coo) {
+    for (int i = 0; i < coo.nnz; i++) {
+        if (coo.row_indices[i] >= coo.rows || coo.col_indices[i] >= coo.cols) {
+            std::cerr << "Error: Invalid matrix entry3\n";
+            exit(1);
+        }
+    }
+}
 
 // Define CSR struct without using vectors
 struct CSR {
@@ -56,24 +85,26 @@ CSR coo_to_csr(const COO &coo) {
     csr.col_indices = new int[csr.nnz];
     csr.values = new float[csr.nnz];
 
-    int row = 0;
-    int row_start = 0;
-    csr.row_ptrs[0] = 0;
+    std::vector<int> csr_row_ptr;
 
-    for (int i = 0; i < csr.nnz; i++) {
-        while (coo.row_indices[i] != row) {
-            row++;
-            csr.row_ptrs[row] = row_start;
-        }
+    int nnz = coo.nnz;
+    csr_row_ptr.assign(csr.rows + 1, 0);
 
+        // Compute row_ptr (row starts)
+    for (int i = 0; i < nnz; i++) {
+        csr_row_ptr[coo.row_indices[i] + 1]++;
         csr.col_indices[i] = coo.col_indices[i];
         csr.values[i] = coo.values[i];
-        row_start++;
     }
 
-    while (row < csr.rows) {
-        row++;
-        csr.row_ptrs[row] = row_start;
+    // Compute prefix sum to determine row_ptr positions
+    for (int i = 0; i < csr.rows; i++) {
+        csr_row_ptr[i + 1] += csr_row_ptr[i];
+    }
+
+    // Copy the row_ptr to the CSR matrix
+    for (int i = 0; i < csr.rows + 1; i++) {
+        csr.row_ptrs[i] = csr_row_ptr[i];
     }
 
     return csr;
@@ -82,7 +113,8 @@ CSR coo_to_csr(const COO &coo) {
 // add enum to keep track of the matrix data type
 enum class MatrixType {
     REAL,
-    INTEGER
+    INTEGER,
+    PATTERN
 };
 
 // add enum to keep track of the matrix format general, symmetric
@@ -111,6 +143,11 @@ COO readMTXtoCOO(const std::string &filename) {
                     matrixType = MatrixType::REAL;
                 } else if (line.find("integer") != std::string::npos) {
                     matrixType = MatrixType::INTEGER;
+                } else if (line.find("pattern") != std::string::npos) {
+                    matrixType = MatrixType::PATTERN;
+                } else {
+                    std::cerr << "Error: Invalid MatrixMarket header\n";
+                    exit(1);
                 }
 
                 if (line.find("general") != std::string::npos) {
@@ -168,9 +205,26 @@ COO readMTXtoCOO(const std::string &filename) {
         int row, col;
         float value;
 
-        if (!(file >> row >> col >> value)) {
-            std::cerr << "Error: Invalid matrix entry format\n";
-            exit(1);
+        if (matrixType == MatrixType::REAL) {
+            double double_value;
+            if (!(file >> row >> col >> double_value)) {
+                std::cerr << "Error: Invalid matrix entry format\n";
+                exit(1);
+            }
+            value = (float) double_value;
+        } else if (matrixType == MatrixType::INTEGER) {
+            int int_value;
+            if (!(file >> row >> col >> int_value)) {
+                std::cerr << "Error: Invalid matrix entry format\n";
+                exit(1);
+            }
+            value = (float) int_value;
+        } else if (matrixType == MatrixType::PATTERN) {
+            if (!(file >> row >> col)) {
+                std::cerr << "Error: Invalid matrix entry format\n";
+                exit(1);
+            }
+            value = 1.0;
         }
 
         coo.row_indices.push_back(row - 1); // Convert 1-based to 0-based
@@ -185,6 +239,7 @@ COO readMTXtoCOO(const std::string &filename) {
     }
 
     // sort the COO matrix by row and col indices
+    // coo.remove_duplicates(); // commenting out for now
     coo.sort();
 
     file.close();
@@ -199,7 +254,6 @@ void spmv(const CSR &csr, const float *x, float *y) {
     #pragma omp parallel for
     #endif
     for (int i = 0; i < csr.rows; i++) {
-        // y[i] = 0;
         float sum = 0;
         for (int j = csr.row_ptrs[i]; j < csr.row_ptrs[i + 1]; j++) {
             sum += csr.values[j] * x[csr.col_indices[j]];
@@ -220,7 +274,9 @@ int main(int argc, char *argv[]) {
     int num_threads = std::stoi(argv[2]);
 
     // set the number of threads
+    #ifdef OPENMP
     omp_set_num_threads(num_threads);
+    #endif
 
     COO cooMatrix = readMTXtoCOO(filename);
     CSR csrMatrix = coo_to_csr(cooMatrix);

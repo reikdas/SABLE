@@ -80,12 +80,13 @@ mkdir -p tmp && g++ -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
 ./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 1
 ./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 2
 
-# edit the files in eval and skip lists in the file before running
-# benchmark_csr_spmv.py, if empty it will evaluate all matrices
-# to eval specific files add it to eval [] array without .mtx
-# to skip specific files add it to skip [] array without .mtx 
-# before executing the python script
-# this will save the execution times in benchmark_results/csr_spmv.csv file
+# Edit the eval[] and skip[] in benchmark_csr_spmv.py in following manner
+# before execution.
+#   1. If both are empty, then it will evaluate all matrices in the  
+#       /local/scratch/a/Suiteparse
+#   2. To evaluate specific files, add them to eval[] array (without .mtx).
+#   3. To skip certain files, add them to skip[] array (witout .mtx).
+# Output: the execution times in benchmark_results/csr_spmv.csv file
 python benchmark_scripts/benchmark_csr_spmv.py <threads>
 python benchmark_scripts/benchmark_csr_spmv.py 1
 python benchmark_scripts/benchmark_csr_spmv.py 2

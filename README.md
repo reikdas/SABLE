@@ -73,21 +73,13 @@ The corresponding files will be generated in `results/`.
 mkdir -p tmp && g++ -DOPENMP -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
 
 # to compile for single-thread execution
-mkdir -p tmp && g++ -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
+mkdir -p tmp && g++ -O3 src/csr-spmv.cpp -o tmp/csr-spmv
 
 # execute to evaluate individual matrix
 ./tmp/csr-spmv <matrix> <threads>
 ./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 1
 ./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 2
 
-# Edit the eval[] and skip[] in benchmark_csr_spmv.py in following manner
-# before execution.
-#   1. If both are empty, then it will evaluate all matrices in the  
-#       /local/scratch/a/Suiteparse
-#   2. To evaluate specific files, add them to eval[] array (without .mtx).
-#   3. To skip certain files, add them to skip[] array (witout .mtx).
-# Output: the execution times in benchmark_results/csr_spmv.csv file
-python benchmark_scripts/benchmark_csr_spmv.py <threads>
-python benchmark_scripts/benchmark_csr_spmv.py 1
-python benchmark_scripts/benchmark_csr_spmv.py 2
+# execute eval.py to benchmark with PSC and our codegen
+python eval.py
 ```

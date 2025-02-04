@@ -61,7 +61,7 @@ if __name__ == "__main__":
                 f.write(f"{file},")
             f.write("\n")
             start = end
-    subprocess.run(["mpirun", "--cpu-list", ",".join(map(str, cpu_affinity)), "--bind-to", "cpu-list:ordered", "-np", str(num_cores), "python3", "bench_launched.py"], check=True, env=dict(os.environ) | {"HWLOC_COMPONENTS": "-gl"})
+    subprocess.run(["mpirun", "--cpu-list", ",".join(map(str, cpu_affinity)), "--bind-to", "cpu-list:ordered", "-np", str(num_cores), "python3", "bench_launcher.py"], check=True, env=dict(os.environ) | {"HWLOC_COMPONENTS": "-gl"})
     evaled_fnames = []
     with open(os.path.join(BASE_PATH, "results", "compile_res.csv"), "w") as f:
         f.write("Filename,Codegen(ms),Compile(ms)\n")

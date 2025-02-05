@@ -49,8 +49,7 @@ def process_file(filename, chunk_size=2000):
 
 if len(sys.argv) != 3:
     print("Usage: python splitter.py <filename> <chunk_size>")
-    # The first argument passed (not counting the script name)
-    1 / 0
+    raise Exception("Invalid number of arguments")
 
 
 # Example usage

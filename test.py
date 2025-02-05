@@ -6,7 +6,8 @@ import scipy
 
 from src.baseline import *
 from src.codegen import *
-from utils.convert_real_to_vbr import convert_sparse_to_vbr, convert_vbr_to_compressed
+from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
+                                       convert_vbr_to_compressed)
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 
@@ -227,6 +228,15 @@ def run_compression_codegen():
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
 
+def run_spmv_splitter(threads):
+    test_setup_file()
+    vbr_spmv_codegen(filename="example", density=0, dir_name="tests", threads=threads, vbr_dir="tests")
+    subprocess.check_call(["./../split_compile.sh", "example.c", "2"], cwd="tests")
+    output = subprocess.check_output(["./example"], cwd="tests/split-and-binaries/example/").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
+
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
@@ -240,6 +250,9 @@ def test_spmv_unroll():
     run_spmv_unroll(4)
     run_spmv_unroll(8)
     run_spmv_unroll(16)
+
+def test_spmv_splitter():
+    run_spmv_splitter(1)
 
 def test_spmm():
     run_spmm(1)

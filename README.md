@@ -65,3 +65,21 @@ python3 bench_sparse_cuda.py
 ```
 
 The corresponding files will be generated in `results/`.
+
+
+## Benchmarking the CSR SpMV version
+``` bash
+# to compile for multi-thread execution with OpenMP
+mkdir -p tmp && g++ -DOPENMP -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
+
+# to compile for single-thread execution
+mkdir -p tmp && g++ -O3 src/csr-spmv.cpp -o tmp/csr-spmv
+
+# execute to evaluate individual matrix
+./tmp/csr-spmv <matrix> <threads>
+./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 1
+./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 2
+
+# execute eval.py to benchmark with PSC and our codegen
+python eval.py
+```

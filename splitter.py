@@ -1,5 +1,15 @@
 import os
 import sys
+import pathlib
+import shutil
+
+def recreate_directory(dir_path):
+    dir_path = pathlib.Path(dir_path)
+    
+    if dir_path.exists():
+        shutil.rmtree(dir_path)  # Delete the directory and its contents
+    
+    dir_path.mkdir(parents=True)  # Create the directory
 
 
 def process_file(filename, chunk_size=2000):
@@ -40,7 +50,7 @@ def process_file(filename, chunk_size=2000):
     preamble = part_1[(idx_of_spmv):(idx_of_main_start)]
 
     return (
-        (part_1[:idx_of_spmv] + part_1[idx_of_main_start:]),  # Cut out spmv form part 1
+        (part_1[:idx_of_spmv] + part_1[idx_of_main_start:]),  # Cut out spmv from part 1
         part_3,
         middle_chunks,
         preamble,
@@ -53,13 +63,13 @@ if len(sys.argv) != 3:
 
 
 # Example usage
-file_path = sys.argv[1]  # input?
-new_name = file_path[: -(len(".c"))]
-chunk_size = int(sys.argv[2])  # input?
-out_dir = "split-and-binaries/" + new_name
+file_path = sys.argv[1]
+new_name = pathlib.Path(file_path).resolve().stem
+chunk_size = int(sys.argv[2])
 
-
-os.makedirs(out_dir, exist_ok=True)
+FILEPATH = pathlib.Path(__file__).resolve().parent
+out_dir = os.path.join(FILEPATH, "split-and-binaries", new_name)
+recreate_directory(out_dir)
 
 new_file_name = new_name + "_split"
 part_1, part_3, middle_chunks, preamble = process_file(file_path, chunk_size=chunk_size)
@@ -75,11 +85,11 @@ for i, code in enumerate(middle_chunks):
     end_header = "}"
 
     new_file = include_line + [function_header] + code + [end_header]
-    with open(f"{out_dir}/{name}.c", "w") as c_file:
+    with open(os.path.join(out_dir, f"{name}.c"), "w") as c_file:
         c_file.writelines(new_file)
     calls.append(name + "(y, x, val);\n")
 
-with open(f"{out_dir}/start_{new_file_name}.c", "w") as c_file:
+with open(os.path.join(out_dir, f"start_{new_file_name}.c"), "w") as c_file:
     ## TODO: I need `include_line` in the start file
     c_file.writelines(part_1 + calls + part_3)
 

@@ -48,7 +48,7 @@ if __name__ == "__main__":
                 codegen_time = gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, codegen_dir, fname, dest_path.parent)
                 try:
                     time1 = time.time_ns() // 1_000_000
-                    subprocess.run(["taskset", "-a", "-c", str(core), "./split.sh", "64", codegen_dir + "/" + fname + ".c"], cwd=BASE_PATH, check=True, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)
+                    subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", codegen_dir + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)
                     time2 = time.time_ns() // 1_000_000
                     compile_time = time2-time1
                 except subprocess.TimeoutExpired:

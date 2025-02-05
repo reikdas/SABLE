@@ -32,7 +32,7 @@ for f in "${SPLIT_NAME}"*.c; do
 done
 
 wait
-taskset -a -c $AFFINITY gcc -c $C_OPTS -Wno-implicit-function-declaration $START_FILE.c
+taskset -a -c $AFFINITY gcc -c $C_OPTS $START_FILE.c
 taskset -a -c $AFFINITY gcc $C_OPTS -o "./$BASENAME" "$START_FILE.o" ./${SPLIT_NAME}*.o
 
 cd "../.."

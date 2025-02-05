@@ -49,7 +49,7 @@ class NumVal:
 
     def __str__(self):
         return self.name
-    
+
     def __add__(self, v2: "NumVal"):
         return NumVal(f"({self} + {v2})")
 
@@ -58,7 +58,7 @@ class NumVal:
 
     def __mul__(self, v2: "NumVal"):
         return NumVal(f"({self} * {v2})")
-    
+
     def __radd__(self, v2: int):
         return NumVal(f"({v2} + {self})")
 
@@ -70,13 +70,13 @@ class ConcreteNumVal(NumVal):
 class ArrayVal:
     def __init__(self, name: str):
         self.name = name
-    
+
     def slice(self, start: NumVal):
         return ArrayVal(f"(&{self.name}[{start}])")
 
     def __getitem__(self, idx: NumVal):
         return NumVal(f"{self.name}[{idx}]")
-    
+
     def __setitem__(self, idx: NumVal, val: NumVal):
         curr_block_instructions.append(f"{self.name}[{idx}] = {val}")
 
@@ -84,7 +84,7 @@ class ConcreteArrayVal:
     def __init__(self, name: str, value):
         self.name = name
         self.value = value
-    
+
     def slice(self, start: int):
         name = f"{self.name}_slice"
         n = f"{fresh_name(name)}"
@@ -131,7 +131,7 @@ def isDense(val):
         return True
     else:
         raise Exception("Invalid type")
-    
+
 def spmv(
     row_idxs: Union[range, RepRange], # (row_start, row_end)
     col_idxs: range, # (col_start, col_end)
@@ -167,23 +167,23 @@ def split_chunks(values, num_chunks):
 
     # Create a list of (value, index) tuples, excluding zeros
     indexed_values = [(index, value) for index, value in enumerate(values) if value != 0]
-    
+
     # Sort by value in descending order
     sorted_indexed_values = sorted(indexed_values, key=lambda x: x[1], reverse=True)
-    
+
     # Initialize chunks
     chunks = [[] for _ in range(num_chunks)]
     chunk_sums = [0] * num_chunks
-    
+
     # Distribute values
     for index, value in sorted_indexed_values:
         # Find the chunk with the smallest sum
         min_sum_index = chunk_sums.index(min(chunk_sums))
         chunks[min_sum_index].append(index)
         chunk_sums[min_sum_index] += value
-    
+
     return chunks
-    
+
 def vbr_spmm_codegen_for_all(density: int = 0):
     if density == 0:
         input_dir_name = "Generated_VBR"
@@ -261,7 +261,7 @@ def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, 
     code.append("#include <sys/time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <assert.h>\n\n")
-    code.append("int spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("void spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
     code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
     code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
     code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
@@ -344,7 +344,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
     code.append("#include <sys/time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <assert.h>\n\n")
-    code.append("int spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("void spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
     code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
     code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
     code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
@@ -1002,7 +1002,7 @@ def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: i
     code.append('''#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
 {
-   if (code != cudaSuccess) 
+   if (code != cudaSuccess)
    {
       fprintf(stderr,"GPUassert: %s %s %d\\n", cudaGetErrorString(code), file, line);
       if (abort) exit(code);
@@ -1241,7 +1241,7 @@ def vbr_spmm_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: i
     code.append('''#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
 inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
 {
-   if (code != cudaSuccess) 
+   if (code != cudaSuccess)
    {
       fprintf(stderr,"GPUassert: %s %s %d\\n", cudaGetErrorString(code), file, line);
       if (abort) exit(code);

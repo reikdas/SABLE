@@ -67,8 +67,7 @@ file_path = sys.argv[1]
 new_name = pathlib.Path(file_path).resolve().stem
 chunk_size = int(sys.argv[2])
 
-FILEPATH = pathlib.Path(__file__).resolve().parent
-out_dir = os.path.join(FILEPATH, "split-and-binaries", new_name)
+out_dir = os.path.join(os.getcwd(), "split-and-binaries", new_name)
 recreate_directory(out_dir)
 
 new_file_name = new_name + "_split"

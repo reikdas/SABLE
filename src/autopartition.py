@@ -29,53 +29,71 @@ def cut_indices1(A, cut_threshold, similarity):
 
     return col_indices, row_indices
 
-
 def cut_indices2(A, cut_threshold, similarity):
-    col_indices = [0]  # Start with the first column index
-    row_indices = [0]  # Start with the first row index
-    
+    col_indices = []
+    row_indices = []
     # Check column similarities
     i = 0
-    run = 3
+    run = 3  # Max consecutive low-similarity columns to merge
     run_idx = 1
+
     while i < A.shape[1] - 1:
-        if A[:, i].nnz == 0:  # Start of an empty column sequence
-            # Skip all consecutive empty columns
-            while i < A.shape[1] - 1 and A[:, i + 1].nnz == 0:
-                i += 1
-            col_indices.append(i + 1)  # Mark the end of the empty block
-        elif similarity(A[:, i].toarray().ravel(), A[:, i + 1].toarray().ravel()) < cut_threshold:
-            while i+run_idx < A.shape[1] and similarity(A[:, i].toarray().ravel(), A[:, i + run_idx].toarray().ravel()) < cut_threshold and run_idx < run :
+        if similarity(A[:, i].toarray().ravel(), A[:, i + run_idx].toarray().ravel()) >= cut_threshold:
+            i += 1
+            continue
+        else:
+            while (
+                i + run_idx < A.shape[1] 
+                and run_idx < run  # Ensure we don’t exceed max run length
+                and similarity(A[:, i + run_idx - 1].toarray().ravel(), A[:, i + run_idx].toarray().ravel()) < cut_threshold
+            ):
                 run_idx += 1
-            if i+run_idx < A.shape[1] and similarity(A[:, i].toarray().ravel(), A[:, i + run_idx].toarray().ravel()) < cut_threshold and run_idx == run :
-                col_indices.append(i + run_idx)
-            run_idx = 1
-        i += run_idx
+                
+            if run_idx == 3:
+                col_indices.append(i+1)
+                run_idx = 1
+                
+            i += run_idx - 1
+            while (
+                i < A.shape[1] -1
+                and similarity(A[:, i].toarray().ravel(), A[:, i + 1].toarray().ravel()) < cut_threshold
+            ):
+                i += 1
+            col_indices.append(i+1)
+            
     
+    i = 0
+    run = 3  # Max consecutive low-similarity rows to merge
+    run_idx = 1
+
+    while i < A.shape[0] - 1:
+        if similarity(A[i, :].toarray().ravel(), A[i + run_idx, :].toarray().ravel()) >= cut_threshold:
+            i += 1
+            continue
+        else:
+            while (
+                i + run_idx < A.shape[0] 
+                and run_idx < run  # Ensure we don’t exceed max run length
+                and similarity(A[i + run_idx - 1, :].toarray().ravel(), A[i + run_idx, :].toarray().ravel()) < cut_threshold
+            ):
+                run_idx += 1
+
+            if run_idx == 3:
+                row_indices.append(i+1)
+                run_idx = 1
+
+            i += run_idx - 1
+            while (
+                i < A.shape[0] - 1
+                and similarity(A[i, :].toarray().ravel(), A[i + 1, :].toarray().ravel()) < cut_threshold
+            ):
+                i += 1
+            row_indices.append(i+1)
+
     if col_indices[-1] != A.shape[1]:
         col_indices.append(A.shape[1])
-
-    # Check row similarities
-    i = 0
-    run = 3
-    run_idx = 1
-    while i < A.shape[0] - 1:
-        if A[i, :].nnz == 0:  # Start of an empty row sequence
-            # Skip all consecutive empty rows
-            while i < A.shape[0] - 1 and A[i + 1, :].nnz == 0:
-                i += 1
-            row_indices.append(i + 1)  # Mark the end of the empty block
-        elif similarity(A[i, :].toarray().ravel(), A[i + 1, :].toarray().ravel()) < cut_threshold:
-            while i + run_idx < A.shape[0] and similarity(A[i, :].toarray().ravel(), A[i + run_idx, :].toarray().ravel()) < cut_threshold and run_idx < run:
-                run_idx += 1
-            if i + run_idx < A.shape[0] and similarity(A[i, :].toarray().ravel(), A[i + run_idx, :].toarray().ravel()) < cut_threshold and run_idx == run:
-                row_indices.append(i + run_idx)
-            run_idx = 1
-        i += run_idx
-    
     if row_indices[-1] != A.shape[0]:
-        row_indices.append(A.shape[0])
-
+        col_indices.append(A.shape[0])
     return col_indices, row_indices
 
 
@@ -83,6 +101,8 @@ def similarity1(a, b):
     return (a.dot(b) + a[1:].dot(b[:-1])+a[:-1].dot(b[1:])) / (3*max(np.count_nonzero(a), np.count_nonzero(b)))
 
 def similarity2(a, b):
+    if np.count_nonzero(a) == 0 or np.count_nonzero(b) == 0:
+        return 0
     return max(a.dot(b),a[1:].dot(b[:-1]),a[:-1].dot(b[1:])) / max(np.count_nonzero(a), np.count_nonzero(b))
 
 # Example usage

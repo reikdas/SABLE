@@ -3,7 +3,7 @@ set -e
 
 AFFINITY=$(cat /proc/$$/status | grep Cpus_allowed_list | cut -f2)
 
-C_OPTS="-O3 -mavx -mprefer-vector-width=512 -funroll-all-loops -Wno-implicit-function-declaration"
+C_OPTS="-O3 -mavx -mprefer-vector-width=512 -funroll-all-loops -Wno-implicit-function-declaration -ffast-math"
 
 # Take a file name as an argument
 if [ "$#" -ne 2 ]; then

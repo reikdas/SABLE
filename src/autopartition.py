@@ -29,6 +29,7 @@ def cut_indices1(A, cut_threshold, similarity):
 
     return col_indices, row_indices
 
+
 def cut_indices2(A, cut_threshold, similarity):
     col_indices = []
     row_indices = []
@@ -51,7 +52,7 @@ def cut_indices2(A, cut_threshold, similarity):
                 
             if run_idx == 3:
                 col_indices.append(i+1)
-                run_idx = 1
+                
                 
             i += run_idx - 1
             while (
@@ -60,6 +61,7 @@ def cut_indices2(A, cut_threshold, similarity):
             ):
                 i += 1
             col_indices.append(i+1)
+        run_idx = 1
             
     
     i = 0
@@ -80,7 +82,6 @@ def cut_indices2(A, cut_threshold, similarity):
 
             if run_idx == 3:
                 row_indices.append(i+1)
-                run_idx = 1
 
             i += run_idx - 1
             while (
@@ -89,12 +90,14 @@ def cut_indices2(A, cut_threshold, similarity):
             ):
                 i += 1
             row_indices.append(i+1)
+        run_idx = 1
 
     if col_indices[-1] != A.shape[1]:
         col_indices.append(A.shape[1])
     if row_indices[-1] != A.shape[0]:
         col_indices.append(A.shape[0])
     return col_indices, row_indices
+
 
 
 def similarity1(a, b):

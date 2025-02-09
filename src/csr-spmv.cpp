@@ -269,7 +269,7 @@ int main(int argc, char *argv[]) {
     struct timeval t2;
 
     // read the filename from the command line
-    if (argc != 4) {
+    if (argc != 5) {
         std::cerr << "Usage: " << argv[0] << " <filename> <num_threads> <num_runs> <dense_vec_path>" << std::endl;
         exit(1);
     }

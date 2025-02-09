@@ -6,6 +6,7 @@ import scipy
 
 from src.baseline import *
 from src.codegen import *
+from src.consts import CFLAGS as CFLAGS
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
                                        convert_vbr_to_compressed)
 from utils.fileio import write_dense_matrix, write_dense_vector
@@ -72,7 +73,7 @@ def test_partition():
 def run_spmv(threads):
     test_setup_file()
     vbr_spmv_codegen(filename="example", density=0, dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -81,7 +82,7 @@ def run_spmv(threads):
 def run_spmv_unroll(threads):
     test_setup_file()
     vbr_spmv_codegen(filename="example", density=80, dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -99,7 +100,7 @@ def run_spmv_cuda():
 def run_spmm(threads):
     test_setup_file()
     vbr_spmm_codegen(filename="example", density=0, dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -116,13 +117,11 @@ def run_spmm_libxsmm():
     "gcc",
     "-o", "example",
     "example.c",
-    "-march=native",
-    "-O3",
     "-I", "/local/scratch/a/das160/libxsmm/include",
     "-L", "/local/scratch/a/das160/libxsmm/lib",
     "-lblas",
     "-lm"
-], cwd="tests")
+] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -139,10 +138,8 @@ def run_spmm_cblas():
     "gcc",
     "-o", "example",
     "example.c",
-    "-march=native",
-    "-O3",
     "-lblas",
-], cwd="tests")
+]+CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -169,7 +166,7 @@ def run_spmm_cuda():
 def run_nonzeros_spmv():
     test_setup_file()
     only_nonzeros_spmv(filename="example", dir_name="tests", vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -178,7 +175,7 @@ def run_nonzeros_spmv():
 def run_nonzeros_spmm():
     test_setup_file()
     only_nonzeros_spmm(filename="example", dir_name="tests", vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -222,7 +219,7 @@ def run_compression_codegen():
     coo_i = [0, 1, 2, 4, 6, 7, 9, 10]
     coo_j = [10, 10, 5, 5, 5, 5, 10, 10]
     gen_single_threaded_spmv_compressed(val2, indx2, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, "tests", "example", "tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))

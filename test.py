@@ -165,9 +165,9 @@ def run_spmm_cuda():
 
 def run_nonzeros_spmv():
     test_setup_file()
-    only_nonzeros_spmv(filename="example", dir_name="tests", vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
-    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
+    subprocess.check_output(["g++", "-o", "csr-spmv", "csr-spmv.cpp"] + CFLAGS, cwd=os.path.join(BASE_PATH, "src"))
+    baseline_output = subprocess.run(["./csr-spmv", os.path.join(BASE_PATH, "tests", "example-canon.mtx"), str(1), str(1), os.path.join(BASE_PATH, "Generated_dense_tensors", "generated_vector_11.vector")], capture_output=True, cwd=os.path.join(BASE_PATH, "src"))
+    output = baseline_output.stdout.decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))

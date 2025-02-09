@@ -10,8 +10,6 @@
 #include <omp.h>
 #endif
 
-static int NUMBER_OF_RUNS = 31;
-
 struct COO {
     int rows, cols, nnz;
     std::vector<int> row_indices;
@@ -23,7 +21,7 @@ struct COO {
         std::set<std::tuple<int, int, float>> unique_entries;
         for (int i = 0; i < nnz; i++) {
             if (col_indices[i] >= cols || row_indices[i] >= rows) {
-                std::cerr << "Error: Invalid matrix entry22\n";
+                std::cerr << "Error: Invalid matrix entry\n";
                 exit(1);
             }
             unique_entries.insert({row_indices[i], col_indices[i], values[i]});
@@ -271,12 +269,14 @@ int main(int argc, char *argv[]) {
     struct timeval t2;
 
     // read the filename from the command line
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <filename>" << std::endl;
+    if (argc != 4) {
+        std::cerr << "Usage: " << argv[0] << " <filename> <num_threads> <num_runs> <dense_vec_path>" << std::endl;
         exit(1);
     }
     std::string filename = argv[1];
     int num_threads = std::stoi(argv[2]);
+    int NUMBER_OF_RUNS = std::stoi(argv[3]);
+    const char* dense_vec_path = argv[4];
 
     // set the number of threads
     #ifdef OPENMP
@@ -286,11 +286,15 @@ int main(int argc, char *argv[]) {
     COO cooMatrix = readMTXtoCOO(filename);
     CSR csrMatrix = coo_to_csr(cooMatrix);
 
+    FILE *file2 = fopen(dense_vec_path, "r");
+	if (file2 == NULL) { printf("Error opening file2"); return 1; }
+    
+
     // create an array with the same size as the number of cols in the csrMatrix
     float *x = new float[csrMatrix.cols];
-    // initialize the array with 0-1 random values
-    for (int i = 0; i < csrMatrix.cols; i++) {
-        x[i] = (float) rand() / RAND_MAX;
+    int x_size=0;
+    while (x_size < csrMatrix.cols && fscanf(file2, "%f,", &x[x_size]) == 1) {
+        x_size++;
     }
 
     // create an array with the same size as the number of rows in the csrMatrix
@@ -310,7 +314,11 @@ int main(int argc, char *argv[]) {
     
     // get the median of the execution time
     std::sort(exec_time, exec_time + NUMBER_OF_RUNS);
-    std::cout << "Time: " << exec_time[15] << " us" << std::endl;
+    const int mid_point = NUMBER_OF_RUNS/2;
+    std::cout << "Time: " << exec_time[mid_point] << " us" << std::endl;
+    for (int i=0; i<csrMatrix.rows; i++) {
+        std::cout << y[i] << std::endl;
+    }
 
     return 0;
 }

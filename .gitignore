@@ -27,3 +27,4 @@ split-and-binaries/
 studies/threshold_results.csv
 mat_dist*.csv
 *.o
+studies/heatmap.png

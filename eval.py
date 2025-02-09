@@ -6,6 +6,7 @@ import subprocess
 import psutil
 
 from utils.utils import check_file_matches_parent_dir
+from src.consts import CFLAGS as CFLAGS
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
@@ -43,7 +44,8 @@ def eval_single_proc(eval):
             psc_times: list[float] = [float(time) for time in psc_times_str]
             
             # run csr-spmv code
-            output = subprocess.run([f"{BASE_PATH}/tmp/csr-spmv", file_path, f"{1}"], capture_output=True, check=True, text=True)
+            subprocess.check_output(["g++", "-o", "csr-spmv", "csr-spmv.cpp"] + CFLAGS, cwd=os.path.join(BASE_PATH, "src"))
+            output = subprocess.run([f"{BASE_PATH}/src/csr-spmv", file_path, str(thread), str(5)], capture_output=True, check=True, text=True)
             csr_spmv_exec_time = float(output.stdout.split(" ")[1])
             
             median_psc_time = float(statistics.median(psc_times))

@@ -4,52 +4,42 @@ import statistics
 import subprocess
 
 import psutil
+from scipy.io import mmread
 
-from utils.utils import check_file_matches_parent_dir
 from src.consts import CFLAGS as CFLAGS
+from utils.utils import check_file_matches_parent_dir, extract_mul_nums
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
 BENCHMARK_FREQ = 5
 
-def compile_csr_spmv_code(core):
-    # create temporary directory to save csr-spmv binary
-    if not os.path.exists(os.path.join(BASE_PATH, "tmp")):
-        os.makedirs(os.path.join(BASE_PATH, "tmp"))
-    try:
-        output = subprocess.run([f"taskset", "-a", "-c", f"{core}", "g++", "-O3", f"{BASE_PATH}/src/csr-spmv.cpp", "-o", f"{BASE_PATH}/tmp/csr-spmv", "-fopenmp"], check=True, capture_output=True, text=True)
-    except subprocess.CalledProcessError:
-        # if compilation fails, print error
-        print("Error compiling csr-spmv code: ", output.stderr)
-        exit(1)
-
 def eval_single_proc(eval):
     mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
     pid = os.getpid()
     core = psutil.Process(pid).cpu_num()
     thread = 1
-    compile_csr_spmv_code(core)
+    # Compile CSR-SpMV
+    subprocess.check_output(["g++", "-o", "csr-spmv", "csr-spmv.cpp"] + CFLAGS, cwd=os.path.join(BASE_PATH, "src"))
     with open(os.path.join(BASE_PATH, "results", "res.csv"), "w") as f:
         f.write("Filename,SABLE,PSC,CSRSpmv,SpeedupOverPSC,SpeedupOverCSRSpmv\n")
         for fname in eval:
-            execution_time_unroll: list[float] = []
-            for _ in range(BENCHMARK_FREQ):
-                output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/split-and-binaries/{fname}/{fname}"], capture_output=True, check=True)
-                execution_time = output.stdout.decode("utf-8").split("\n")[0].split(" = ")[1]
-                execution_time_unroll.append(float(execution_time))
+            output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/split-and-binaries/{fname}/{fname}"]).decode("utf-8").split("\n")[0]
+            output = extract_mul_nums(output)
+            median_exec_time_unroll = statistics.median([float(x) for x in output])
+            
             file_path = pathlib.Path(os.path.join(mtx_dir, fname, f"{fname}.mtx"))
+            
             output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/../partially-strided-codelet/build/DDT", "-m", str(file_path), "-n", "SPMV", "-s", "CSR", "--bench_executor", "-t", str(thread)], capture_output=True, check=True).stdout.decode("utf-8")
             psc_times_str: list[str] = output.split("\n")[:-1]
             psc_times: list[float] = [float(time) for time in psc_times_str]
+            median_psc_time = float(statistics.median(psc_times))
             
-            # run csr-spmv code
-            subprocess.check_output(["g++", "-o", "csr-spmv", "csr-spmv.cpp"] + CFLAGS, cwd=os.path.join(BASE_PATH, "src"))
-            output = subprocess.run([f"{BASE_PATH}/src/csr-spmv", file_path, str(thread), str(5)], capture_output=True, check=True, text=True)
+            mtx = mmread(file_path)
+            cols = mtx.get_shape()[1]
+            output = subprocess.run(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/src/csr-spmv", str(file_path), str(thread), str(BENCHMARK_FREQ), os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cols}.vector")], capture_output=True, check=True, text=True)
             csr_spmv_exec_time = float(output.stdout.split(" ")[1])
             
-            median_psc_time = float(statistics.median(psc_times))
-            median_exec_time_unroll = float(statistics.median(execution_time_unroll))
             if median_exec_time_unroll == 0:
                 f.write(f"{fname},{median_exec_time_unroll}us,{median_psc_time}us,{csr_spmv_exec_time}us,Div by Zero,Div by Zero\n")
             else:

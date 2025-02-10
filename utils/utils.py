@@ -22,3 +22,8 @@ def check_file_matches_parent_dir(filepath):
     parent_dir = os.path.basename(os.path.dirname(filepath))
     
     return file_name == parent_dir
+
+def extract_mul_nums(output) -> list[int]:
+    output = output.split("=")[1].split(",")
+    output = [x for x in output if x!=""]
+    return output

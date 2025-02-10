@@ -30,7 +30,7 @@ def process_file(filename, chunk_size=2000):
             idx_of_spmv = i
         if "long t1s" in line:
             start_idx = i
-        if "struct timeval t2;" in line:
+        if "gettimeofday(&t2, NULL);" in line:
             end_idx = i
 
     # Ensure valid indices were found

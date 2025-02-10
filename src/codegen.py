@@ -1,3 +1,4 @@
+import copy
 import inspect
 import itertools
 import os
@@ -7,7 +8,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Callable, Union
 
-from utils.fileio import read_vbr
+from utils.fileio import read_vbrc
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
@@ -184,6 +185,15 @@ def split_chunks(values, num_chunks):
 
     return chunks
 
+def num_past_unrolled(ublocks: list[int], indx: list[int], start_pos: int) -> int:
+    num_unrolled = 0
+    for ublock in ublocks:
+        if ublock < start_pos:
+            num_unrolled += indx[ublock+1] - indx[ublock]
+        else:
+            break
+    return num_unrolled
+
 def vbr_spmm_codegen_for_all(density: int = 0):
     if density == 0:
         input_dir_name = "Generated_VBR"
@@ -250,8 +260,18 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
         runtimes[core_name] = run_time
     return runtimes
 
-def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir):
-    time1 = time.time_ns() // 1_000_000
+def spmv_kernel():
+    code = []
+    code.append("void spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("\tfor (int j = j_start; j < j_end; j++) {\n")
+    code.append("\t\tfor (int i = i_start; i < i_end; i++) {\n")
+    code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    return "".join(code)
+
+def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir, bench:int=5)->None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
@@ -260,15 +280,11 @@ def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, 
     code.append("#include <stdio.h>\n")
     code.append("#include <sys/time.h>\n")
     code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n\n")
-    code.append("void spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
-    code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
-    code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
-    code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
-    code.append("\t\t}\n")
-    code.append("\t}\n")
-    code.append("}\n\n")
+    code.append(spmv_kernel())
     code.append("int main() {\n")
+    code.append("\tlong times[5];\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
@@ -299,10 +315,12 @@ def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, 
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
-    # code.append("\tint count = 0;\n")
     code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\n\tstruct timeval t2;\n")
+    code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
+    code.append("\t\tmemset(y, 0, sizeof(float)*{0});\n".format(rpntr[-1]))
+    code.append("\t\tgettimeofday(&t1, NULL);\n")
+    code.append("\t\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
     count = 0
     count2 = 0
     for a in range(len(rpntr)-1):
@@ -312,112 +330,25 @@ def gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, 
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 if count not in ublocks:
-                    code.append(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                 else:
                     num_elems = indx[count+1] - indx[count]
                     code.append("\n")
                     for i, j, v in zip(coo_i[count2:count2+num_elems], coo_j[count2:count2+num_elems], [elem for elem in range(indx[count],indx[count+1])]):
-                        code.append(f"\ty[{i}] += val[{v}] * x[{j}];")
+                        code.append(f"\t\ty[{i}] += val[{v}] * x[{j}];")
                     code.append("\n")
                     count2 += num_elems
                 count+=1
-    code.append("\n\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
-    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append("\t\tprintf(\"%f\\n\", y[i]);\n")
+    code.append("\t\tgettimeofday(&t2, NULL);\n")
+    code.append("\t\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\t\tif (i!=0)\n")
+    code.append("\t\t\ttimes[i-1] = t2s-t1s;\n")
     code.append("\t}\n")
-    code.append("}\n")
-    with open(os.path.join(dir_name, filename+".c"), "w") as f:
-        f.writelines(code)
-    time2 = time.time_ns() // 1_000_000
-    return time2-time1
-
-def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir):
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
-    code = []
-    code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
-    code.append("#include <stdlib.h>\n")
-    code.append("#include <assert.h>\n\n")
-    code.append("void spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
-    code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
-    code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
-    code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
-    code.append("\t\t}\n")
+    code.append('\tprintf("{0} = ");\n'.format(filename))
+    code.append("\tfor (int i=0; i<{0}; i++) {{\n".format(bench))
+    code.append("\t\tprintf(\"%lu,\", times[i]);\n")
     code.append("\t}\n")
-    code.append("}\n\n")
-    code.append("int main() {\n")
-    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
-    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
-    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
-    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tfloat* y = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-    code.append(f"\tfloat* x = (float*)calloc({cpntr[-1] + 1}, sizeof(float));\n")
-    code.append(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
-    code.append("\tchar c;\n")
-    code.append(f"\tint x_size=0, val_size=0;\n")
-    code.append('''\tassert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
-    val_size++;
-    while (1) {
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {
-            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
-            val_size++;
-        } else if (c == ']') {
-            break;
-        } else {
-            assert(0);
-        }
-    }
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');
-    fclose(file1);\n''')
-    code.append('''
-    while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
-        x_size++;
-    }}
-    fclose(file2);\n'''.format(cpntr[-1]))
-    # code.append("\tint count = 0;\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-    count = 0
-    for a in range(len(rpntr)-1):
-        if bpntrb[a] == -1:
-            continue
-        valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                if density > 0:
-                    sparse_count = 0
-                    dense_count = 0
-                    count2 = 0
-                    # Check if the block is more than 25% dense
-                    for _ in range(rpntr[a], rpntr[a+1]):
-                        for _ in range(cpntr[b], cpntr[b+1]):
-                            if val[indx[count]+count2] == 0.0:
-                                sparse_count+=1
-                            else:
-                                dense_count+=1
-                            count2+=1
-                    if (dense_count/(dense_count + sparse_count))*100 > density:
-                        # code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                        code.append(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    else:
-                        code.append(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[count]), ArrayVal("x"), ArrayVal("y")))())
-                else:
-                    # code.append(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
-                    code.append(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                count+=1
-    code.append("\n\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tprintf(\"\\n\");\n")
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tprintf(\"%f\\n\", y[i]);\n")
     code.append("\t}\n")
@@ -425,19 +356,21 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
 
-def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density: int, dir_name: str, filename: str, vbr_dir: str):
+def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name: str, filename: str, vbr_dir: str, bench:int=5) -> None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.write("#include <stdio.h>\n")
         f.write("#include <sys/time.h>\n")
         f.write("#include <stdlib.h>\n")
         f.write("#include <assert.h>\n")
+        f.write("#include <string.h>\n")
         f.write("#include <pthread.h>\n\n")
         f.write("float *x, *val, *y;\n\n")
-        work_per_br = [0]*len(rpntr)
+        f.write(spmv_kernel())
+        work_per_br = [0]*(len(rpntr)-1)
         count = 0
         for a in range(len(rpntr) - 1):
             if bpntrb[a] == -1:
@@ -445,23 +378,12 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
             valid_cols = bindx[bpntrb[a]:bpntre[a]]
             for b in range(len(cpntr)-1):
                 if b in valid_cols:
-                    if density > 0:
-                        sparse_count = 0
-                        dense_count = 0
-                        count2 = 0
-                        for _ in range(rpntr[a], rpntr[a+1]):
-                            for _ in range(cpntr[b], cpntr[b+1]):
-                                if val[indx[count]+count2] == 0.0:
-                                    sparse_count+=1
-                                else:
-                                    dense_count+=1
-                                count2+=1
-                        if (dense_count/(dense_count + sparse_count))*100 > density:
-                            work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
-                    else:
+                    if count not in ublocks:
                         work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
-                    count+=1
-        del count
+                    else:
+                        work_per_br[a] += indx[count+1] - indx[count]
+                    count += 1
+        count2 = 0
         thread_br_map = split_chunks(work_per_br, threads)
         funcount = 0
         for br_list in thread_br_map:
@@ -469,33 +391,27 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
             for a in br_list:
                 if bpntrb[a] == -1:
                     continue
-                indx_count = 0
+                ublocks_count = copy.copy(bpntrb[a])
                 valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                count = 0
                 for b in range(len(cpntr)-1):
                     if b in valid_cols:
-                        if density>0:
-                            sparse_count = 0
-                            dense_count = 0
-                            count2 = 0
-                            for _ in range(rpntr[a], rpntr[a+1]):
-                                for _ in range(cpntr[b], cpntr[b+1]):
-                                    if val[indx[bpntrb[a]+indx_count]+count2] == 0.0:
-                                        sparse_count+=1
-                                    else:
-                                        dense_count+=1
-                                    count2+=1
-                            if (dense_count/(dense_count + sparse_count))*100 > density:
-                                f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
-                            else:
-                                f.write(codegen(lambda: spmv(range(rpntr[a], rpntr[a+1]), range(cpntr[b], cpntr[b+1]), ConcreteArrayVal("val", val).slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))())
+                        if ublocks_count not in ublocks:
+                            f.write(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[bpntrb[a]+count]});\n")
                         else:
-                            f.write(codegen(spmv)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), ArrayVal("val").slice(indx[bpntrb[a]+indx_count]), ArrayVal("x"), ArrayVal("y")))
-                        indx_count += 1
+                            num_elems = indx[bpntrb[a] + count+1] - indx[bpntrb[a] + count]
+                            coo_start = num_past_unrolled(ublocks, indx, ublocks_count)
+                            for i, j, v in zip(coo_i[coo_start:coo_start+num_elems], coo_j[coo_start:coo_start+num_elems], [elem for elem in range(indx[bpntrb[a] +count],indx[bpntrb[a] +count+1])]):
+                                f.write(f"\ty[{i}] += val[{v}] * x[{j}];")
+                            f.write("\n")
+                        count += 1
+                        ublocks_count += 1
             f.write("}\n")
             funcount += 1
         num_working_threads = len(thread_br_map)
         f.write("\n")
         f.write("int main() {\n")
+        f.write("\tlong times[5];\n")
         f.write(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
         f.write("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
         f.write(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
@@ -528,19 +444,28 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
         f.write("\tstruct timeval t1;\n")
-        f.write("\tgettimeofday(&t1, NULL);\n")
-        f.write("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
-        f.write(f"\tpthread_t tid[{num_working_threads}];\n")
-        for a in range(num_working_threads):
-            f.write(f"\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
-        for a in range(num_working_threads):
-            f.write(f"\tpthread_join(tid[{a}], NULL);\n")
         f.write("\tstruct timeval t2;\n")
-        f.write("\tgettimeofday(&t2, NULL);\n")
-        f.write("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+        f.write(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
+        f.write("\t\tmemset(y, 0, sizeof(float)*{0});\n".format(rpntr[-1]))
+        f.write("\t\tgettimeofday(&t1, NULL);\n")
+        f.write("\t\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+        f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
+        for a in range(num_working_threads):
+            f.write(f"\t\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
+        for a in range(num_working_threads):
+            f.write(f"\t\tpthread_join(tid[{a}], NULL);\n")
+        f.write("\t\tgettimeofday(&t2, NULL);\n")
+        f.write("\t\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+        f.write("\t\tif (i!=0)\n")
+        f.write("\t\t\ttimes[i-1] = t2s-t1s;\n")
+        f.write("\t}\n")
         f.write("\tfree(x);\n")
         f.write("\tfree(val);\n")
-        f.write("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+        f.write('\tprintf("{0} = ");\n'.format(filename))
+        f.write("\tfor (int i=0; i<{0}; i++) {{\n".format(bench))
+        f.write("\t\tprintf(\"%lu,\", times[i]);\n")
+        f.write("\t}\n")
+        f.write("\tprintf(\"\\n\");\n")
         f.write(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
         f.write("\t\tprintf(\"%.2f\\n\", y[i]);\n")
         f.write("\t}\n")
@@ -1353,14 +1278,14 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     time2 = time.time_ns() // 1_000
     return time2-time1
 
-def vbr_spmv_codegen(filename: str, density: int, dir_name: str, vbr_dir: str, threads: int):
-    vbr_path = os.path.join(vbr_dir, filename + ".vbr")
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
+def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int)->int:
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j = read_vbrc(vbr_path)
     time1 = time.time_ns() // 1_000_000
     if threads == 1:
-        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
+        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir)
     else:
-        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, density, dir_name, filename, vbr_dir)
+        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir)
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 

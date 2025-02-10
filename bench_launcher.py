@@ -7,7 +7,7 @@ import pandas as pd
 import psutil
 from mpi4py import MPI
 
-from src.codegen import gen_single_threaded_spmv_compressed
+from src.codegen import gen_single_threaded_spmv
 from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbr
 from utils.fileio import write_dense_vector
 
@@ -45,7 +45,7 @@ if __name__ == "__main__":
                     print(f"Done {fname}")
                     continue
                 write_dense_vector(1.0, cpntr[-1])
-                codegen_time = gen_single_threaded_spmv_compressed(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, codegen_dir, fname, dest_path.parent)
+                codegen_time = gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, codegen_dir, fname, dest_path.parent)
                 try:
                     time1 = time.time_ns() // 1_000_000
                     subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", codegen_dir + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)

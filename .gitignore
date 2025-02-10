@@ -21,6 +21,8 @@ tests/example.cu
 tests/output.txt
 tests/example2.vbr
 tests/example2.vbrc
+tests/example2
+tests/example2.c
 dlmc/
 Suitesparse*/
 split-and-binaries/

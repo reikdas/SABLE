@@ -72,9 +72,19 @@ def read_vbrc(filename):
         cpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         bpntrb = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        ublocks = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        coo_i = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        coo_j = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        l = f.readline().split("=")[1][1:-2]
+        if l == "":
+            ublocks = []
+        else:
+            ublocks = list(map(int, l.split(",")))
+        l_i = f.readline().split("=")[1][1:-2]
+        l_j = f.readline().split("=")[1][1:-2]
+        if l_i == "":
+            coo_i = []
+            coo_j = []
+        else:
+            coo_i = list(map(int, l_i.split(",")))
+            coo_j = list(map(int, l_j.split(",")))
     return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j
 
 def read_vector(filename):

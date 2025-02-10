@@ -1,3 +1,4 @@
+import copy
 import inspect
 import itertools
 import os
@@ -186,6 +187,15 @@ def split_chunks(values, num_chunks):
 
     return chunks
 
+def num_past_unrolled(ublocks: list[int], indx: list[int], start_pos: int) -> int:
+    num_unrolled = 0
+    for ublock in ublocks:
+        if ublock < start_pos:
+            num_unrolled += indx[ublock+1] - indx[ublock]
+        else:
+            break
+    return num_unrolled
+
 def vbr_spmm_codegen_for_all(density: int = 0):
     if density == 0:
         input_dir_name = "Generated_VBR"
@@ -362,7 +372,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("#include <pthread.h>\n\n")
         f.write("float *x, *val, *y;\n\n")
         f.write(spmv_kernel())
-        work_per_br = [0]*len(rpntr)
+        work_per_br = [0]*(len(rpntr)-1)
         count = 0
         for a in range(len(rpntr) - 1):
             if bpntrb[a] == -1:
@@ -375,7 +385,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                     else:
                         work_per_br[a] += indx[count+1] - indx[count]
                     count += 1
-        count = 0
         count2 = 0
         thread_br_map = split_chunks(work_per_br, threads)
         print(thread_br_map)
@@ -385,20 +394,21 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
             for a in br_list:
                 if bpntrb[a] == -1:
                     continue
-                count = 0
+                ublocks_count = copy.copy(bpntrb[a])
                 valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                count = 0
                 for b in range(len(cpntr)-1):
                     if b in valid_cols:
-                        if count not in ublocks:
+                        if ublocks_count not in ublocks:
                             f.write(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[bpntrb[a]+count]});\n")
                         else:
                             num_elems = indx[bpntrb[a] + count+1] - indx[bpntrb[a] + count]
-                            f.write("\n")
-                            for i, j, v in zip(coo_i[count2:count2+num_elems], coo_j[count2:count2+num_elems], [elem for elem in range(indx[bpntrb[a] +count],indx[bpntrb[a] +count+1])]):
+                            coo_start = num_past_unrolled(ublocks, indx, ublocks_count)
+                            for i, j, v in zip(coo_i[coo_start:coo_start+num_elems], coo_j[coo_start:coo_start+num_elems], [elem for elem in range(indx[bpntrb[a] +count],indx[bpntrb[a] +count+1])]):
                                 f.write(f"\ty[{i}] += val[{v}] * x[{j}];")
                             f.write("\n")
-                            count2 += num_elems
                         count += 1
+                        ublocks_count += 1
             f.write("}\n")
             funcount += 1
         num_working_threads = len(thread_br_map)

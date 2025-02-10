@@ -163,10 +163,8 @@ def spmm(
     return it3(row_idxs, col_idxs, dense_idxs, op)
 
 def split_chunks(values, num_chunks):
-    print(values)
     if len([v for v in values if v != 0]) < num_chunks:
         num_chunks = len([v for v in values if v!=0])
-    print(num_chunks)
 
     # Create a list of (value, index) tuples, excluding zeros
     indexed_values = [(index, value) for index, value in enumerate(values) if value != 0]
@@ -387,7 +385,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                     count += 1
         count2 = 0
         thread_br_map = split_chunks(work_per_br, threads)
-        print(thread_br_map)
         funcount = 0
         for br_list in thread_br_map:
             f.write(f"void *func{funcount}(){{\n")

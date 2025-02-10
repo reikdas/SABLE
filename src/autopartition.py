@@ -101,7 +101,9 @@ def cut_indices2(A, cut_threshold, similarity):
 
 
 def similarity1(a, b):
-    return (a.dot(b) + a[1:].dot(b[:-1])+a[:-1].dot(b[1:])) / (3*max(np.count_nonzero(a), np.count_nonzero(b)))
+    if np.count_nonzero(a) == 0 or np.count_nonzero(b) == 0:
+        return 0
+    return (a.dot(b) +a[1:].dot(b[:-1]) +a[:-1].dot(b[1:])) / (3*max(np.count_nonzero(a), np.count_nonzero(b)))
 
 def similarity2(a, b):
     if np.count_nonzero(a) == 0 or np.count_nonzero(b) == 0:

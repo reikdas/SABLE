@@ -7,6 +7,7 @@ import scipy
 from src.baseline import *
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
+from src.autopartition import *
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
                                        convert_vbr_to_compressed)
 from utils.fileio import write_dense_matrix, write_dense_vector
@@ -75,7 +76,26 @@ def test_compression():
     assert(coo_i==[0, 1, 2, 4, 6, 7, 9, 10])
     assert(coo_j==[10, 10, 5, 5, 5, 5, 10, 10])
 
-def test_partition():
+def test_partition_cut2_sim2_thresh02():
+    cut_indices = cut_indices2
+    similarity = similarity2
+    dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., -1.,  1.],
+                                [ 1.,  5.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0., -1.],
+                                [ 0.,  0.,  6.,  1.,  2.,  2.,  0.,  0.,  0.,  0.,  0.],
+                                [ 0.,  0.,  2.,  7.,  1.,  0.,  0.,  0.,  0.,  0.,  0.],
+                                [ 0.,  0., -1.,  2.,  9.,  3.,  0.,  0.,  0.,  0.,  0.],
+                                [ 2.,  1.,  3.,  4.,  5., 10.,  4.,  3.,  2.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  4., 13.,  4.,  2.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  3.,  3., 11.,  3.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  7.,  0.,  0.],
+                                [ 8.,  4.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 25.,  3.],
+                                [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  8., 12.]])
+    A = scipy.sparse.csc_matrix(dense)
+    cpntr, rpntr = cut_indices(A, 0.2, similarity)
+    assert(rpntr==[0, 2, 5, 6, 9, 11])
+    assert(cpntr==[0, 2, 5, 6, 9, 11])
+
+def test_conversion():
     dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., 0.,  1.],
                                 [ 1.,  5.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0., -1.],
                                 [ 0.,  0.,  6.,  1.,  2.,  2.,  0.,  0.,  0.,  0.,  0.],

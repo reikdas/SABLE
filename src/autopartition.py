@@ -31,6 +31,7 @@ def cut_indices1(A, cut_threshold, similarity):
 
 
 
+
 def cut_indices2(A, cut_threshold, similarity):
     col_indices = []
     row_indices = []
@@ -52,8 +53,12 @@ def cut_indices2(A, cut_threshold, similarity):
             ):
                 run_idx += 1
                 
-            if run_idx == 3:
+            if run_idx == run:
                 col_indices.append(i+1)
+            else: 
+                i += run_idx
+                run_idx = 1
+                continue
                 
             i += 1
             entered = False
@@ -66,10 +71,8 @@ def cut_indices2(A, cut_threshold, similarity):
             if entered:
                 col_indices.append(i)
         run_idx = 1
-            
     
     i = 0
-    run = 3  # Max consecutive low-similarity rows to merge
     run_idx = 1
 
     while i < A.shape[0] - 1:
@@ -81,12 +84,16 @@ def cut_indices2(A, cut_threshold, similarity):
             while (
                 i + run_idx < A.shape[0] 
                 and run_idx < run  # Ensure we don’t exceed max run length
-                and similarity(A[i, :].toarray().ravel(), A[i + run_idx, :].toarray().ravel()) < cut_threshold
+                and similarity(A[i , :].toarray().ravel(), A[i + run_idx, :].toarray().ravel()) < cut_threshold
             ):
                 run_idx += 1
 
-            if run_idx == 3:
+            if run_idx == run:
                 row_indices.append(i+1)
+            else:    
+                i += run_idx
+                run_idx = 1
+                continue
 
             i += 1
             entered = False
@@ -105,6 +112,7 @@ def cut_indices2(A, cut_threshold, similarity):
     if row_indices[-1] != A.shape[0]:
         col_indices.append(A.shape[0])
     return col_indices, row_indices
+
 
 
 

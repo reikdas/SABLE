@@ -31,7 +31,7 @@ def cut_indices1(A, cut_threshold, similarity):
 
 def cut_indices2(A_, cut_threshold, similarity, run = 3):
     #run is Max consecutive low-similarity columns to merge
-    A = A_!=0
+    A = (A_ != 0).astype(int)  # Converts to binary (0,1) integers
     col_indices = [0]
     row_indices = [0]
     # Check column similarities
@@ -50,7 +50,8 @@ def cut_indices2(A_, cut_threshold, similarity, run = 3):
                 and similarity(A[:, i ].toarray().ravel(), A[:, i + run_idx].toarray().ravel()) < cut_threshold
             ):
                 run_idx += 1
-                
+                print(similarity(A[:, i ].toarray().ravel(), A[:, i + run_idx].toarray().ravel()) < cut_threshold
+            )
             if run_idx == run:
                 col_indices.append(i+1)
             else: 

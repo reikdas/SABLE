@@ -5,7 +5,7 @@ import pathlib
 import numpy as np
 import scipy
 
-from utils.convert_real_to_vbr import convert_sparse_to_vbr, convert_vbr_to_compressed
+# from utils.convert_real_to_vbr import convert_sparse_to_vbr, convert_vbr_to_compressed
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
@@ -29,15 +29,13 @@ def cut_indices1(A, cut_threshold, similarity):
 
     return col_indices, row_indices
 
-
-
-
-def cut_indices2(A, cut_threshold, similarity):
-    col_indices = []
-    row_indices = []
+def cut_indices2(A_, cut_threshold, similarity, run = 3):
+    #run is Max consecutive low-similarity columns to merge
+    A = A_!=0
+    col_indices = [0]
+    row_indices = [0]
     # Check column similarities
     i = 0
-    run = 3  # Max consecutive low-similarity columns to merge
     run_idx = 1
 
     while i < A.shape[1] - 1:
@@ -110,7 +108,7 @@ def cut_indices2(A, cut_threshold, similarity):
     if col_indices[-1] != A.shape[1]:
         col_indices.append(A.shape[1])
     if row_indices[-1] != A.shape[0]:
-        col_indices.append(A.shape[0])
+        row_indices.append(A.shape[0])
     return col_indices, row_indices
 
 
@@ -173,3 +171,20 @@ def my_convert_dense_to_vbr(file_info, cut_threshold, cut_indices, similarity):
 # if __name__ == "__main__":
 #     # partition_dlmc("Real_mtx", "Real_vbr")
 #     partition_suitesparse()
+
+if __name__ == "__main__":
+    cut_indices = cut_indices2
+    similarity = similarity2
+    dense = np.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., -1.,  1.],
+                                [ 1.,  5.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0., -1.],
+                                [ 0.,  0.,  6.,  1.,  2.,  2.,  0.,  0.,  0.,  0.,  0.],
+                                [ 0.,  0.,  2.,  7.,  1.,  0.,  0.,  0.,  0.,  0.,  0.],
+                                [ 0.,  0., -1.,  2.,  9.,  3.,  0.,  0.,  0.,  0.,  0.],
+                                [ 2.,  1.,  3.,  4.,  5., 10.,  4.,  3.,  2.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  4., 13.,  4.,  2.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  3.,  3., 11.,  3.,  0.,  0.],
+                                [ 0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  7.,  0.,  0.],
+                                [ 8.,  4.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 25.,  3.],
+                                [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  8., 12.]])
+    A = scipy.sparse.csc_matrix(dense)
+    cpntr, rpntr = cut_indices(A, 0.2, similarity)

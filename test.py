@@ -76,7 +76,7 @@ def test_compression():
     assert(coo_i==[0, 1, 2, 4, 6, 7, 9, 10])
     assert(coo_j==[10, 10, 5, 5, 5, 5, 10, 10])
 
-def test_partition_cut2_sim2_thresh02():
+def test_partition_cut2_sim2():
     cut_indices = cut_indices2
     similarity = similarity2
     dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., -1.,  1.],
@@ -91,8 +91,9 @@ def test_partition_cut2_sim2_thresh02():
                                 [ 8.,  4.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 25.,  3.],
                                 [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  8., 12.]])
     A = scipy.sparse.csc_matrix(dense)
-    cpntr, rpntr = cut_indices(A, 0.2, similarity)
-    assert(rpntr==[0, 2, 5, 6, 9, 11])
+    cpntr, rpntr = cut_indices(A, 0.6, similarity)
+    # Update them when the cut_indices and similarity functions are updated
+    assert(rpntr==[0, 2, 5, 6, 8, 9, 11])
     assert(cpntr==[0, 2, 5, 6, 9, 11])
 
 def test_conversion():

@@ -127,8 +127,12 @@ def similarity2(a, b):
 def similarity3(a, b):
     if np.count_nonzero(a) == 0 or np.count_nonzero(b) == 0:
         return 0
-    return (a.dot(b) +a[1:].dot(b[:-1]) +a[:-1].dot(b[1:])) / (3*max(np.count_nonzero(a), np.count_nonzero(b),5))
+    return (a.dot(b) +a[1:].dot(b[:-1]) +a[:-1].dot(b[1:])) / (3*max(np.count_nonzero(a), np.count_nonzero(b),60))
 
+def similarity4(a, b):
+    if np.count_nonzero(a) == 0 or np.count_nonzero(b) == 0:
+        return 0
+    return max(a.dot(b),a[1:].dot(b[:-1]),a[:-1].dot(b[1:])) / max(np.count_nonzero(a), np.count_nonzero(b), 20)
 
 # Example usage
 # cut_threshold = 0.2

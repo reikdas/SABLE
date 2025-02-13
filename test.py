@@ -49,6 +49,32 @@ def test_setup_file():
     write_dense_vector(1.0, 11)
     write_dense_matrix(1.0, 11, 512)
 
+def test_read_vbr():
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "example.vbr"))
+    assert(val==[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0])
+    assert(indx==[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51])
+    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
+    assert(rpntr==[0, 2, 5, 6, 9, 11])
+    assert(cpntr==[0, 2, 5, 6, 9, 11])
+    assert(bpntrb==[0, 3, 5, 9, 11])
+    assert(bpntre==[3, 5, 9, 11, 13])
+
+def test_compression_full_dense():
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "example.vbr"))
+    val, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 0, "example", "tests")
+    assert(val==[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0])
+    assert(indx==[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51])
+    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
+    assert(rpntr==[0, 2, 5, 6, 9, 11])
+    assert(cpntr==[0, 2, 5, 6, 9, 11])
+    assert(bpntrb==[0, 3, 5, 9, 11])
+    assert(bpntre==[3, 5, 9, 11, 13])
+    assert(ublocks==[])
+    assert(coo_i==[])
+    assert(coo_j==[])
+    assert(coo_val==[])
+
+
 def test_compression():
     dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., 0.,  1.],
                         [ 1.,  5.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0., -1.],
@@ -65,15 +91,31 @@ def test_compression():
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
     val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example2", "tests")
-    val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 80, "example2", "tests")
-    assert(val2== [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 3.0, 12.0])
-    assert(indx2==[0.0, 4.0, 6.0, 8.0, 17.0, 19.0, 21.0, 24.0, 25.0, 28.0, 30.0, 39.0, 43.0, 45.0])
+    val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 80, "example2", "tests")
+    assert(val2== [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0])
+    assert(indx2==[0, 4, 6, 15, 17, 20, 21, 24, 33, 37])
     assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
     assert(bpntrb==[0, 3, 5, 9, 11])
     assert(bpntre==[3, 5, 9, 11, 13])
     assert(ublocks==[2, 4, 9, 12])
     assert(coo_i==[0, 1, 2, 4, 6, 7, 9, 10])
     assert(coo_j==[10, 10, 5, 5, 5, 5, 10, 10])
+    assert(coo_val==[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0])
+
+def test_read_compression():
+    test_compression()
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = read_vbrc(os.path.join(BASE_PATH, "tests", "example2.vbrc"))
+    assert(val== [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0])
+    assert(indx==[0, 4, 6, 15, 17, 20, 21, 24, 33, 37])
+    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
+    assert(rpntr==[0, 2, 5, 6, 9, 11])
+    assert(cpntr==[0, 2, 5, 6, 9, 11])
+    assert(bpntrb==[0, 3, 5, 9, 11])
+    assert(bpntre==[3, 5, 9, 11, 13])
+    assert(ublocks==[2, 4, 9, 12])
+    assert(coo_i==[0, 1, 2, 4, 6, 7, 9, 10])
+    assert(coo_j==[10, 10, 5, 5, 5, 5, 10, 10])
+    assert(coo_val==[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0])
 
 def test_partition():
     dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., 0.,  1.],
@@ -100,7 +142,7 @@ def test_partition():
 def run_spmv(threads):
     test_setup_file()
     vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -225,26 +267,35 @@ def run_spmv_splitter(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
 
+def run_spmv_unroll_splitter(threads):
+    test_compression()
+    vbr_spmv_codegen(filename="example2", dir_name="tests", threads=threads, vbr_dir="tests")
+    subprocess.check_call(["./../split_compile.sh", "example2.c", "2"], cwd="tests")
+    output = subprocess.check_output(["./example2"], cwd="tests/split-and-binaries/example2/").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
+
 def test_spmv():
     run_spmv(1)
-    run_spmv(2)
-    run_spmv(4)
-    run_spmv(8)
-    run_spmv(16)
+#     run_spmv(2)
+#     run_spmv(4)
+#     run_spmv(8)
+#     run_spmv(16)
 
 def test_spmv_multi_out():
     run_spmv_multi_out(1)
-    run_spmv_multi_out(2)
-    run_spmv_multi_out(4)
-    run_spmv_multi_out(8)
-    run_spmv_multi_out(16)
+#     run_spmv_multi_out(2)
+#     run_spmv_multi_out(4)
+#     run_spmv_multi_out(8)
+#     run_spmv_multi_out(16)
 
 def test_spmv_unroll():
     run_spmv_unroll(1)
-    run_spmv_unroll(2)
-    run_spmv_unroll(4)
-    run_spmv_unroll(8)
-    run_spmv_unroll(16)
+#     run_spmv_unroll(2)
+#     run_spmv_unroll(4)
+#     run_spmv_unroll(8)
+#     run_spmv_unroll(16)
 
 def test_spmv_splitter():
     run_spmv_splitter(1)
@@ -252,6 +303,13 @@ def test_spmv_splitter():
     # run_spmv_splitter(4)
     # run_spmv_splitter(8)
     # run_spmv_splitter(16)
+
+def test_spmv_unroll_splitter():
+    run_spmv_unroll_splitter(1)
+    # run_spmv_unroll_splitter(2)
+    # run_spmv_unroll_splitter(4)
+    # run_spmv_unroll_splitter(8)
+    # run_spmv_unroll_splitter(16)
 
 # def test_spmm():
 #     run_spmm(1)

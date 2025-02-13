@@ -271,7 +271,7 @@ def spmv_kernel():
     code.append("}\n\n")
     return "".join(code)
 
-def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir, bench:int=5)->None:
+def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val, dir_name, filename, vbr_dir, bench:int=5)->None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
@@ -290,8 +290,9 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
     code.append(f"\tfloat* y = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-    code.append(f"\tfloat* x = (float*)calloc({cpntr[-1] + 1}, sizeof(float));\n")
-    code.append(f"\tfloat* val = (float*)calloc({len(val) + 1}, sizeof(float));\n")
+    code.append(f"\tfloat* x = (float*)calloc({cpntr[-1]}, sizeof(float));\n")
+    code.append(f"\tfloat* val = (float*)calloc({len(val)}, sizeof(float));\n")
+    code.append(f"\tfloat* coo_val = (float*)calloc({len(coo_val)}, sizeof(float));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
@@ -308,13 +309,32 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         }
     }
     if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');
-    fclose(file1);\n''')
+    assert(c=='\\n');\n''')
+    if (len(ublocks) > 0):
+        code.append('''\tval_size=0;
+    assert(fscanf(file1, "coo_val=[%f", &coo_val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%f", &coo_val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');''')
+    code.append("\tfclose(file1);\n")
     code.append('''
     while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
+    code.append(f"\tint coo_i[{len(coo_i)}] = {{{', '.join(map(str, coo_i))}}};\n")
+    code.append(f"\tint coo_j[{len(coo_j)}] = {{{', '.join(map(str, coo_j))}}};\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\n\tstruct timeval t2;\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
@@ -322,23 +342,20 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\t\tgettimeofday(&t1, NULL);\n")
     code.append("\t\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
     count = 0
-    count2 = 0
+    nnz_block = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
             continue
         valid_cols = bindx[bpntrb[a]:bpntre[a]]
         for b in range(len(cpntr)-1):
             if b in valid_cols:
-                if count not in ublocks:
+                if nnz_block not in ublocks:
                     code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                else:
-                    num_elems = indx[count+1] - indx[count]
-                    code.append("\n")
-                    for i, j, v in zip(coo_i[count2:count2+num_elems], coo_j[count2:count2+num_elems], [elem for elem in range(indx[count],indx[count+1])]):
-                        code.append(f"\t\ty[{i}] += val[{v}] * x[{j}];")
-                    code.append("\n")
-                    count2 += num_elems
-                count+=1
+                    count+=1
+                nnz_block += 1
+    if (len(ublocks) > 0):
+        code.append(f"\t\tfor (int j=0; j<{len(coo_i)}; j++)\n")
+        code.append(f"\t\t\ty[coo_i[j]] += coo_val[j] * x[coo_j[j]];\n")
     code.append("\t\tgettimeofday(&t2, NULL);\n")
     code.append("\t\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
     code.append("\t\tif (i!=0)\n")
@@ -1280,10 +1297,10 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 
 def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int)->int:
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j = read_vbrc(vbr_path)
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = read_vbrc(vbr_path)
     time1 = time.time_ns() // 1_000_000
     if threads == 1:
-        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir)
+        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val, dir_name, filename, vbr_dir)
     else:
         gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir)
     time2 = time.time_ns() // 1_000_000

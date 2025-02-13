@@ -10,12 +10,13 @@ FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
 def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, density, fname, dst_dir):
-    val2 = []
-    indx2 = [0]
-    ublocks = []
-    coo_i = []
-    coo_j = []
-    count = 0
+    val2: list[float] = []
+    indx2: list[int] = [0]
+    ublocks: list[int] = []
+    coo_i: list[int] = []
+    coo_j: list[int] = []
+    coo_val: list[float] = []
+    count: int = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
             continue
@@ -39,15 +40,16 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, de
                 dense_count = len(dense_elems)
                 if (dense_count/(dense_count + sparse_count))*100 > density:
                     val2.extend(val[indx[count]:indx[count+1]])
+                    indx2.append(len(val2))
                 else:
-                    val2.extend(dense_elems)
+                    coo_val.extend(dense_elems)
                     ublocks.append(count)
                     coo_i.extend(idxs_i)
                     coo_j.extend(idxs_j)
-                indx2.append(len(val2))
                 count+=1
     with open(os.path.join(dst_dir, f"{fname}.vbrc"), "w") as f:
         f.write(f"val=[{','.join(map(str, val2))}]\n")
+        f.write(f"coo_val=[{','.join(map(str, coo_val))}]\n")
         f.write(f"indx=[{','.join(map(str, indx2))}]\n")
         f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
         f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
@@ -57,7 +59,7 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, de
         f.write(f"ublocks=[{','.join(map(str, ublocks))}]\n")
         f.write(f"coo_i=[{','.join(map(str, coo_i))}]\n")
         f.write(f"coo_j=[{','.join(map(str, coo_j))}]\n")
-    return val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j
+    return val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
 
 def convert_sparse_to_vbr(csc_mat, rpntr, cpntr, fname, dst_dir):
     '''

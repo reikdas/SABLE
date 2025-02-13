@@ -8,7 +8,7 @@ import psutil
 from mpi4py import MPI
 
 from src.codegen import gen_single_threaded_spmv
-from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbr
+from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbrc
 from utils.fileio import write_dense_vector
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
@@ -17,7 +17,7 @@ BASE_PATH = os.path.join(FILEPATH)
 BENCHMARK_FREQ = 5
 COMPILE_TIMEOUT = 60 * 60 * 4
 
-mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_large"))
+mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
 vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_vbr_thresh0.2_cut2_sim2"))
 codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_suitesparse_thresh0.2_cut2_sim2_fastc")
 
@@ -38,14 +38,14 @@ if __name__ == "__main__":
                 relative_path = file_path.relative_to(mtx_dir)
                 dest_path = vbr_dir / relative_path.with_suffix(".vbr")
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
-                val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j = my_convert_dense_to_vbr((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2)
+                val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = my_convert_dense_to_vbrc((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2, 8)
                 if val is None:
                     f.write(f"{fname},ERROR2,ERROR2\n")
                     f.flush()
                     print(f"Done {fname}")
                     continue
                 write_dense_vector(1.0, cpntr[-1])
-                codegen_time = gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, codegen_dir, fname, dest_path.parent)
+                codegen_time = gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val, codegen_dir, fname, dest_path.parent)
                 try:
                     time1 = time.time_ns() // 1_000_000
                     subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", codegen_dir + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)

@@ -8,7 +8,7 @@ from utils.utils import check_file_matches_parent_dir
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
-mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_large"))
+mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
 
 pid = os.getpid()
 cpu_affinity = os.sched_getaffinity(pid)

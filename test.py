@@ -7,6 +7,7 @@ import scipy
 from src.baseline import *
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
+from src.autopartition import cut_indices2, similarity2
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
                                        convert_vbr_to_compressed)
 from utils.fileio import write_dense_matrix, write_dense_vector
@@ -96,6 +97,22 @@ def test_partition():
     assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
     assert(bpntrb==[0, 3, 5, 9, 11])
     assert(bpntre==[3, 5, 9, 11, 13])
+
+def test_partition_vals_real():
+    mtx_path = os.path.join(BASE_PATH, "tests", "Franz8.mtx")
+    mtx = scipy.io.mmread(mtx_path)
+    A = scipy.sparse.csc_matrix(mtx, copy=False)
+    A_nnz = 0
+    for elem in A.data:
+        if elem != 0:
+            A_nnz += 1
+    cpntr, rpntr = cut_indices2(A, 0.2, similarity2)
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
+    val_nnz = 0
+    for elem in val:
+        if elem != 0:
+            val_nnz += 1
+    assert(val_nnz == A_nnz)
 
 def run_spmv(threads):
     test_setup_file()

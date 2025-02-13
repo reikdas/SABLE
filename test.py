@@ -267,6 +267,15 @@ def run_spmv_splitter(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
 
+def run_spmv_unroll_splitter(threads):
+    test_compression()
+    vbr_spmv_codegen(filename="example2", dir_name="tests", threads=threads, vbr_dir="tests")
+    subprocess.check_call(["./../split_compile.sh", "example2.c", "2"], cwd="tests")
+    output = subprocess.check_output(["./example2"], cwd="tests/split-and-binaries/example2/").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
+
 def test_spmv():
     run_spmv(1)
 #     run_spmv(2)
@@ -295,6 +304,13 @@ def test_spmv_splitter():
     # run_spmv_splitter(8)
     # run_spmv_splitter(16)
 
+def test_spmv_unroll_splitter():
+    run_spmv_unroll_splitter(1)
+    # run_spmv_unroll_splitter(2)
+    # run_spmv_unroll_splitter(4)
+    # run_spmv_unroll_splitter(8)
+    # run_spmv_unroll_splitter(16)
+
 # def test_spmm():
 #     run_spmm(1)
 #     run_spmm(2)
@@ -310,6 +326,6 @@ def test_spmv_splitter():
 # # def test_spmm_cuda():
 # #     run_spmm_cuda()
     
-def test_baselines():
-    run_nonzeros_spmv()
-    run_nonzeros_spmm()
+# def test_baselines():
+#     run_nonzeros_spmv()
+#     run_nonzeros_spmm()

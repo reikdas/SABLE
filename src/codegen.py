@@ -311,7 +311,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');\n''')
     if (len(ublocks) > 0):
-        code.append('''val_size=0;
+        code.append('''\tval_size=0;
     assert(fscanf(file1, "coo_val=[%f", &coo_val[val_size]) == 1.0);
     val_size++;
     while (1) {
@@ -327,12 +327,14 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     }
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');''')
-    code.append("fclose(file1);\n")
+    code.append("\tfclose(file1);\n")
     code.append('''
     while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
+    code.append(f"\tint coo_i[{len(coo_i)}] = {{{', '.join(map(str, coo_i))}}};\n")
+    code.append(f"\tint coo_j[{len(coo_j)}] = {{{', '.join(map(str, coo_j))}}};\n")
     code.append("\tstruct timeval t1;\n")
     code.append("\n\tstruct timeval t2;\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
@@ -351,8 +353,6 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
                     code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     count+=1
                 nnz_block += 1
-    code.append(f"\t\tint coo_i[{len(coo_i)}] = {{{', '.join(map(str, coo_i))}}};\n")
-    code.append(f"\t\tint coo_j[{len(coo_j)}] = {{{', '.join(map(str, coo_j))}}};\n")
     if (len(ublocks) > 0):
         code.append(f"\t\tfor (int j=0; j<{len(coo_i)}; j++)\n")
         code.append(f"\t\t\ty[coo_i[j]] += coo_val[j] * x[coo_j[j]];\n")

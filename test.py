@@ -326,6 +326,6 @@ def test_spmv_unroll_splitter():
 # # def test_spmm_cuda():
 # #     run_spmm_cuda()
     
-# def test_baselines():
-#     run_nonzeros_spmv()
-#     run_nonzeros_spmm()
+def test_baselines():
+    run_nonzeros_spmv()
+    run_nonzeros_spmm()

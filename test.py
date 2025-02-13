@@ -235,17 +235,17 @@ def test_spmv():
 
 def test_spmv_multi_out():
     run_spmv_multi_out(1)
-#     run_spmv_multi_out(2)
-#     run_spmv_multi_out(4)
-#     run_spmv_multi_out(8)
-#     run_spmv_multi_out(16)
+    run_spmv_multi_out(2)
+    run_spmv_multi_out(4)
+    run_spmv_multi_out(8)
+    run_spmv_multi_out(16)
 
 def test_spmv_unroll():
     run_spmv_unroll(1)
-#     run_spmv_unroll(2)
-#     run_spmv_unroll(4)
-#     run_spmv_unroll(8)
-#     run_spmv_unroll(16)
+    run_spmv_unroll(2)
+    run_spmv_unroll(4)
+    run_spmv_unroll(8)
+    run_spmv_unroll(16)
 
 def test_spmv_splitter():
     run_spmv_splitter(1)

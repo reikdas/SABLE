@@ -65,27 +65,29 @@ def read_vbr(filename):
 
 def read_vbrc(filename):
     with open(filename, "r") as f:
-        val = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
-        indx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bindx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        rpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        cpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bpntrb = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        val: list[float] = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
+        l_val = f.readline().split("=")[1][1:-2]
+        coo_val: list[float] = []
+        if l_val != "":
+            coo_val.extend(list(map(float, l_val.split(","))))
+        indx: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        bindx: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        rpntr: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        cpntr: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        bpntrb: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        bpntre: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
+        ublocks: list[int] = []
         l = f.readline().split("=")[1][1:-2]
-        if l == "":
-            ublocks = []
-        else:
+        if l != "":
             ublocks = list(map(int, l.split(",")))
         l_i = f.readline().split("=")[1][1:-2]
         l_j = f.readline().split("=")[1][1:-2]
-        if l_i == "":
-            coo_i = []
-            coo_j = []
-        else:
+        coo_i: list[int] = []
+        coo_j: list[int] = []
+        if l_i != "":
             coo_i = list(map(int, l_i.split(",")))
             coo_j = list(map(int, l_j.split(",")))
-    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j
+    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
 
 def read_vector(filename):
     with open(filename, "r") as f:

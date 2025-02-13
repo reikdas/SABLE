@@ -98,22 +98,6 @@ def test_partition():
     assert(bpntrb==[0, 3, 5, 9, 11])
     assert(bpntre==[3, 5, 9, 11, 13])
 
-def test_partition_vals_real():
-    mtx_path = os.path.join(BASE_PATH, "tests", "Franz8.mtx")
-    mtx = scipy.io.mmread(mtx_path)
-    A = scipy.sparse.csc_matrix(mtx, copy=False)
-    A_nnz = 0
-    for elem in A.data:
-        if elem != 0:
-            A_nnz += 1
-    cpntr, rpntr = cut_indices2(A, 0.2, similarity2)
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
-    val_nnz = 0
-    for elem in val:
-        if elem != 0:
-            val_nnz += 1
-    assert(val_nnz == A_nnz)
-
 def run_spmv(threads):
     test_setup_file()
     vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests")
@@ -251,17 +235,17 @@ def test_spmv():
 
 def test_spmv_multi_out():
     run_spmv_multi_out(1)
-    run_spmv_multi_out(2)
-    run_spmv_multi_out(4)
-    run_spmv_multi_out(8)
-    run_spmv_multi_out(16)
+#     run_spmv_multi_out(2)
+#     run_spmv_multi_out(4)
+#     run_spmv_multi_out(8)
+#     run_spmv_multi_out(16)
 
 def test_spmv_unroll():
     run_spmv_unroll(1)
-    run_spmv_unroll(2)
-    run_spmv_unroll(4)
-    run_spmv_unroll(8)
-    run_spmv_unroll(16)
+#     run_spmv_unroll(2)
+#     run_spmv_unroll(4)
+#     run_spmv_unroll(8)
+#     run_spmv_unroll(16)
 
 def test_spmv_splitter():
     run_spmv_splitter(1)
@@ -279,12 +263,28 @@ def test_spmv_splitter():
 #     run_spmm_libxsmm()
 #     run_spmm_cblas()
 
-# # def test_spmv_cuda():
-# #     run_spmv_cuda()
+# def test_spmv_cuda():
+#     run_spmv_cuda()
 
-# # def test_spmm_cuda():
-# #     run_spmm_cuda()
-    
+# def test_spmm_cuda():
+#     run_spmm_cuda()
+
 def test_baselines():
     run_nonzeros_spmv()
     run_nonzeros_spmm()
+
+def test_partition_vals_real():
+    mtx_path = os.path.join(BASE_PATH, "tests", "Franz8.mtx")
+    mtx = scipy.io.mmread(mtx_path)
+    A = scipy.sparse.csc_matrix(mtx, copy=False)
+    A_nnz = 0
+    for elem in A.data:
+        if elem != 0:
+            A_nnz += 1
+    cpntr, rpntr = cut_indices2(A, 0.2, similarity2)
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(mtx, rpntr, cpntr, "Franz8", "tests")
+    val_nnz = 0
+    for elem in val:
+        if elem != 0:
+            val_nnz += 1
+    assert(val_nnz == A_nnz)

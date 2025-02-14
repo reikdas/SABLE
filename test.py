@@ -9,11 +9,19 @@ from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from src.autopartition import cut_indices2, similarity2
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
+                                       convert_sparse_to_vbr_np,
                                        convert_vbr_to_compressed)
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
+import cProfile
+import timeit
 
+import numpy as np
+
+import logging
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename='/tmp/out.log', level = logging.INFO)
 
 def cmp_file(file1, file2):
     with open(file1, "r") as f1, open(file2, "r") as f2:
@@ -331,18 +339,50 @@ def test_baselines():
     run_nonzeros_spmv()
     run_nonzeros_spmm()
 
+def test_vbr_conversion():
+    A = scipy.sparse.csc_matrix([
+        [1.0,2.0,0.0,0.0],
+        [3.0,4.0,0.0,0.0],
+        [0.0,0.0,5.0,6.0],
+        [0.0,0.0,7.0,8.0]]
+    )
+
+    cpntr = [0,2,4]
+    rpntr = [0,1,2,4]
+
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr_np(A, rpntr, cpntr, "dummy", "tests")
+
+    assert(np.array_equal(val, [1,2,3,4,5,7,6,8]))
+    assert(np.array_equal(indx, [0,2,4,8]))
+    assert(np.array_equal(bindx, [0,0,1]))
+    assert(np.array_equal(bpntrb, [0,1,2]))
+    assert(np.array_equal(bpntre, [1,2,3]))
+
 def test_partition_vals_real():
+    logger.info("running test to check vbr conversion") 
+
+    # read matrix from mm-market format
     mtx_path = os.path.join(BASE_PATH, "tests", "Franz8.mtx")
     mtx = scipy.io.mmread(mtx_path)
+
+    # convert to scipy csc
     A = scipy.sparse.csc_matrix(mtx, copy=False)
-    A_nnz = 0
-    for elem in A.data:
-        if elem != 0:
-            A_nnz += 1
+    A_nnz = A.nnz
+
+    # get indices of VBR partitions
     cpntr, rpntr = cut_indices2(A, 0.2, similarity2)
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(mtx, rpntr, cpntr, "Franz8", "tests")
-    val_nnz = 0
-    for elem in val:
-        if elem != 0:
-            val_nnz += 1
-    assert(val_nnz == A_nnz)
+    logger.info("completed sub-block generation")
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
+    val2, indx2, bindx2, bpntrb2, bpntre2 = convert_sparse_to_vbr_np(A, rpntr, cpntr, "Franz8_np", "tests")
+
+    # check nnz
+    val_nnz = len([x for x in val if x != 0])
+    val2_nnz = len([x for x in val2 if x != 0])
+    assert(val_nnz == val2_nnz)
+    assert(A_nnz == val2_nnz)
+
+    assert(np.array_equal(val, val2))
+    assert(np.array_equal(indx, indx2))
+    assert(np.array_equal(bindx, bindx2))
+    assert(np.array_equal(bpntrb, bpntrb2))
+    assert(np.array_equal(bpntre, bpntre2))

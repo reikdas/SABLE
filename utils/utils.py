@@ -1,4 +1,7 @@
 import os
+import time
+import signal
+from functools import wraps
 
 def check_file_matches_parent_dir(filepath):
     """
@@ -27,3 +30,32 @@ def extract_mul_nums(output) -> list[int]:
     output = output.split("=")[1].split(",")
     output = [x for x in output if x!=""]
     return output
+
+def timeout(timeout_secs: int):
+    def wrapper(func):
+        @wraps(func)
+        def time_limited(*args, **kwargs):
+            # Register an handler for the timeout
+            def handler(signum, frame):
+                raise Exception(f"Timeout for function '{func.__name__}'")
+
+            # Register the signal function handler
+            signal.signal(signal.SIGALRM, handler)
+
+            # Define a timeout for your function
+            signal.alarm(timeout_secs)
+
+            result = None
+            try:
+                result = func(*args, **kwargs)
+            except Exception as exc:
+                raise exc
+            finally:
+                # disable the signal alarm
+                signal.alarm(0)
+
+            return result
+
+        return time_limited
+
+    return wrapper

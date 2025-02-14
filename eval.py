@@ -7,7 +7,7 @@ import psutil
 from scipy.io import mmread
 
 from src.consts import CFLAGS as CFLAGS
-from utils.utils import check_file_matches_parent_dir, extract_mul_nums
+from utils.utils import extract_mul_nums
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
@@ -22,7 +22,7 @@ def eval_single_proc(eval):
     # Compile CSR-SpMV
     subprocess.check_output(["g++", "-o", "csr-spmv", "csr-spmv.cpp"] + CFLAGS, cwd=os.path.join(BASE_PATH, "src"))
     with open(os.path.join(BASE_PATH, "results", "res.csv"), "w") as f:
-        f.write("Filename,SABLE,PSC,CSRSpmv,SpeedupOverPSC,SpeedupOverCSRSpmv\n")
+        f.write("Filename,SABLE(ns),PSC(ns),CSRSpmv,SpeedupOverPSC,SpeedupOverCSRSpmv\n")
         for fname in eval:
             output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"{BASE_PATH}/split-and-binaries/{fname}/{fname}"]).decode("utf-8").split("\n")[0]
             output = extract_mul_nums(output)
@@ -41,11 +41,11 @@ def eval_single_proc(eval):
             csr_spmv_exec_time = float(output.stdout.split(" ")[1])
             
             if median_exec_time_unroll == 0:
-                f.write(f"{fname},{median_exec_time_unroll}us,{median_psc_time}us,{csr_spmv_exec_time}us,Div by Zero,Div by Zero\n")
+                f.write(f"{fname},{median_exec_time_unroll},{median_psc_time},{csr_spmv_exec_time},Div by Zero,Div by Zero\n")
             else:
                 speedup_over_psc = round(median_psc_time / median_exec_time_unroll, 2)
                 speedup_over_csr_spmv = round(csr_spmv_exec_time / median_exec_time_unroll, 2)
-                f.write(f"{fname},{median_exec_time_unroll}us,{median_psc_time}us,{csr_spmv_exec_time}us,{speedup_over_psc},{speedup_over_csr_spmv}\n")
+                f.write(f"{fname},{median_exec_time_unroll},{median_psc_time},{csr_spmv_exec_time},{speedup_over_psc},{speedup_over_csr_spmv}\n")
             f.flush()
             print(f"Done {fname}")
 

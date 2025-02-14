@@ -15,7 +15,7 @@ def only_nonzeros_spmv(filename: str, dir_name: str, vbr_dir: str):
         os.makedirs(dir_name)
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n\n")
@@ -65,9 +65,8 @@ int lowestMultiple(int x, int y) {
         assert(fscanf(file2, "%f,", &x[i]) == 1);
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -82,10 +81,9 @@ int lowestMultiple(int x, int y) {
                         if v != 0:
                             code.append(f"\ty[{i}] += val[{v_idx}] * x[{j}];\n")
                 count += 1
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append(f"\t\t\tprintf(\"%f\\n\", y[i]);\n")
     code.append("\t\t}\n")
@@ -101,7 +99,7 @@ def only_nonzeros_spmm(filename: str, dir_name: str, vbr_dir: str):
         os.makedirs(dir_name)
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n\n")
@@ -153,9 +151,8 @@ int lowestMultiple(int x, int y) {
         }}
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -172,10 +169,9 @@ int lowestMultiple(int x, int y) {
                             code.append(f"\t\ty[{i*512}+k] += val[{v_idx}] * x[{j*512}+k];\n")
                             code.append("\t}\n")
                 count += 1
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
     code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")

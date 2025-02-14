@@ -17,14 +17,14 @@ BASE_PATH = os.path.join(FILEPATH)
 
 BENCHMARK_FREQ = 5
 COMPILE_TIMEOUT = 60 * 60 * 4
-PARTITION_TIMEOUT = 60 * 60
+PARTITION_TIMEOUT = 60 * 60 * 3
 
 mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
 vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_vbr_thresh0.2_cut2_sim2"))
 codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_suitesparse_thresh0.2_cut2_sim2_fastc")
 
 @timeout(PARTITION_TIMEOUT)
-def vbrc_wrapper(args, threshold, cut_indices, similarity, num_threads):
+def vbrc_wrapper(file_path, dest_path):
     return my_convert_dense_to_vbrc((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2, 8)
 
 if __name__ == "__main__":
@@ -45,7 +45,7 @@ if __name__ == "__main__":
                 dest_path = vbr_dir / relative_path.with_suffix(".vbr")
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
                 try:
-                    val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = vbrc_wrapper((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2, 8)
+                    val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = vbrc_wrapper(str(file_path), str(dest_path))
                 except:
                     f.write(f"{fname},ERROR1,ERROR1\n")
                     f.flush()

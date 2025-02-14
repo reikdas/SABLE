@@ -28,11 +28,11 @@ def process_file(filename, chunk_size=2000):
             idx_of_main_start = i
         if "void" in line:
             idx_of_spmv = i
-        if "long t1s" in line:
+        if "clock_gettime(CLOCK_MONOTONIC, &t1);" in line:
             start_idx = i
         if "for (int j=0;" in line:
             end_idx = i
-        if end_idx is None and "gettimeofday(&t2, NULL);" in line:
+        if end_idx is None and "clock_gettime(CLOCK_MONOTONIC, &t2);" in line:
             end_idx = i
 
     # Ensure valid indices were found

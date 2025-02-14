@@ -68,6 +68,8 @@ The corresponding files will be generated in `results/`.
 
 
 ## Benchmarking the CSR SpMV version
+
+For a particular matrix:
 ``` bash
 # to compile for multi-thread execution with OpenMP
 mkdir -p tmp && g++ -DOPENMP -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
@@ -75,11 +77,11 @@ mkdir -p tmp && g++ -DOPENMP -O3 src/csr-spmv.cpp -o tmp/csr-spmv -fopenmp
 # to compile for single-thread execution
 mkdir -p tmp && g++ -O3 src/csr-spmv.cpp -o tmp/csr-spmv
 
-# execute to evaluate individual matrix
-./tmp/csr-spmv <matrix> <threads>
-./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 1
-./tmp/csr-spmv /local/scratch/a/Suitesparse/heart1/heart1.mtx 2
+# to execute a particular matrix
+./tmp/csr-spmv <.mtx file> <threads> <num_bench_runs> <dense_vector_path>
+```
 
-# execute eval.py to benchmark with PSC and our codegen
-python eval.py
+For all of Suitesparse:
+```bash
+python3 bench_naive.py
 ```

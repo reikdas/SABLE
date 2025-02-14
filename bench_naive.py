@@ -21,7 +21,7 @@ if __name__ == "__main__":
     threads = [1]
     for thread in threads:
         with open(os.path.join(BASE_PATH, "results", f"csr-spmv-suitesparse_{thread}thrd.csv"), "w") as f:
-            f.write("Matrix,Time(us)\n")
+            f.write("Matrix,Time(ns)\n")
             for file_path in mtx_dir.rglob("*"):
                 if file_path.is_file() and file_path.suffix == ".mtx" and check_file_matches_parent_dir(file_path):
                     fname = pathlib.Path(file_path).resolve().stem

@@ -278,7 +278,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n\n")
@@ -335,12 +335,11 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     fclose(file2);\n'''.format(cpntr[-1]))
     code.append(f"\tint coo_i[{len(coo_i)}] = {{{', '.join(map(str, coo_i))}}};\n")
     code.append(f"\tint coo_j[{len(coo_j)}] = {{{', '.join(map(str, coo_j))}}};\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\n\tstruct timeval t2;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\n\tstruct timespec t2;\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
     code.append("\t\tmemset(y, 0, sizeof(float)*{0});\n".format(rpntr[-1]))
-    code.append("\t\tgettimeofday(&t1, NULL);\n")
-    code.append("\t\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     nnz_block = 0
     for a in range(len(rpntr)-1):
@@ -356,10 +355,9 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     if (len(ublocks) > 0):
         code.append(f"\t\tfor (int j=0; j<{len(coo_i)}; j++)\n")
         code.append(f"\t\t\ty[coo_i[j]] += coo_val[j] * x[coo_j[j]];\n")
-    code.append("\t\tgettimeofday(&t2, NULL);\n")
-    code.append("\t\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
     code.append("\t\tif (i!=0)\n")
-    code.append("\t\t\ttimes[i-1] = t2s-t1s;\n")
+    code.append("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
     code.append("\t}\n")
     code.append('\tprintf("{0} = ");\n'.format(filename))
     code.append("\tfor (int i=0; i<{0}; i++) {{\n".format(bench))
@@ -380,7 +378,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.write("#include <stdio.h>\n")
-        f.write("#include <sys/time.h>\n")
+        f.write("#include <time.h>\n")
         f.write("#include <stdlib.h>\n")
         f.write("#include <assert.h>\n")
         f.write("#include <string.h>\n")
@@ -460,21 +458,19 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
-        f.write("\tstruct timeval t1;\n")
-        f.write("\tstruct timeval t2;\n")
+        f.write("\tstruct timespec t1;\n")
+        f.write("\tstruct timespec t2;\n")
         f.write(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
         f.write("\t\tmemset(y, 0, sizeof(float)*{0});\n".format(rpntr[-1]))
-        f.write("\t\tgettimeofday(&t1, NULL);\n")
-        f.write("\t\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+        f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
         f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_join(tid[{a}], NULL);\n")
-        f.write("\t\tgettimeofday(&t2, NULL);\n")
-        f.write("\t\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
+        f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         f.write("\t\tif (i!=0)\n")
-        f.write("\t\t\ttimes[i-1] = t2s-t1s;\n")
+        f.write("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
         f.write("\t}\n")
         f.write("\tfree(x);\n")
         f.write("\tfree(val);\n")
@@ -495,7 +491,7 @@ def gen_spmm_libxsmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name: s
         os.makedirs(dir_name)
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n")
@@ -555,9 +551,8 @@ int lowestMultiple(int x, int y) {
     code.append("\tlibxsmm_blasint i_range;\n")
     code.append("\tlibxsmm_blasint j_range;\n")
     code.append("\tconst libxsmm_blasint k_range = 512;\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -569,10 +564,9 @@ int lowestMultiple(int x, int y) {
                 code.append(f"\tj_range = {cpntr[b+1] - cpntr[b]};\n")
                 code.append(f"\tlibxsmm_sgemm(&notrans, &trans, &k_range, &i_range, &j_range, &alpha, &x[{cpntr[b]*512}], &k_range, &val[{indx[count]}], &i_range, &alpha, &y[{rpntr[a] * 512}], &k_range);\n")
                 count+=1
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
     code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
@@ -590,7 +584,7 @@ def gen_spmm_cblas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name: str
         os.makedirs(dir_name)
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n")
@@ -647,9 +641,8 @@ int lowestMultiple(int x, int y) {
     code.append("\tint i_range;\n")
     code.append("\tint j_range;\n")
     code.append("\tconst int k_range = 512;\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -661,10 +654,9 @@ int lowestMultiple(int x, int y) {
                 code.append(f"\tj_range = {cpntr[b+1] - cpntr[b]};\n")
                 code.append(f"\tcblas_sgemm(CblasColMajor, CblasNoTrans, CblasTrans, k_range, i_range, j_range, alpha, &x[{cpntr[b]*512}], k_range, &val[{indx[count]}], i_range, alpha, &y[{rpntr[a] * 512}], k_range);\n")
                 count+=1
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
     code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
@@ -681,7 +673,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
         os.makedirs(dir_name)
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n\n")
@@ -744,9 +736,8 @@ int spmm_kernel(float *y, const float* x, const float* val, int i_start, int i_e
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
     # code.append("\tint count = 0;\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -775,10 +766,9 @@ int spmm_kernel(float *y, const float* x, const float* val, int i_start, int i_e
                     # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     code.append(f"\tspmm_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                 count+=1
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
     code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
@@ -795,7 +785,7 @@ def gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         os.makedirs(dir_name)
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <pthread.h>\n")
@@ -907,18 +897,16 @@ int lowestMultiple(int x, int y) {
         }}
     }}
     fclose(file2);\n'''.format(rpntr[-1]))
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     code.append(f"\tpthread_t tid[{num_working_threads}];\n")
     for a in range(num_working_threads):
         code.append(f"\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
     for a in range(num_working_threads):
         code.append(f"\tpthread_join(tid[{a}], NULL);\n")
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
     code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")
@@ -938,7 +926,7 @@ def vbr_spmv_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: i
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{rpntr[-1]}.vector")
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append('''#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -999,9 +987,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(val, {len(val) + 1}*sizeof(float), id));\n")
     code.append("\tint blockSize, minGridSize, gridSize;\n")
     code.append("\tcudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, spmv, 0, 0);\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -1034,10 +1021,9 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                 count+=1
         code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tprintf(\"%f\\n\", y[i]);\n")
     code.append("\t}\n")
@@ -1063,7 +1049,7 @@ def vbr_spmm_cuda_codegen_cublas(filename: str, dir_name: str, vbr_dir: str, den
 #include <stdio.h>            // printf
 #include <stdlib.h>           // EXIT_FAILURE
 #include <assert.h>
-#include <sys/time.h>
+#include <time.h>
 
 #define CUDA_CHECK(func)                                                       \\
 {                                                                              \\
@@ -1132,9 +1118,8 @@ int main(void) {
     code.append(f"\tCUDA_CHECK(cudaMalloc((void**)&val_d, {len(val)}*sizeof(float)));\n")
     code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(x_d, x, {cpntr[-1]*512}*sizeof(float), cudaMemcpyHostToDevice, stream));\n")
     code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(val_d, val, {len(val)}*sizeof(float), cudaMemcpyHostToDevice, stream));\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -1145,10 +1130,9 @@ int main(void) {
                 code.append(f"cublasSgemm(cublasH, CUBLAS_OP_N, CUBLAS_OP_T, {rpntr[a+1] - rpntr[a]}, 512, {cpntr[b+1] - cpntr[b]}, &alpha, &val_d[{indx[count]}], {rpntr[a+1] - rpntr[a]}, &x_d[{cpntr[b]*512}], 512, &beta, &y_d[{rpntr[a] * 512}], {rpntr[a+1] - rpntr[a]});\n")
                 count+=1
         code.append("\tcudaDeviceSynchronize();\n")
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tCUDA_CHECK(cudaMemcpyAsync(y, y_d, {rpntr[-1]*512}*sizeof(float), cudaMemcpyDeviceToHost, stream));\n")
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tfor (int j=0; j<512; j++) {\n")
@@ -1177,7 +1161,7 @@ def vbr_spmm_cuda_codegen(filename: str, dir_name: str, vbr_dir: str, density: i
     matrix_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rpntr[-1]}x512.matrix")
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append('''#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
@@ -1242,9 +1226,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     # code.append(f"\tgpuErrchk(cudaMemPrefetchAsync(val, {len(val) + 1}*sizeof(float), id));\n")
     code.append("\tint blockSize, minGridSize, gridSize;\n")
     code.append("\tcudaOccupancyMaxPotentialBlockSize(&minGridSize, &blockSize, spmm, 0, 0);\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -1277,10 +1260,9 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
                     # code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
                 count+=1
         code.append("\tgpuErrchk(cudaDeviceSynchronize());\n")
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tfor (int j=0; j<512; j++) {\n")
     code.append("\t\t\tprintf(\"%f\\n\", y[i*512+j]);\n")

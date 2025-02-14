@@ -3,9 +3,8 @@
 #include <fstream>
 #include <sstream>
 #include <algorithm>
-#include <chrono>
 #include <set>
-#include <sys/time.h>
+#include <ctime>
 #ifdef OPENMP
 #include <omp.h>
 #endif
@@ -265,8 +264,8 @@ void spmv(const CSR &csr, const float *x, float *y) {
 // Example usage
 int main(int argc, char *argv[]) {
 
-    struct timeval t1;
-    struct timeval t2;
+    struct timespec t1;
+    struct timespec t2;
 
     // read the filename from the command line
     if (argc != 5) {
@@ -304,12 +303,10 @@ int main(int argc, char *argv[]) {
     float* exec_time = new float[NUMBER_OF_RUNS];
     spmv(csrMatrix, x, y);
     for (int i = 0; i < NUMBER_OF_RUNS; i++) {
-        gettimeofday(&t1, NULL);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
         spmv(csrMatrix, x, y);
-	    gettimeofday(&t2, NULL);
-        long t1s = t1.tv_sec * 1000000L + t1.tv_usec;
-	    long t2s = t2.tv_sec * 1000000L + t2.tv_usec;
-        exec_time[i] = t2s-t1s;
+	    clock_gettime(CLOCK_MONOTONIC, &t2);
+        exec_time[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);
     }
     
     // get the median of the execution time

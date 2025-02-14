@@ -35,7 +35,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, den
         os.makedirs(dir_name)
     code = []
     code.append("#include <stdio.h>\n")
-    code.append("#include <sys/time.h>\n")
+    code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n\n")
@@ -98,9 +98,8 @@ int spmm_kernel(float *y, const float* x, const float* val, int i_start, int i_e
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
     # code.append("\tint count = 0;\n")
-    code.append("\tstruct timeval t1;\n")
-    code.append("\tgettimeofday(&t1, NULL);\n")
-    code.append("\tlong t1s = t1.tv_sec * 1000000L + t1.tv_usec;\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
@@ -131,10 +130,9 @@ int spmm_kernel(float *y, const float* x, const float* val, int i_start, int i_e
                     # code.append(codegen(spmm)(RepRange(rpntr[a], rpntr[a+1]), RepRange(cpntr[b], cpntr[b+1]), RepRange(0, 512), ArrayVal("val").slice(indx[count]), ArrayVal("x"), ArrayVal("y")))
                     code.append(f"\tspmm_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                 count+=1
-    code.append("\tstruct timeval t2;\n")
-    code.append("\tgettimeofday(&t2, NULL);\n")
-    code.append("\tlong t2s = t2.tv_sec * 1000000L + t2.tv_usec;\n")
-    code.append("\tprintf(\"{0} = %lu\\n\", t2s-t1s);\n".format(filename))
+    code.append("\tstruct timespec t2;\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tprintf(\"{0} = %lu\\n\", (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec));\n".format(filename))
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append(f"\t\tfor (int j=0; j<512; j++) {{\n")
     code.append(f"\t\t\tprintf(\"%f\\n\", y[i*512 + j]);\n")

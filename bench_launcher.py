@@ -10,16 +10,22 @@ from mpi4py import MPI
 from src.codegen import gen_single_threaded_spmv
 from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbrc
 from utils.fileio import write_dense_vector
+from utils.utils import timeout
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
 BENCHMARK_FREQ = 5
 COMPILE_TIMEOUT = 60 * 60 * 4
+PARTITION_TIMEOUT = 60 * 60
 
 mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
 vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_vbr_thresh0.2_cut2_sim2"))
 codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_suitesparse_thresh0.2_cut2_sim2_fastc")
+
+@timeout(PARTITION_TIMEOUT)
+def vbrc_wrapper(args, threshold, cut_indices, similarity, num_threads):
+    return my_convert_dense_to_vbrc((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2, 8)
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD
@@ -38,11 +44,17 @@ if __name__ == "__main__":
                 relative_path = file_path.relative_to(mtx_dir)
                 dest_path = vbr_dir / relative_path.with_suffix(".vbr")
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
-                val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = my_convert_dense_to_vbrc((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2, 8)
+                try:
+                    val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = vbrc_wrapper((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2, 8)
+                except:
+                    f.write(f"{fname},ERROR1,ERROR1\n")
+                    f.flush()
+                    print(f"{fname} partition timed out")
+                    continue
                 if val is None:
                     f.write(f"{fname},ERROR2,ERROR2\n")
                     f.flush()
-                    print(f"Done {fname}")
+                    print(f"{fname} could not partition")
                     continue
                 write_dense_vector(1.0, cpntr[-1])
                 codegen_time = gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val, codegen_dir, fname, dest_path.parent)
@@ -54,7 +66,7 @@ if __name__ == "__main__":
                 except subprocess.TimeoutExpired:
                     f.write(f"{fname},{codegen_time}ms,ERROR,ERROR\n")
                     f.flush()
-                    print(f"Done {fname}")
+                    print(f"Compiler failed for {fname}")
                     continue
                 f.write(f"{fname},{codegen_time}ms,{compile_time}ms\n")
                 f.flush()

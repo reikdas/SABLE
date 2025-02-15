@@ -66,7 +66,7 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, de
         f.write(f"coo_j=[{','.join(map(str, coo_j))}]\n")
     return val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
 
-def _convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
+def _convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
     """
     Reference version to make sure the np version is correct. Refer to 
     doc for convert_sparse_to_vbr.
@@ -113,29 +113,18 @@ def _convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
     
     out_path = os.path.join(dst_dir, f"{fname}.vbr")
 
-    if savez:
-        numpy.savez_compressed(
-            out_path,
-            val = val,
-            indx = indx, 
-            bindx = bindx,
-            rpntr = rpntr,
-            cpntr = cpntr,
-            bpntrb = bpntrb,
-            bpntre = bpntre)
-    else:
-        with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
-            f.write(f"val=[{','.join(map(str, val))}]\n")
-            f.write(f"indx=[{','.join(map(str, indx))}]\n")
-            f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
-            f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
-            f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
-            f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
-            f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
+    with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
+        f.write(f"val=[{','.join(map(str, val))}]\n")
+        f.write(f"indx=[{','.join(map(str, indx))}]\n")
+        f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
+        f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
+        f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
+        f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
+        f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
 
     return val, indx, bindx, bpntrb, bpntre
 
-def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
+def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
     '''
     Converts a matrix to a VBR matrix. If matrix provided is sparse, should be
     csc / csr (allowing slicing). The return is a set of arrays describing all
@@ -227,25 +216,14 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
 
     out_path = os.path.join(dst_dir, f"{fname}.vbr")
 
-    if savez:
-        numpy.savez_compressed(
-            out_path,
-            val = val,
-            indx = indx, 
-            bindx = bindx,
-            rpntr = rpntr,
-            cpntr = cpntr,
-            bpntrb = bpntrb,
-            bpntre = bpntre)
-    else:
-        with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
-            f.write(f"val=[{','.join(map(str, val))}]\n")
-            f.write(f"indx=[{','.join(map(str, indx))}]\n")
-            f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
-            f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
-            f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
-            f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
-            f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
+    with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
+        f.write(f"val=[{','.join(map(str, val))}]\n")
+        f.write(f"indx=[{','.join(map(str, indx))}]\n")
+        f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
+        f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
+        f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
+        f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
+        f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
 
     return val, indx, bindx, bpntrb, bpntre
 

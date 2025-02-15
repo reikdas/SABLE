@@ -65,7 +65,10 @@ def read_vbr(filename):
 
 def read_vbrc(filename):
     with open(filename, "r") as f:
-        val: list[float] = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
+        l_val = f.readline().split("=")[1][1:-2]
+        val: list[float] = []
+        if l_val != "":
+            val.extend(list(map(float, l_val.split(","))))
         l_val = f.readline().split("=")[1][1:-2]
         coo_val: list[float] = []
         if l_val != "":

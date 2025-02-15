@@ -27,6 +27,7 @@ taskset -a -c $AFFINITY python3 $(dirname "$0")/splitter.py "$FILE" "$CHUNK_SIZE
 
 cd "${OUT_DIR}"
 
+shopt -s nullglob
 for f in "${SPLIT_NAME}"*.c; do
     taskset -a -c $AFFINITY gcc -c $C_OPTS -Winline $f &
 done

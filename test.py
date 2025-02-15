@@ -8,8 +8,8 @@ from src.baseline import *
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from src.autopartition import cut_indices2, similarity2
-from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
-                                       convert_sparse_to_vbr_np,
+from utils.convert_real_to_vbr import (_convert_sparse_to_vbr,
+                                       convert_sparse_to_vbr,
                                        convert_vbr_to_compressed)
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
@@ -345,7 +345,7 @@ def test_vbr_conversion():
     cpntr = [0,2,4]
     rpntr = [0,1,2,4]
 
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr_np(A, rpntr, cpntr, "dummy", "tests")
+    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, "dummy", "tests")
 
     assert(numpy.array_equal(val, [1,2,3,4,5,7,6,8]))
     assert(numpy.array_equal(indx, [0,2,4,8]))
@@ -367,8 +367,8 @@ def test_partition_vals_real():
     # get indices of VBR partitions
     cpntr, rpntr = cut_indices2(A, 0.2, similarity2)
     logger.info("completed sub-block generation")
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
-    val2, indx2, bindx2, bpntrb2, bpntre2 = convert_sparse_to_vbr_np(A, rpntr, cpntr, "Franz8_np", "tests")
+    val, indx, bindx, bpntrb, bpntre = _convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
+    val2, indx2, bindx2, bpntrb2, bpntre2 = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8_np", "tests")
 
     # check nnz
     val_nnz = len([x for x in val if x != 0])

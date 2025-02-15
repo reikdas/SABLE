@@ -66,37 +66,11 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, de
         f.write(f"coo_j=[{','.join(map(str, coo_j))}]\n")
     return val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
 
-def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
-    '''
-    Converts a dense matrix to a VBR matrix.
-    Example:
-    Inputs:
-    dense = [
-        [ 4.  2. | 0.  0.  0. | 1. | 0.  0.  0. |-1.  1.]
-        [ 1.  5. | 0.  0.  0. | 2. | 0.  0.  0. | 0. -1.]
-        -------------------------------------------------
-        [ 0.  0. | 6.  1.  2. | 2. | 0.  0.  0. | 0.  0.]
-        [ 0.  0. | 2.  7.  1. | 0. | 0.  0.  0. | 0.  0.]
-        [ 0.  0. |-1.  2.  9. | 3. | 0.  0.  0. | 0.  0.]
-        -------------------------------------------------
-        [ 2.  1. | 3.  4.  5. |10. | 4.  3.  2. | 0.  0.]
-        -------------------------------------------------
-        [ 0.  0. | 0.  0.  0. | 4. |13.  4.  2. | 0.  0.]
-        [ 0.  0. | 0.  0.  0. | 3. | 3. 11.  3. | 0.  0.]
-        [ 0.  0. | 0.  0.  0. | 0. | 2.  0.  7. | 0.  0.]
-        -------------------------------------------------
-        [ 8.  4. | 0.  0.  0. | 0. | 0.  0.  0. |25.  3.]
-        [-2.  3. | 0.  0.  0. | 0. | 0.  0.  0. | 8. 12.]
-    ]
-    Returns:
-    VBR(val=[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, -1.0, 0.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 0.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 0.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 25.0, 8.0, 3.0, 12.0],
-        indx=[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51],
-        bindx=[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4],
-        rpntr=[0, 2, 5, 6, 9, 11],
-        cpntr=[0, 2, 5, 6, 9, 11],
-        bpntrb=[0, 3, 5, 9, 11],
-        bpntre=[3, 5, 9, 11, 13])
-    '''
+def _convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
+    """
+    Reference version to make sure the np version is correct. Refer to 
+    doc for convert_sparse_to_vbr.
+    """
     dense = mat.todense()
     val = []
     indx = [0]
@@ -161,12 +135,15 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
 
     return val, indx, bindx, bpntrb, bpntre
 
-def convert_sparse_to_vbr_np(mat, rpntr, cpntr, fname, dst_dir, savez = False):
+def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
     '''
-    Converts a dense matrix to a VBR matrix.
-    Example:
+    Converts a matrix to a VBR matrix. If matrix provided is sparse, should be
+    csc / csr (allowing slicing). The return is a set of arrays describing all
+    the blocks that are fully materialized and stored (note zeros in these
+    materialized blocks will be stored).
+
     Inputs:
-    dense = [
+    matrix = [
         [ 4.  2. | 0.  0.  0. | 1. | 0.  0.  0. |-1.  1.]
         [ 1.  5. | 0.  0.  0. | 2. | 0.  0.  0. | 0. -1.]
         -------------------------------------------------

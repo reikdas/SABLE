@@ -24,6 +24,7 @@ tests/example2.vbrc
 tests/example2
 tests/example2.c
 tests/Franz8.vbr
+tests/Franz8_np.vbr
 dlmc/
 Suitesparse*/
 split-and-binaries/

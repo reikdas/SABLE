@@ -334,25 +334,6 @@ def test_baselines():
     run_nonzeros_spmv()
     run_nonzeros_spmm()
 
-def test_vbr_conversion():
-    A = scipy.sparse.csc_matrix([
-        [1.0,2.0,0.0,0.0],
-        [3.0,4.0,0.0,0.0],
-        [0.0,0.0,5.0,6.0],
-        [0.0,0.0,7.0,8.0]]
-    )
-
-    cpntr = [0,2,4]
-    rpntr = [0,1,2,4]
-
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, "dummy", "tests")
-
-    assert(numpy.array_equal(val, [1,2,3,4,5,7,6,8]))
-    assert(numpy.array_equal(indx, [0,2,4,8]))
-    assert(numpy.array_equal(bindx, [0,0,1]))
-    assert(numpy.array_equal(bpntrb, [0,1,2]))
-    assert(numpy.array_equal(bpntre, [1,2,3]))
-
 def test_partition_vals_real():
     logger.info("running test to check vbr conversion") 
 

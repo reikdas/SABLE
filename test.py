@@ -14,14 +14,9 @@ from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
-import cProfile
-import timeit
-
-import numpy as np
 
 import logging
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='/tmp/out.log', level = logging.INFO)
 
 def cmp_file(file1, file2):
     with open(file1, "r") as f1, open(file2, "r") as f2:
@@ -352,11 +347,11 @@ def test_vbr_conversion():
 
     val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr_np(A, rpntr, cpntr, "dummy", "tests")
 
-    assert(np.array_equal(val, [1,2,3,4,5,7,6,8]))
-    assert(np.array_equal(indx, [0,2,4,8]))
-    assert(np.array_equal(bindx, [0,0,1]))
-    assert(np.array_equal(bpntrb, [0,1,2]))
-    assert(np.array_equal(bpntre, [1,2,3]))
+    assert(numpy.array_equal(val, [1,2,3,4,5,7,6,8]))
+    assert(numpy.array_equal(indx, [0,2,4,8]))
+    assert(numpy.array_equal(bindx, [0,0,1]))
+    assert(numpy.array_equal(bpntrb, [0,1,2]))
+    assert(numpy.array_equal(bpntre, [1,2,3]))
 
 def test_partition_vals_real():
     logger.info("running test to check vbr conversion") 
@@ -381,8 +376,8 @@ def test_partition_vals_real():
     assert(val_nnz == val2_nnz)
     assert(A_nnz == val2_nnz)
 
-    assert(np.array_equal(val, val2))
-    assert(np.array_equal(indx, indx2))
-    assert(np.array_equal(bindx, bindx2))
-    assert(np.array_equal(bpntrb, bpntrb2))
-    assert(np.array_equal(bpntre, bpntre2))
+    assert(numpy.array_equal(val, val2))
+    assert(numpy.array_equal(indx, indx2))
+    assert(numpy.array_equal(bindx, bindx2))
+    assert(numpy.array_equal(bpntrb, bpntrb2))
+    assert(numpy.array_equal(bpntre, bpntre2))

@@ -4,13 +4,11 @@ import pathlib
 from collections import namedtuple
 
 import numpy
-import numpy as np
 import scipy
 from scipy.io import mmread
 from tqdm import tqdm
 
 import logging
-
 logger = logging.getLogger(__name__)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
@@ -142,7 +140,7 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir, savez = False):
     out_path = os.path.join(dst_dir, f"{fname}.vbr")
 
     if savez:
-        np.savez_compressed(
+        numpy.savez_compressed(
             out_path,
             val = val,
             indx = indx, 
@@ -225,24 +223,24 @@ def convert_sparse_to_vbr_np(mat, rpntr, cpntr, fname, dst_dir, savez = False):
                 pass
 
     # create vals
-    val = np.concat(list(map(lambda x: x.v.todense().flatten(order = 'F'), sub_blocks)), axis = 1).A1
+    val = numpy.concat(list(map(lambda x: x.v.todense().flatten(order = 'F'), sub_blocks)), axis = 1).A1
     logger.info(f"created vals with length: {val.shape}")
 
     # create indx
-    indx = np.concat([[0], np.cumsum(list(map(lambda x: x.size, sub_blocks)))])
+    indx = numpy.concat([[0], numpy.cumsum(list(map(lambda x: x.size, sub_blocks)))])
 
     logger.info(f"created indx with length: {indx.shape}")
     logger.debug(f"created indx: {indx}")
 
     # create bindx
-    bindx = np.array(list(map(lambda x: x.idx_in_row, sub_blocks)))
+    bindx = numpy.array(list(map(lambda x: x.idx_in_row, sub_blocks)))
 
     logger.info(f"created bindx with length: {bindx.shape}")
     logger.debug(f"created bindx: {bindx}")
 
     # create bpntrb and bpntre
-    block_counts_per_row = np.cumsum(np.unique(list(map(lambda x: x.r_start, sub_blocks)), return_counts = True)[1])
-    bpntrb = np.concat([[0], block_counts_per_row[:-1]])
+    block_counts_per_row = numpy.cumsum(numpy.unique(list(map(lambda x: x.r_start, sub_blocks)), return_counts = True)[1])
+    bpntrb = numpy.concat([[0], block_counts_per_row[:-1]])
     bpntre = block_counts_per_row
 
     logger.info(f"created bpntrb, bpntre with lengths: {bpntrb.shape},{bpntre.shape}")
@@ -253,7 +251,7 @@ def convert_sparse_to_vbr_np(mat, rpntr, cpntr, fname, dst_dir, savez = False):
     out_path = os.path.join(dst_dir, f"{fname}.vbr")
 
     if savez:
-        np.savez_compressed(
+        numpy.savez_compressed(
             out_path,
             val = val,
             indx = indx, 

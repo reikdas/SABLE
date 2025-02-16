@@ -275,9 +275,6 @@ def cut_indices2_sparse(A_, cut_thresholds, run=3):
 
 
 
-import numpy as np
-from numba import njit
-
 @njit
 def stable_similarity(a, b):
     """
@@ -440,3 +437,4 @@ def my_convert_dense_to_vbr(file_info, cut_threshold, cut_indices, similarity):
 # if __name__ == "__main__":
 #     # partition_dlmc("Real_mtx", "Real_vbr")
 #     partition_suitesparse()
+

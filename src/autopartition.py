@@ -187,7 +187,7 @@ def fast_similarity(indices1, indices2, max_index):
     return (common + shifted1 + shifted2) / denominator if denominator > 0 else 0.0
 
 
-def cut_indices2_sparse(A_, cut_threshold, run=3):
+def cut_indices2_sparse(A_, cut_thresholds, run=3):
     """
     A_ is assumed to be a CSR sparse matrix.
     The function computes cut indices for columns and rows based on a custom similarity measure.
@@ -210,7 +210,7 @@ def cut_indices2_sparse(A_, cut_threshold, run=3):
             print(f"Processing column: {i}", flush=True)
         run_idx = 1
         while (i + run_idx < n_cols and run_idx < run and 
-               sim_cols(i, i + run_idx) < cut_threshold):
+               sim_cols(i, i + run_idx) < cut_thresholds[1]):
             run_idx += 1
 
         if run_idx == run:
@@ -220,7 +220,7 @@ def cut_indices2_sparse(A_, cut_threshold, run=3):
             continue
 
         i += 1
-        while (i < n_cols - 1 and sim_cols(i, i + 1) < cut_threshold):
+        while (i < n_cols - 1 and sim_cols(i, i + 1) < cut_thresholds[1]):
             i += 1
         col_indices.append(i)
 
@@ -238,7 +238,7 @@ def cut_indices2_sparse(A_, cut_threshold, run=3):
     while i < n_rows - 1:
         run_idx = 1
         while (i + run_idx < n_rows and run_idx < run and 
-               sim_rows(i, i + run_idx) < cut_threshold):
+               sim_rows(i, i + run_idx) < cut_thresholds[0]):
             run_idx += 1
 
         if run_idx == run:
@@ -248,7 +248,7 @@ def cut_indices2_sparse(A_, cut_threshold, run=3):
             continue
 
         i += 1
-        while (i < n_rows - 1 and sim_rows(i, i + 1) < cut_threshold):
+        while (i < n_rows - 1 and sim_rows(i, i + 1) < cut_thresholds[0]):
             i += 1
         row_indices.append(i)
 
@@ -272,6 +272,149 @@ def cut_indices2_sparse(A_, cut_threshold, run=3):
 # col_indices, row_indices = cut_indices(A, cut_threshold)
 # print("Column indices:", col_indices)
 # print("Row indices:", row_indices)
+
+
+
+import numpy as np
+from numba import njit
+
+@njit
+def stable_similarity(a, b):
+    """
+    Computes a similarity measure between two binary vectors, given as sorted numpy arrays.
+    The similarity is defined as the number of common indices normalized by the geometric mean of the lengths.
+    """
+    la = a.shape[0]
+    lb = b.shape[0]
+    if la == 0 or lb == 0:
+        return 0.0
+    common = 0
+    i = 0
+    j = 0
+    while i < la and j < lb:
+        ai = a[i]
+        bj = b[j]
+        if ai == bj:
+            common += 1
+            i += 1
+            j += 1
+        elif ai < bj:
+            i += 1
+        else:
+            j += 1
+    return common / (np.sqrt(la * lb) + 1e-8)
+
+def cut_indices2_sparse_modified(A_, col_threshold=0.2, row_threshold=0.2, run=3):
+    """
+    This cut is specifically made for large matrices, the adjustments do not make sense for small matrices.
+    A_ is assumed to be a CSR sparse matrix.
+    This function:
+      1. Precomputes similarity arrays for adjacent columns and rows.
+      2. Uses separate thresholds for columns and rows (starting at 0.2).
+      3. If one axis’s number of cuts is less than 1/100 of the other’s, it reduces that axis’s threshold
+         by 0.05 (down to a minimum of 0.05) and recomputes the cuts.
+    Returns:
+      (col_indices, row_indices)
+    """
+    # Convert to binary and ensure CSR format for rows.
+    A_bin = (A_ != 0).astype(np.int8)
+    n_rows, n_cols = A_bin.shape
+    
+    # Use CSC for fast column slicing.
+    A_csc = A_bin.tocsc()
+    col_nz = [A_csc.indices[A_csc.indptr[j]:A_csc.indptr[j+1]] for j in range(n_cols)]
+    
+    # Precompute, for each offset d in 1 ... run-1, an array of similarities.
+    col_sim_arrays = []
+    for d in range(1, run):
+        sims = np.empty(n_cols - d, dtype=np.float64)
+        for i in range(n_cols - d):
+            sims[i] = stable_similarity(col_nz[i], col_nz[i+d], n_rows)
+        col_sim_arrays.append(sims)
+
+    def compute_col_cuts(threshold):
+        col_indices = [0]
+        i = 0
+        while i < n_cols - 1:
+            run_idx = 1
+            while (i + run_idx < n_cols) and (run_idx < run) and (col_sim_arrays[run_idx-1][i] < threshold):
+                run_idx += 1
+            if run_idx == run:
+                col_indices.append(i + 1)
+            else:
+                i += run_idx
+                continue
+            i += 1
+            while (i < n_cols - 1) and (col_sim_arrays[0][i] < threshold):
+                i += 1
+            col_indices.append(i)
+        if col_indices[-1] != n_cols:
+            col_indices.append(n_cols)
+        return col_indices
+
+    # Use CSR for fast row slicing.
+    row_nz = [A_bin.indices[A_bin.indptr[i]:A_bin.indptr[i+1]] for i in range(n_rows)]
+    row_sim_arrays = []
+    for d in range(1, run):
+        sims = np.empty(n_rows - d, dtype=np.float64)
+        for i in range(n_rows - d):
+            sims[i] = stable_similarity(row_nz[i], row_nz[i+d], n_cols)
+        row_sim_arrays.append(sims)
+
+    def compute_row_cuts(threshold):
+        row_indices = [0]
+        i = 0
+        while i < n_rows - 1:
+            run_idx = 1
+            while (i + run_idx < n_rows) and (run_idx < run) and (row_sim_arrays[run_idx-1][i] < threshold):
+                run_idx += 1
+            if run_idx == run:
+                row_indices.append(i + 1)
+            else:
+                i += run_idx
+                continue
+            i += 1
+            while (i < n_rows - 1) and (row_sim_arrays[0][i] < threshold):
+                i += 1
+            row_indices.append(i)
+        if row_indices[-1] != n_rows:
+            row_indices.append(n_rows)
+        return row_indices
+
+    # Compute initial cuts.
+    col_cuts = compute_col_cuts(col_threshold)
+    row_cuts = compute_row_cuts(row_threshold)
+
+    # Adjust thresholds function 
+    def adjust_threshold(current_threshold, compute_cuts_func, other_cut_count):
+        new_threshold = current_threshold
+        cuts = compute_cuts_func(new_threshold)
+        while (len(cuts) < other_cut_count / 100.0) and (new_threshold > 0.05):
+            new_threshold = max(0.05, new_threshold - 0.05)
+            cuts = compute_cuts_func(new_threshold)
+        return cuts, new_threshold
+
+    # If one axis produces too many cuts, increase its threshold.
+    while len(row_cuts) > n_rows / 10 and row_threshold < 0.8:
+        row_threshold += 0.05
+        row_cuts = compute_row_cuts(row_threshold)
+    while len(col_cuts) > n_cols / 10 and col_threshold < 0.8:
+        col_threshold += 0.05
+        col_cuts = compute_col_cuts(col_threshold)
+    
+    # Compare numbers; adjust the axis with fewer cuts so that cuts along one axis doesn't deteriorate the work of the other
+    if len(row_cuts) < n_rows / 10 and len(row_cuts) < len(col_cuts) / 100.0:
+        row_cuts, row_threshold = adjust_threshold(row_threshold, compute_row_cuts, len(col_cuts))
+    if len(col_cuts) < n_cols / 10 and len(col_cuts) < len(row_cuts) / 100.0:
+        col_cuts, col_threshold = adjust_threshold(col_threshold, compute_col_cuts, len(row_cuts))
+    
+    print("Final row_threshold:", row_threshold)
+    print("Final col_threshold:", col_threshold)
+    return col_cuts, row_cuts
+
+#col_cuts, row_cuts = cut_indices2_sparse_modified(A_sparse, col_threshold=0.2, row_threshold=0.2, run=3)
+
+
 
 def my_convert_dense_to_vbr(file_info, cut_threshold, cut_indices, similarity):
     src_path, dest_path = file_info

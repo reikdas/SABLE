@@ -411,7 +411,22 @@ def cut_indices2_sparse_modified(A_, col_threshold=0.2, row_threshold=0.2, run=3
 
 #col_cuts, row_cuts = cut_indices2_sparse_modified(A_sparse, col_threshold=0.2, row_threshold=0.2, run=3)
 
-
+@njit
+def filter_small_blocks(indices, min_block):
+    """
+    given cut indices, removes the small blockss
+    """
+    if not indices:
+        return indices
+    new_indices = [indices[0]]
+    for idx in indices[1:]:
+        if idx - new_indices[-1] >= min_block:
+            new_indices.append(idx)
+        # else: skip adding this cut (merging the small block with the previous one)
+    # Ensure the last index is included.
+    if new_indices[-1] != indices[-1]:
+        new_indices.append(indices[-1])
+    return new_indices
 
 def my_convert_dense_to_vbr(file_info, cut_threshold, cut_indices, similarity):
     src_path, dest_path = file_info

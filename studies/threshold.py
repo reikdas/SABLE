@@ -3,6 +3,7 @@ import re
 import statistics
 import subprocess
 import sys
+import psutil
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -25,7 +26,7 @@ from utils.convert_real_to_vbr import convert_vbr_to_compressed
 FILEPATH=pathlib.Path(__file__).resolve().parent
 
 BENCHMARK_FREQ = 5
-COMPILE_TIMEOUT = 60 * 10
+COMPILE_TIMEOUT = 60 * 60 * 3
 
 CODEGEN_DIR = "Generated_SpMV_threshold"
 MTX_DIR = "Generated_MMarket_threshold"
@@ -44,48 +45,61 @@ def draw_heatmap():
         annot=True,
         fmt=".2f",
         cmap="coolwarm",
-        cbar_kws={"label": f"Speedup of SABLE over CSR SpMV"}
+        cbar_kws={"label": f"Speedup of SABLE dense over SABLE sparse"}
     )
     plt.xlabel("Side of nnz_block")
     plt.ylabel("Percentage of Zeros per nnz_block")
     plt.savefig(os.path.join(FILEPATH,"heatmap.png"))
 
 def calculate_threshold():
-    perc_zeros_list = [0, 10, 20, 30, 40, 50, 75, 99]
-    dims = [10, 20, 50, 100, 400]
+    pid = os.getpid()
+    core = psutil.Process(pid).cpu_num()
+    perc_zeros_list = [0, 20, 40, 50, 75, 80, 85, 90, 95, 99]
+    dims = [2, 4, 8, 10, 20, 50, 100, 200, 400]
     mat_side = 100000
     assert (mat_side%dim == 0 for dim in dims)
     write_dense_vector(1.0, mat_side)
-    subprocess.check_output(["g++", "-o", "csr-spmv", "csr-spmv.cpp"] + CFLAGS, cwd=os.path.join(BASE_PATH, "src"))
     with open(os.path.join(FILEPATH,"threshold_results.csv"), "w") as f:
         f.write(f"dim,perc_zeros,nnz,CSR_time,sable_time\n")
         for dim in tqdm(dims, desc="Processing dimensions"):
             for perc_zeros in tqdm(perc_zeros_list, desc=f"Dim {dim}: Processing % zeros", leave=False):
                 split = mat_side//dim
                 nnz = (dim*dim*(100-perc_zeros))//100
-                fname = vbr_matrix_gen(mat_side, mat_side, "uniform", split, split, 100, perc_zeros, 0, True, VBR_DIR)
-                vbr_to_mtx(fname+".vbr", dir_name=MTX_DIR, vbr_dir=VBR_DIR)
+                fname: str = vbr_matrix_gen(mat_side, mat_side, "uniform", split, split, 1, perc_zeros, 0, True, VBR_DIR)
+                # vbr_to_mtx(fname+".vbr", dir_name=MTX_DIR, vbr_dir=VBR_DIR)
                 val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(VBR_DIR, fname+".vbr"))
-                convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 0, fname, VBR_DIR)
                 print(fname)
-                baseline_output = subprocess.run(["./csr-spmv", os.path.join(BASE_PATH, MTX_DIR, fname+".mtx"), str(1), str(BENCHMARK_FREQ), os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{mat_side}.vector")], capture_output=True, cwd=os.path.join(BASE_PATH, "src"))
-                execution_time = baseline_output.stdout.decode("utf-8").split("\n")[0]
-                match = re.search(r"\d+", execution_time)
-                if not match:
-                    raise Exception("Unable to parse baseline output")
-                baseline_times = float(match.group())
+                convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 0, fname, VBR_DIR)
                 vbr_spmv_codegen(fname, dir_name=CODEGEN_DIR, vbr_dir=VBR_DIR, threads=1)
                 try:
-                    subprocess.run(["gcc", "-o", fname, fname+".c"] + CFLAGS, cwd=CODEGEN_DIR, timeout=COMPILE_TIMEOUT)
+                    subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", CODEGEN_DIR + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, timeout=COMPILE_TIMEOUT)
                 except subprocess.TimeoutExpired:
-                    print("SABLE: Compilation failed for ", fname)
+                    print("SABLE Dense: Compilation failed for ", fname)
                     continue
-                output = subprocess.check_output(["./"+fname], cwd=CODEGEN_DIR).decode("utf-8").split("\n")[0]
+                try:
+                    output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=os.path.join(BASE_PATH,"split-and-binaries",fname)).decode("utf-8").split("\n")[0]
+                except subprocess.CalledProcessError:
+                    print("SABLE Dense: Execution failed for ", fname)
+                    continue
                 output = extract_mul_nums(output)
-                median_sable_time = statistics.median([float(x) for x in output])
-                print("SABLE: ", median_sable_time)
-                print("CSR SpMV: ", baseline_times)
-                f.write(",".join([str(dim), str(perc_zeros), str(nnz), str(baseline_times), str(median_sable_time)]))
+                median_sable_time_dense = statistics.median([float(x) for x in output])
+                convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 100, fname, VBR_DIR)
+                vbr_spmv_codegen(fname, dir_name=CODEGEN_DIR, vbr_dir=VBR_DIR, threads=1)
+                try:
+                    subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", CODEGEN_DIR + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, timeout=COMPILE_TIMEOUT)
+                except subprocess.TimeoutExpired:
+                    print("SABLE Sparse: Compilation failed for ", fname)
+                    continue
+                try:
+                    output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=os.path.join(BASE_PATH,"split-and-binaries",fname)).decode("utf-8").split("\n")[0]
+                except subprocess.CalledProcessError:
+                    print("SABLE Sparse: Execution failed for ", fname)
+                    continue
+                output = extract_mul_nums(output)
+                median_sable_time_sparse = statistics.median([float(x) for x in output])
+                print("SABLE Dense: ", median_sable_time_dense)
+                print("SABLE Sparse: ", median_sable_time_sparse)
+                f.write(",".join([str(dim), str(perc_zeros), str(nnz), str(median_sable_time_sparse), str(median_sable_time_dense)]))
                 f.write("\n")
                 f.flush()
 

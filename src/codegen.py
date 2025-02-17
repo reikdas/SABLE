@@ -295,21 +295,24 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append(f"\tfloat* coo_val = (float*)calloc({len(coo_val)}, sizeof(float));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
-    code.append('''\tassert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
-    val_size++;
-    while (1) {
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {
-            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
-            val_size++;
-        } else if (c == ']') {
-            break;
-        } else {
-            assert(0);
+    code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
+    if (c != ']') {
+        ungetc(c, file1);
+        assert(fscanf(file1, "%f", &val[val_size]) == 1);
+        val_size++;
+        while (1) {
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {
+                assert(fscanf(file1, "%f", &val[val_size]) == 1);
+                val_size++;
+            } else if (c == ']') {
+                break;
+            } else {
+                assert(0);
+            }
         }
     }
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');\n''')
+    assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
     if (len(ublocks) > 0):
         code.append('''\tval_size=0;
     assert(fscanf(file1, "coo_val=[%f", &coo_val[val_size]) == 1.0);

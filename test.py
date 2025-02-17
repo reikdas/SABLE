@@ -8,8 +8,7 @@ from src.baseline import *
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from src.autopartition import cut_indices2, similarity2
-from utils.convert_real_to_vbr import (_convert_sparse_to_vbr,
-                                       convert_sparse_to_vbr,
+from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
                                        convert_vbr_to_compressed)
 from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx

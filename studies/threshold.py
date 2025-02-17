@@ -54,8 +54,8 @@ def draw_heatmap():
 def calculate_threshold():
     pid = os.getpid()
     core = psutil.Process(pid).cpu_num()
-    perc_zeros_list = [0, 10, 20, 30, 40, 50, 75, 99]
-    dims = [10, 20, 50, 100, 400]
+    perc_zeros_list = [0, 20, 40, 50, 75, 80, 85, 90, 95, 99]
+    dims = [2, 4, 8, 10, 20, 50, 100, 200, 400]
     mat_side = 100000
     assert (mat_side%dim == 0 for dim in dims)
     write_dense_vector(1.0, mat_side)
@@ -65,7 +65,7 @@ def calculate_threshold():
             for perc_zeros in tqdm(perc_zeros_list, desc=f"Dim {dim}: Processing % zeros", leave=False):
                 split = mat_side//dim
                 nnz = (dim*dim*(100-perc_zeros))//100
-                fname: str = vbr_matrix_gen(mat_side, mat_side, "uniform", split, split, 20, perc_zeros, 0, True, VBR_DIR)
+                fname: str = vbr_matrix_gen(mat_side, mat_side, "uniform", split, split, 1, perc_zeros, 0, True, VBR_DIR)
                 # vbr_to_mtx(fname+".vbr", dir_name=MTX_DIR, vbr_dir=VBR_DIR)
                 val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(VBR_DIR, fname+".vbr"))
                 print(fname)
@@ -74,9 +74,13 @@ def calculate_threshold():
                 try:
                     subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", CODEGEN_DIR + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, timeout=COMPILE_TIMEOUT)
                 except subprocess.TimeoutExpired:
-                    print("SABLE: Compilation failed for ", fname)
+                    print("SABLE Dense: Compilation failed for ", fname)
                     continue
-                output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=os.path.join(BASE_PATH,"split-and-binaries",fname)).decode("utf-8").split("\n")[0]
+                try:
+                    output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=os.path.join(BASE_PATH,"split-and-binaries",fname)).decode("utf-8").split("\n")[0]
+                except subprocess.CalledProcessError:
+                    print("SABLE Dense: Execution failed for ", fname)
+                    continue
                 output = extract_mul_nums(output)
                 median_sable_time_dense = statistics.median([float(x) for x in output])
                 convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 100, fname, VBR_DIR)
@@ -84,9 +88,13 @@ def calculate_threshold():
                 try:
                     subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", CODEGEN_DIR + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, timeout=COMPILE_TIMEOUT)
                 except subprocess.TimeoutExpired:
-                    print("SABLE: Compilation failed for ", fname)
+                    print("SABLE Sparse: Compilation failed for ", fname)
                     continue
-                output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=os.path.join(BASE_PATH,"split-and-binaries",fname)).decode("utf-8").split("\n")[0]
+                try:
+                    output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=os.path.join(BASE_PATH,"split-and-binaries",fname)).decode("utf-8").split("\n")[0]
+                except subprocess.CalledProcessError:
+                    print("SABLE Sparse: Execution failed for ", fname)
+                    continue
                 output = extract_mul_nums(output)
                 median_sable_time_sparse = statistics.median([float(x) for x in output])
                 print("SABLE Dense: ", median_sable_time_dense)

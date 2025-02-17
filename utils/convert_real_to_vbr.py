@@ -66,64 +66,6 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, de
         f.write(f"coo_j=[{','.join(map(str, coo_j))}]\n")
     return val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
 
-def _convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
-    """
-    Reference version to make sure the np version is correct. Refer to 
-    doc for convert_sparse_to_vbr.
-    """
-    dense = mat.todense()
-    val = []
-    indx = [0]
-    bindx = []
-    bpntrb = []
-    bpntre = []
-
-    num_blocks = 0    
-    for r in range(len(rpntr)-1):
-        blocks_in_row_partition = 0
-        blocks_found = False
-        for c in range(len(cpntr)-1):
-            r0 = rpntr[r]
-            r1 = rpntr[r+1]
-            c0 = cpntr[c]
-            c1 = cpntr[c+1]
-            
-            non_zero_element_found = False
-            values = []
-            for j in range(c0, c1):
-                for i in range(r0, r1):
-                    if dense[i, j] != 0:
-                        non_zero_element_found = True
-                        blocks_found = True
-                    values.append(dense[i, j])
-                        
-            if non_zero_element_found:
-                blocks_in_row_partition += 1
-                val.extend(values)
-                indx.append(len(val))
-                bindx.append(c)
-                
-        if blocks_found:
-            bpntrb.append(num_blocks)
-            bpntre.append(num_blocks + blocks_in_row_partition)
-            num_blocks += blocks_in_row_partition
-        else:
-            bpntrb.append(-1)
-            bpntre.append(-1)
-    
-    out_path = os.path.join(dst_dir, f"{fname}.vbr")
-
-    with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
-        f.write(f"val=[{','.join(map(str, val))}]\n")
-        f.write(f"indx=[{','.join(map(str, indx))}]\n")
-        f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
-        f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
-        f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
-        f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
-        f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
-
-    return val, indx, bindx, bpntrb, bpntre
-
 def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
     '''
     Converts a matrix to a VBR matrix. If matrix provided is sparse, should be

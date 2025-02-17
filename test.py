@@ -15,9 +15,6 @@ from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
 
-import logging
-logger = logging.getLogger(__name__)
-
 def cmp_file(file1, file2):
     with open(file1, "r") as f1, open(file2, "r") as f2:
         for line1, line2 in zip(f1, f2):
@@ -335,8 +332,6 @@ def test_baselines():
     run_nonzeros_spmm()
 
 def test_partition_vals_real():
-    logger.info("running test to check vbr conversion") 
-
     # read matrix from mm-market format
     mtx_path = os.path.join(BASE_PATH, "tests", "Franz8.mtx")
     mtx = scipy.io.mmread(mtx_path)
@@ -347,9 +342,8 @@ def test_partition_vals_real():
 
     # get indices of VBR partitions
     cpntr, rpntr = cut_indices2(A, 0.2, similarity2)
-    logger.info("completed sub-block generation")
-    val, indx, bindx, bpntrb, bpntre = _convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
-    val2, indx2, bindx2, bpntrb2, bpntre2 = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8_np", "tests")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "Franz8_canon.vbr"))
+    val2, indx2, bindx2, bpntrb2, bpntre2 = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
 
     # check nnz
     val_nnz = len([x for x in val if x != 0])

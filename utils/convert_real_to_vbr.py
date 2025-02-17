@@ -1,10 +1,15 @@
 import gc
 import os
 import pathlib
+from collections import namedtuple
 
 import numpy
 import scipy
 from scipy.io import mmread
+from tqdm import tqdm
+
+import logging
+logger = logging.getLogger(__name__)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
@@ -63,10 +68,13 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, de
 
 def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
     '''
-    Converts a dense matrix to a VBR matrix.
-    Example:
+    Converts a matrix to a VBR matrix. If matrix provided is sparse, should be
+    csc / csr (allowing slicing). The return is a set of arrays describing all
+    the blocks that are fully materialized and stored (note zeros in these
+    materialized blocks will be stored).
+
     Inputs:
-    dense = [
+    matrix = [
         [ 4.  2. | 0.  0.  0. | 1. | 0.  0.  0. |-1.  1.]
         [ 1.  5. | 0.  0.  0. | 2. | 0.  0.  0. | 0. -1.]
         -------------------------------------------------
@@ -92,46 +100,64 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
         bpntrb=[0, 3, 5, 9, 11],
         bpntre=[3, 5, 9, 11, 13])
     '''
-    dense = mat.todense()
-    val = []
-    indx = [0]
-    bindx = []
-    bpntrb = []
-    bpntre = []
+    Sub_block = namedtuple('Sub_block', ['v', 'r_start', 'r_end', 'c_start', 'c_end', 'nnz', 'size', 'frac', 'idx_in_row'])
 
-    num_blocks = 0    
-    for r in range(len(rpntr)-1):
-        blocks_in_row_partition = 0
-        blocks_found = False
-        for c in range(len(cpntr)-1):
-            r0 = rpntr[r]
-            r1 = rpntr[r+1]
-            c0 = cpntr[c]
-            c1 = cpntr[c+1]
-            
-            non_zero_element_found = False
-            values = []
-            for j in range(c0, c1):
-                for i in range(r0, r1):
-                    if dense[i, j] != 0:
-                        non_zero_element_found = True
-                        blocks_found = True
-                    values.append(dense[i, j])
-                        
-            if non_zero_element_found:
-                blocks_in_row_partition += 1
-                val.extend(values)
-                indx.append(len(val))
-                bindx.append(c)
-                
-        if blocks_found:
-            bpntrb.append(num_blocks)
-            bpntre.append(num_blocks + blocks_in_row_partition)
-            num_blocks += blocks_in_row_partition
-        else:
-            bpntrb.append(-1)
-            bpntre.append(-1)
-    
+    val = None
+    indx = None
+    bindx = None
+    bpntrb = None
+    bpntre = None
+    sub_blocks = []
+
+    logger.info(f"mat shape: {mat.shape}, num block rows: {len(rpntr)}, num block cols : {len(cpntr)}, nnz: {mat.nnz}")
+
+    for r_i in tqdm(range(len(rpntr) - 1)):
+        for c_i in range(len(cpntr) - 1):
+            r_start, r_end = rpntr[r_i], rpntr[r_i + 1]
+            c_start, c_end = cpntr[c_i], cpntr[c_i + 1]
+            logger.debug(f"block idxs at: {r_start}, {r_end}, {c_start}, {c_end}")
+
+            # extract the block 
+            block = mat[r_start:r_end, c_start:c_end]
+            block_sx, block_sy = block.shape
+            nnz = block.nnz
+            size = block_sx * block_sy
+            idx_in_row = c_i
+
+            # check nnz, if nnz greater than zero, then create a new block
+            if nnz > 0:
+                sub_blocks.append(Sub_block(block, r_start, r_end, c_start, c_end, nnz, size, nnz / size, idx_in_row))
+            else:
+                pass
+
+    # create vals
+    val = numpy.concat(list(map(lambda x: x.v.todense().flatten(order = 'F'), sub_blocks)), axis = 1).A1
+    logger.info(f"created vals with length: {val.shape}")
+
+    # create indx
+    indx = numpy.concat([[0], numpy.cumsum(list(map(lambda x: x.size, sub_blocks)))])
+
+    logger.info(f"created indx with length: {indx.shape}")
+    logger.debug(f"created indx: {indx}")
+
+    # create bindx
+    bindx = numpy.array(list(map(lambda x: x.idx_in_row, sub_blocks)))
+
+    logger.info(f"created bindx with length: {bindx.shape}")
+    logger.debug(f"created bindx: {bindx}")
+
+    # create bpntrb and bpntre
+    block_counts_per_row = numpy.cumsum(numpy.unique(list(map(lambda x: x.r_start, sub_blocks)), return_counts = True)[1])
+    bpntrb = numpy.concat([[0], block_counts_per_row[:-1]])
+    bpntre = block_counts_per_row
+
+    logger.info(f"created bpntrb, bpntre with lengths: {bpntrb.shape},{bpntre.shape}")
+    logger.debug(f"created bpntrb, bpntre: {bpntrb},{bpntre}")
+
+    # save to file
+
+    out_path = os.path.join(dst_dir, f"{fname}.vbr")
+
     with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
         f.write(f"val=[{','.join(map(str, val))}]\n")
         f.write(f"indx=[{','.join(map(str, indx))}]\n")
@@ -140,6 +166,7 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
         f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
         f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
         f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
+
     return val, indx, bindx, bpntrb, bpntre
 
 if __name__ == "__main__":

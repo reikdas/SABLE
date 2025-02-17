@@ -14,7 +14,6 @@ from utils.fileio import write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
 
-
 def cmp_file(file1, file2):
     with open(file1, "r") as f1, open(file2, "r") as f2:
         for line1, line2 in zip(f1, f2):
@@ -52,28 +51,28 @@ def test_setup_file():
 
 def test_read_vbr():
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "example.vbr"))
-    assert(val==[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0])
-    assert(indx==[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51])
-    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
-    assert(rpntr==[0, 2, 5, 6, 9, 11])
-    assert(cpntr==[0, 2, 5, 6, 9, 11])
-    assert(bpntrb==[0, 3, 5, 9, 11])
-    assert(bpntre==[3, 5, 9, 11, 13])
+    assert(numpy.array_equal(val,[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0]))
+    assert(numpy.array_equal(indx,[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51]))
+    assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
+    assert(numpy.array_equal(rpntr,[0, 2, 5, 6, 9, 11]))
+    assert(numpy.array_equal(cpntr,[0, 2, 5, 6, 9, 11]))
+    assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
+    assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
 
 def test_compression_full_dense():
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "example.vbr"))
     val, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 0, "example", "tests")
-    assert(val==[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0])
-    assert(indx==[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51])
-    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
-    assert(rpntr==[0, 2, 5, 6, 9, 11])
-    assert(cpntr==[0, 2, 5, 6, 9, 11])
-    assert(bpntrb==[0, 3, 5, 9, 11])
-    assert(bpntre==[3, 5, 9, 11, 13])
-    assert(ublocks==[])
-    assert(coo_i==[])
-    assert(coo_j==[])
-    assert(coo_val==[])
+    assert(numpy.array_equal(val,[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0]))
+    assert(numpy.array_equal(indx,[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51]))
+    assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
+    assert(numpy.array_equal(rpntr,[0, 2, 5, 6, 9, 11]))
+    assert(numpy.array_equal(cpntr,[0, 2, 5, 6, 9, 11]))
+    assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
+    assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
+    assert(numpy.array_equal(ublocks,[]))
+    assert(numpy.array_equal(coo_i,[]))
+    assert(numpy.array_equal(coo_j,[]))
+    assert(numpy.array_equal(coo_val,[]))
 
 
 def test_compression():
@@ -93,30 +92,30 @@ def test_compression():
     cpntr = [0, 2, 5, 6, 9, 11]
     val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example2", "tests")
     val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 80, "example2", "tests")
-    assert(val2== [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0])
-    assert(indx2==[0, 4, 6, 15, 17, 20, 21, 24, 33, 37])
-    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
-    assert(bpntrb==[0, 3, 5, 9, 11])
-    assert(bpntre==[3, 5, 9, 11, 13])
-    assert(ublocks==[2, 4, 9, 12])
-    assert(coo_i==[0, 1, 2, 4, 6, 7, 9, 10])
-    assert(coo_j==[10, 10, 5, 5, 5, 5, 10, 10])
-    assert(coo_val==[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0])
+    assert(numpy.array_equal(val2,[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0]))
+    assert(numpy.array_equal(indx2,[0, 4, 6, 15, 17, 20, 21, 24, 33, 37]))
+    assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
+    assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
+    assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
+    assert(numpy.array_equal(ublocks,[2, 4, 9, 12]))
+    assert(numpy.array_equal(coo_i,[0, 1, 2, 4, 6, 7, 9, 10]))
+    assert(numpy.array_equal(coo_j,[10, 10, 5, 5, 5, 5, 10, 10]))
+    assert(numpy.array_equal(coo_val,[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0]))
 
 def test_read_compression():
     test_compression()
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = read_vbrc(os.path.join(BASE_PATH, "tests", "example2.vbrc"))
-    assert(val== [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0])
-    assert(indx==[0, 4, 6, 15, 17, 20, 21, 24, 33, 37])
-    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
-    assert(rpntr==[0, 2, 5, 6, 9, 11])
-    assert(cpntr==[0, 2, 5, 6, 9, 11])
-    assert(bpntrb==[0, 3, 5, 9, 11])
-    assert(bpntre==[3, 5, 9, 11, 13])
-    assert(ublocks==[2, 4, 9, 12])
-    assert(coo_i==[0, 1, 2, 4, 6, 7, 9, 10])
-    assert(coo_j==[10, 10, 5, 5, 5, 5, 10, 10])
-    assert(coo_val==[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0])
+    assert(numpy.array_equal(val,[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0]))
+    assert(numpy.array_equal(indx,[0, 4, 6, 15, 17, 20, 21, 24, 33, 37]))
+    assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
+    assert(numpy.array_equal(rpntr,[0, 2, 5, 6, 9, 11]))
+    assert(numpy.array_equal(cpntr,[0, 2, 5, 6, 9, 11]))
+    assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
+    assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
+    assert(numpy.array_equal(ublocks,[2, 4, 9, 12]))
+    assert(numpy.array_equal(coo_i,[0, 1, 2, 4, 6, 7, 9, 10]))
+    assert(numpy.array_equal(coo_j,[10, 10, 5, 5, 5, 5, 10, 10]))
+    assert(numpy.array_equal(coo_val,[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0]))
 
 def test_partition():
     dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., 0.,  1.],
@@ -134,11 +133,11 @@ def test_partition():
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
     val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example2", "tests")
-    assert(val ==  [4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 0, 0.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 0.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 0.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 0, 0, 3.0, 12.0])
-    assert(indx==[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51])
-    assert(bindx==[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4])
-    assert(bpntrb==[0, 3, 5, 9, 11])
-    assert(bpntre==[3, 5, 9, 11, 13])
+    assert(numpy.array_equal(val,[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 0, 0.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 0.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 0.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 0, 0, 3.0, 12.0]))
+    assert(numpy.array_equal(indx,[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51]))
+    assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
+    assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
+    assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
 
 def run_spmv(threads):
     test_setup_file()
@@ -332,17 +331,27 @@ def test_baselines():
     run_nonzeros_spmm()
 
 def test_partition_vals_real():
+    # read matrix from mm-market format
     mtx_path = os.path.join(BASE_PATH, "tests", "Franz8.mtx")
     mtx = scipy.io.mmread(mtx_path)
+
+    # convert to scipy csc
     A = scipy.sparse.csc_matrix(mtx, copy=False)
-    A_nnz = 0
-    for elem in A.data:
-        if elem != 0:
-            A_nnz += 1
+    A_nnz = A.nnz
+
+    # get indices of VBR partitions
     cpntr, rpntr = cut_indices2(A, 0.2, similarity2)
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(mtx, rpntr, cpntr, "Franz8", "tests")
-    val_nnz = 0
-    for elem in val:
-        if elem != 0:
-            val_nnz += 1
-    assert(val_nnz == A_nnz)
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "Franz8_canon.vbr"))
+    val2, indx2, bindx2, bpntrb2, bpntre2 = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
+
+    # check nnz
+    val_nnz = len([x for x in val if x != 0])
+    val2_nnz = len([x for x in val2 if x != 0])
+    assert(val_nnz == val2_nnz)
+    assert(A_nnz == val2_nnz)
+
+    assert(numpy.array_equal(val, val2))
+    assert(numpy.array_equal(indx, indx2))
+    assert(numpy.array_equal(bindx, bindx2))
+    assert(numpy.array_equal(bpntrb, bpntrb2))
+    assert(numpy.array_equal(bpntre, bpntre2))

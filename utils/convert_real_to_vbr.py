@@ -66,6 +66,8 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
     with open(os.path.join(dst_dir, f"{fname}.vbrc"), "w") as f:
         f.write(f"val=[{','.join(map(str, val2))}]\n")
         f.write(f"coo_val=[{','.join(map(str, coo_val))}]\n")
+        f.write(f"coo_i=[{','.join(map(str, coo_i))}]\n")
+        f.write(f"coo_j=[{','.join(map(str, coo_j))}]\n")
         f.write(f"indx=[{','.join(map(str, indx2))}]\n")
         f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
         f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
@@ -73,8 +75,6 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
         f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
         f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
         f.write(f"ublocks=[{','.join(map(str, ublocks))}]\n")
-        f.write(f"coo_i=[{','.join(map(str, coo_i))}]\n")
-        f.write(f"coo_j=[{','.join(map(str, coo_j))}]\n")
     return val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
 
 def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):

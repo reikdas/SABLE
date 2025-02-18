@@ -330,14 +330,47 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     }
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');''')
+    if (len(coo_i) > 0):
+        code.append(f"""\tint* coo_i = (int*)malloc({len(coo_i)} * sizeof(int));
+    int* coo_j = (int*)malloc({len(coo_j)} * sizeof(int));
+    val_size=0;
+    assert(fscanf(file1, "coo_i=[%d", &coo_i[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &coo_i[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    val_size=0;
+    assert(fscanf(file1, "coo_j=[%d", &coo_j[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &coo_j[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');""")
     code.append("\tfclose(file1);\n")
     code.append('''
     while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
-    code.append(f"\tint coo_i[{len(coo_i)}] = {{{', '.join(map(str, coo_i))}}};\n")
-    code.append(f"\tint coo_j[{len(coo_j)}] = {{{', '.join(map(str, coo_j))}}};\n")
     code.append("\tstruct timespec t1;\n")
     code.append("\n\tstruct timespec t2;\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")

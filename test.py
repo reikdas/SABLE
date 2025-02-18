@@ -3,6 +3,7 @@ import subprocess
 
 import numpy
 import scipy
+import pytest
 
 from src.baseline import *
 from src.codegen import *
@@ -330,6 +331,7 @@ def test_baselines():
     run_nonzeros_spmv()
     run_nonzeros_spmm()
 
+@pytest.mark.skip(reason="Git cannot store Franz8_canon.vbr")
 def test_partition_vals_real():
     # read matrix from mm-market format
     mtx_path = os.path.join(BASE_PATH, "tests", "Franz8.mtx")

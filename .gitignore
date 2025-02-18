@@ -29,3 +29,4 @@ Suitesparse*/
 split-and-binaries/
 mat_dist*.csv
 *.o
+partition_test_vbr/

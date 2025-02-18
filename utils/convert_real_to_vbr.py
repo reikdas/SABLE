@@ -162,13 +162,13 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
     bpntrb = numpy.concat([[0], block_counts_per_row[:-1]])
     bpntre = block_counts_per_row
 
+    assert(len(bpntrb) == len(bpntre))
+    assert(len(bpntrb) == len(rpntr)-1)
+
     logger.info(f"created bpntrb, bpntre with lengths: {bpntrb.shape},{bpntre.shape}")
     logger.debug(f"created bpntrb, bpntre: {bpntrb},{bpntre}")
 
     # save to file
-
-    out_path = os.path.join(dst_dir, f"{fname}.vbr")
-
     with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
         f.write(f"val=[{','.join(map(str, val))}]\n")
         f.write(f"indx=[{','.join(map(str, indx))}]\n")

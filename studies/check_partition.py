@@ -2,122 +2,86 @@ import os
 import pathlib
 import sys
 
-from tqdm import tqdm
+import joblib
+import scipy
 
 FILEPATH = pathlib.Path(__file__).resolve().parent.parent
 
 # Import hack - is there an alternative?
 sys.path.append(str(FILEPATH))
 
-from utils.fileio import read_vbr
+from src.autopartition import cut_indices2, similarity2
+from utils.convert_real_to_vbr import convert_sparse_to_vbr
+from utils.utils import check_file_matches_parent_dir
 
+FILEPATH = pathlib.Path(__file__).resolve().parent
+BASE_PATH = os.path.join(FILEPATH, "..")
 
-def get_mean_var(results):
-  # calculate mean
-  mean = round(sum(results) / len(results), 2)
+mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
+vbr_dir = os.path.join(BASE_PATH, "partition_test_vbr")
 
-  # calculate variance using a list comprehension
-  var = round(sum((xi - mean) ** 2 for xi in results) / len(results), 2)
-  return mean, var
-
-def check_partition_iter2(full_path):
-    val, _, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(full_path)
-    nnz_blocks = 0
-    count = 0
-    one_by_one_blocks = 0
-    one_d_blocks = 0
-    density = []
-    large_block_sizes = []
-    size = []
-    nnz_count = []
-    for a in range(len(rpntr)-1):
-        if bpntrb[a] == -1:
-            continue
-        valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                r_len = rpntr[a+1] - rpntr[a]
-                c_len = cpntr[b+1] - cpntr[b]
-                size.append(r_len * c_len)
-                nnz_count.append(0)
-                for i in range(count, count + size[-1]):
-                    if val[i] != 0:
-                        nnz_count[-1] += 1
-                if size == 1:
-                    one_by_one_blocks += 1
-                    one_d_blocks += 1
-                else:
-                    if r_len == 1 or c_len == 1:
-                        one_d_blocks += 1
-                    large_block_sizes.append(size[-1])
-                    density.append(nnz_count[-1] / size[-1])
-                count += size[-1]
-                nnz_blocks += 1
-    perc_one_d_blocks = round((one_d_blocks/nnz_blocks) * 100, 2)
-    avg_density = 1 if len(density)==0 else round(sum(density)/len(density), 2)
-    avg_block_size = 1 if len(large_block_sizes)==0 else round(sum(large_block_sizes)/len(large_block_sizes), 2)
-    perc_one_by_one = round((one_by_one_blocks/nnz_blocks) * 100, 2)
-    total_size = rpntr[-1] * cpntr[-1]
-    total_sparsity = round((total_size - sum(nnz_count)) / total_size, 2)
-    new_sparsity = round((total_size - sum(size)) / total_size, 2)
-    return perc_one_by_one, perc_one_d_blocks, avg_block_size, avg_density, rpntr[-1], cpntr[-1], nnz_blocks, total_sparsity, new_sparsity
-
-def check_partition_iter(full_path):
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(full_path)
-    nnz_blocks = 0
-    nnz_count = []
-    size = []
-    count = 0
-    for a in range(len(rpntr)-1):
-        if bpntrb[a] == -1:
-            continue
-        valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                nnz_count.append(0)
-                size.append((rpntr[a+1]-rpntr[a]) * (cpntr[b+1]-cpntr[b]))
-                for i in range(count, count + size[-1]):
-                    if val[i] != 0:
-                        nnz_count[-1] += 1
-                count += size[-1]
-                nnz_blocks += 1
-    assert(len(nnz_count) == len(size))
-    mean_nnz, var_nnz = get_mean_var(nnz_count)
-    density = [nnz_count[i] / size[i] for i in range(len(nnz_count))]
-    mean_density, var_density = get_mean_var(density)
-    mean_size, var_size = get_mean_var(size)
-    total_size = rpntr[-1] * cpntr[-1]
-    total_sparsity = round((total_size - sum(nnz_count)) / total_size, 2)
-    new_sparsity = round((total_size - sum(size)) / total_size, 2)
-
-    return rpntr, cpntr, nnz_blocks, mean_nnz, var_nnz, mean_density, var_density, mean_size, var_size, total_sparsity, new_sparsity
-
-def check_partition(which, full: bool):
-    src_dir = pathlib.Path(os.path.join(FILEPATH, which))
-    
-    # Get all .vbr files first to set up progress bar
-    vbr_files = [
-        os.path.join(root, filename)
-        for root, _, files in os.walk(src_dir)
-        for filename in files
-        if filename.endswith(".vbr")
-    ]
-    
-    with open(f"partitioning_{which}.txt", "w") as f:
-        f.write("Filename, Rows, Cols, num_nnz_blocks, Mean of nnz/nnz_block, Var of nnz/nnz_block, Mean of density/nnz_block, Var of density/nnz_block,  Mean of size/nnz_block, Var of size/nnz_block, Total sparsity, New sparsity\n")
-        # Use tqdm to wrap the file iteration
-        for full_path in tqdm(vbr_files, desc="Processing VBR Files", unit="file"):
-            if full:
-                write_name = full_path
-            else:
-                write_name = os.path.basename(full_path)
-
-            rpntr, cpntr, nnz_blocks, mean_nnz, var_nnz, mean_density, var_density, mean_size, var_size, total_sparsity, new_sparsity = check_partition_iter(full_path)
-
-            f.write(f"{write_name}: {rpntr[-1]}, {cpntr[-1]}, {nnz_blocks}, {mean_nnz}, {var_nnz}, {mean_density}, {var_density}, {mean_size}, {var_size}, {total_sparsity}, {new_sparsity}\n")
-            
+cut_indices = cut_indices2
+similarity = similarity2
+cut_threshold = 0.2
 
 if __name__ == "__main__":
-    # check_partition("Real_vbr", True)
-    # check_partition("Suitesparse_vbr", False)
-    check_partition("tests", False)
+    if not os.path.exists(vbr_dir):
+        os.mkdir(vbr_dir)
+    model = joblib.load(os.path.join(BASE_PATH, "models", "density_threshold_spmv.pkl"))
+    matrices = [
+        "heart1",
+    ]
+    skip = [
+        "xenon1",
+        "c-73",
+        "boyd1",
+        "SiO",
+        "crashbasis",
+        "2cubes_sphere",
+    ]
+    with open("stats.csv", "w") as f:
+        f.write("Matrix,nnz,extra nnz,num blocks,num dense blocks,old density,new density\n")
+        for file_path in mtx_dir.rglob("*"):
+            if file_path.is_file() and file_path.suffix == ".mtx" and check_file_matches_parent_dir(file_path):
+                fname = pathlib.Path(file_path).resolve().stem
+                if fname not in matrices:
+                    continue
+                if fname in skip:
+                    continue
+                print(fname)
+                mtx = scipy.io.mmread(file_path)
+                mtx_size = mtx.shape[0] * mtx.shape[1]
+                A = scipy.sparse.csc_matrix(mtx, copy=False)
+                cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
+                val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, fname, vbr_dir)
+                count = 0
+                dense_blocks = 0
+                num_blocks = 0
+                total_nnz = 0
+                operated_nnz = 0
+                for a in range(len(rpntr)-1):
+                    if bpntrb[a] == -1:
+                        continue
+                    valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                    for b in range(len(cpntr)-1):
+                        if b in valid_cols:
+                            sparse_count = 0
+                            count2 = 0
+                            dense_count = 0
+                            for _ in range(rpntr[a], rpntr[a+1]):
+                                for _ in range(cpntr[b], cpntr[b+1]):
+                                    if val[indx[count]+count2] == 0.0:
+                                        sparse_count+=1
+                                    else:
+                                        dense_count+=1
+                                    count2+1
+                            size = sparse_count + dense_count
+                            operated_nnz += size
+                            total_nnz += dense_count
+                            density = (dense_count / size) * 100
+                            if model.predict([[size, density]])[0] == 1:
+                                dense_blocks += 1
+                            num_blocks += 1
+                old_density = round(total_nnz/mtx_size, 2)
+                new_density = round(operated_nnz/mtx_size, 2)
+                f.write(f"{fname},{total_nnz},{total_nnz-operated_nnz},{num_blocks},{dense_blocks},{old_density},{new_density}\n")

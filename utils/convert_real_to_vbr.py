@@ -1,20 +1,21 @@
-import gc
+import logging
 import os
 import pathlib
 from collections import namedtuple
 
+import joblib
 import numpy
 import scipy
 from scipy.io import mmread
 from tqdm import tqdm
 
-import logging
 logger = logging.getLogger(__name__)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
-def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, density, fname, dst_dir):
+def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, dst_dir, density=None):
+    model = joblib.load(os.path.join(BASE_PATH, "models", "density_threshold_spmv.pkl"))
     val2: list[float] = []
     indx2: list[int] = [0]
     ublocks: list[int] = []
@@ -43,7 +44,17 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, de
                             idxs_j.append(idx_j)
                         count2+=1
                 dense_count = len(dense_elems)
-                if (dense_count/(dense_count + sparse_count))*100 > density:
+                calc_density = (dense_count/(dense_count + sparse_count))*100
+                if density is not None:
+                    unroll = False
+                    if calc_density > density:
+                        unroll = True
+                else:
+                    block_size = (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
+                    unroll = True
+                    if model.predict([[block_size, calc_density]])[0] == 1:
+                        unroll = False
+                if unroll:
                     val2.extend(val[indx[count]:indx[count+1]])
                     indx2.append(len(val2))
                 else:

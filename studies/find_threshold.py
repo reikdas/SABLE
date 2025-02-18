@@ -1,14 +1,17 @@
 import os
 import pathlib
+import warnings
 
+import joblib
 import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-import joblib
 
 FILEPATH=pathlib.Path(__file__).resolve().parent
 BASEPATH=os.path.join(FILEPATH.parent)
+
+warnings.filterwarnings("ignore", message=".*does not have valid feature names.*")
 
 if __name__ == "__main__":
     # Load data into a DataFrame
@@ -18,8 +21,8 @@ if __name__ == "__main__":
     df['density'] = 100 - df['perc_zeros']
     df['size'] = df['dim'] * df['dim']
 
-    # Calculate the target variable: (nonzeros_time / sable_time) >= 1
-    df['target'] = (df['nonzeros_time'] / df['sable_time']) >= 1
+    # Calculate the target variable: (CSR_time / sable_time) >= 1
+    df['target'] = (df['CSR_time'] / df['sable_time']) > 1.1
     df['target'] = df['target'].astype(int)  # Convert to binary (1 for True, 0 for False)
 
     # Define features (X) and target (y)
@@ -47,7 +50,7 @@ if __name__ == "__main__":
     model_filename = os.path.join(BASEPATH, "models", "density_threshold_spmv.pkl")
     joblib.dump(model, model_filename)
 
-    print(model.predict([[10*10, 45]])) # Variable
+    # print(model.predict([[10*10, 45]])) # Variable
     print(model.predict([[50*50, 1]])) # Expect 0
     print(model.predict([[50*50, 100]])) # Expect 1
     # print(X_train)

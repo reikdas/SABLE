@@ -25,7 +25,7 @@ codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_suitesparse_thresh0.2_cut2
 
 @timeout(PARTITION_TIMEOUT)
 def vbrc_wrapper(file_path, dest_path):
-    return my_convert_dense_to_vbrc((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2, 8)
+    return my_convert_dense_to_vbrc((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2)
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD

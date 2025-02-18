@@ -3,4 +3,4 @@ scipy
 tqdm
 pytest
 joblib
-sklearn
+scikit-learn

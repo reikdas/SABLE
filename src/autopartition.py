@@ -88,7 +88,7 @@ def similarity2(a, b):
 # print("Column indices:", col_indices)
 # print("Row indices:", row_indices)
 
-def my_convert_dense_to_vbrc(file_info, cut_threshold, cut_indices, similarity, density):
+def my_convert_dense_to_vbrc(file_info, cut_threshold, cut_indices, similarity):
     src_path, dest_path = file_info
     mtx = scipy.io.mmread(src_path)
     A = scipy.sparse.csc_matrix(mtx, copy=False)
@@ -96,7 +96,7 @@ def my_convert_dense_to_vbrc(file_info, cut_threshold, cut_indices, similarity, 
     gc.collect()
     cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
     val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
-    val, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, density, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
+    val, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
     return val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
 
 # def partition_dlmc(mtx_dir, vbr_dir):

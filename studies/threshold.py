@@ -19,7 +19,6 @@ from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from synthesize_matrices.vbr_matrices_gen import vbr_matrix_gen
 from utils.fileio import write_dense_vector, read_vbr
-from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
 from utils.convert_real_to_vbr import convert_vbr_to_compressed
 
@@ -69,7 +68,7 @@ def calculate_threshold():
                 # vbr_to_mtx(fname+".vbr", dir_name=MTX_DIR, vbr_dir=VBR_DIR)
                 val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(VBR_DIR, fname+".vbr"))
                 print(fname)
-                convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 0, fname, VBR_DIR)
+                convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, VBR_DIR, 0)
                 vbr_spmv_codegen(fname, dir_name=CODEGEN_DIR, vbr_dir=VBR_DIR, threads=1)
                 try:
                     subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", CODEGEN_DIR + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, timeout=COMPILE_TIMEOUT)
@@ -83,7 +82,7 @@ def calculate_threshold():
                     continue
                 output = extract_mul_nums(output)
                 median_sable_time_dense = statistics.median([float(x) for x in output])
-                convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, 100, fname, VBR_DIR)
+                convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, VBR_DIR, 100)
                 vbr_spmv_codegen(fname, dir_name=CODEGEN_DIR, vbr_dir=VBR_DIR, threads=1)
                 try:
                     subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", CODEGEN_DIR + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, timeout=COMPILE_TIMEOUT)

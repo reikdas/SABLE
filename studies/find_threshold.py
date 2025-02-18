@@ -18,8 +18,8 @@ if __name__ == "__main__":
     df['density'] = 100 - df['perc_zeros']
     df['size'] = df['dim'] * df['dim']
 
-    # Calculate the target variable: (nonzeros_time / sable_time) >= 1
-    df['target'] = (df['nonzeros_time'] / df['sable_time']) >= 1
+    # Calculate the target variable: (CSR_time / sable_time) >= 1
+    df['target'] = (df['CSR_time'] / df['sable_time']) > 1
     df['target'] = df['target'].astype(int)  # Convert to binary (1 for True, 0 for False)
 
     # Define features (X) and target (y)

@@ -5,7 +5,8 @@ import pathlib
 import numpy as np
 import scipy
 
-from utils.convert_real_to_vbr import convert_sparse_to_vbr, convert_vbr_to_compressed
+from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
+                                       convert_vbr_to_compressed)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")

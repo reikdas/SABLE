@@ -1,15 +1,14 @@
-import gc
+import logging
 import os
 import pathlib
 from collections import namedtuple
 
+import joblib
 import numpy
 import scipy
-import joblib
 from scipy.io import mmread
 from tqdm import tqdm
 
-import logging
 logger = logging.getLogger(__name__)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent

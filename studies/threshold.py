@@ -3,10 +3,10 @@ import re
 import statistics
 import subprocess
 import sys
-import psutil
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import psutil
 import seaborn as sns
 from tqdm import tqdm
 
@@ -18,9 +18,9 @@ from src.baseline import *
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from synthesize_matrices.vbr_matrices_gen import vbr_matrix_gen
-from utils.fileio import write_dense_vector, read_vbr
-from utils.utils import extract_mul_nums
 from utils.convert_real_to_vbr import convert_vbr_to_compressed
+from utils.fileio import read_vbr, write_dense_vector
+from utils.utils import extract_mul_nums
 
 FILEPATH=pathlib.Path(__file__).resolve().parent
 

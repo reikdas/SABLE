@@ -7,7 +7,6 @@ import joblib
 import numpy
 import scipy
 from scipy.io import mmread
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +121,7 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
 
     logger.info(f"mat shape: {mat.shape}, num block rows: {len(rpntr)}, num block cols : {len(cpntr)}, nnz: {mat.nnz}")
 
-    for r_i in tqdm(range(len(rpntr) - 1)):
+    for r_i in range(len(rpntr) - 1):
         for c_i in range(len(cpntr) - 1):
             r_start, r_end = rpntr[r_i], rpntr[r_i + 1]
             c_start, c_end = cpntr[c_i], cpntr[c_i + 1]

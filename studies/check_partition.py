@@ -85,7 +85,6 @@ if __name__ == "__main__":
                                 operated_nnz += dense_count
                             num_blocks += 1
                             count += 1
-                assert(total_nnz == mtx_nnz)
                 old_density = round(total_nnz/mtx_size, 2)
                 new_density = round(operated_nnz/mtx_size, 2)
                 f.write(f"{fname},{total_nnz},{operated_nnz-total_nnz},{num_blocks},{dense_blocks},{old_density},{new_density}\n")

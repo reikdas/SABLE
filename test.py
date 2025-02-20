@@ -62,7 +62,7 @@ def test_read_vbr():
 
 def test_compression_full_dense():
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "example.vbr"))
-    val, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, "example", "tests", 0)
+    val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, "example", "tests", 0)
     assert(numpy.array_equal(val,[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0]))
     assert(numpy.array_equal(indx,[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51]))
     assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
@@ -71,9 +71,9 @@ def test_compression_full_dense():
     assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
     assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
     assert(numpy.array_equal(ublocks,[]))
-    assert(numpy.array_equal(coo_i,[]))
-    assert(numpy.array_equal(coo_j,[]))
-    assert(numpy.array_equal(coo_val,[]))
+    assert(numpy.array_equal(indptr,[]))
+    assert(numpy.array_equal(indices,[]))
+    assert(numpy.array_equal(csr_val,[]))
 
 
 def test_compression():
@@ -92,20 +92,20 @@ def test_compression():
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
     val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example2", "tests")
-    val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, "example2", "tests", 80)
+    val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, "example2", "tests", 80)
     assert(numpy.array_equal(val2,[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0]))
     assert(numpy.array_equal(indx2,[0, 4, 6, 15, 17, 20, 21, 24, 33, 37]))
     assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
     assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
     assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
     assert(numpy.array_equal(ublocks,[2, 4, 9, 12]))
-    assert(numpy.array_equal(coo_i,[0, 1, 2, 4, 6, 7, 9, 10]))
-    assert(numpy.array_equal(coo_j,[10, 10, 5, 5, 5, 5, 10, 10]))
-    assert(numpy.array_equal(coo_val,[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0]))
+    assert(numpy.array_equal(indptr, [0, 1, 2, 3, 3, 4, 4, 5, 6, 6, 7, 8]))
+    assert(numpy.array_equal(indices,[10, 10, 5, 5, 5, 5, 10, 10]))
+    assert(numpy.array_equal(csr_val,[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0]))
 
 def test_read_compression():
     test_compression()
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = read_vbrc(os.path.join(BASE_PATH, "tests", "example2.vbrc"))
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(BASE_PATH, "tests", "example2.vbrc"))
     assert(numpy.array_equal(val,[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0]))
     assert(numpy.array_equal(indx,[0, 4, 6, 15, 17, 20, 21, 24, 33, 37]))
     assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
@@ -114,9 +114,9 @@ def test_read_compression():
     assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
     assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
     assert(numpy.array_equal(ublocks,[2, 4, 9, 12]))
-    assert(numpy.array_equal(coo_i,[0, 1, 2, 4, 6, 7, 9, 10]))
-    assert(numpy.array_equal(coo_j,[10, 10, 5, 5, 5, 5, 10, 10]))
-    assert(numpy.array_equal(coo_val,[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0]))
+    assert(numpy.array_equal(indptr, [0, 1, 2, 3, 3, 4, 4, 5, 6, 6, 7, 8]))
+    assert(numpy.array_equal(indices,[10, 10, 5, 5, 5, 5, 10, 10]))
+    assert(numpy.array_equal(csr_val,[1.0, -1.0, 2.0, 3.0, 4.0, 3.0, 3.0, 12.0]))
 
 def test_partition():
     dense = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., 0.,  1.],

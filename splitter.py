@@ -30,7 +30,7 @@ def process_file(filename, chunk_size=2000):
             idx_of_spmv = i
         if "clock_gettime(CLOCK_MONOTONIC, &t1);" in line:
             start_idx = i
-        if "for (int j=0;" in line:
+        if "double sum;" in line:
             end_idx = i
         if end_idx is None and "clock_gettime(CLOCK_MONOTONIC, &t2);" in line:
             end_idx = i
@@ -81,7 +81,7 @@ for i, code in enumerate(middle_chunks):
     name = f"{new_file_name}{i}"
     print(name)
 
-    function_header = f"void {name}(float *y, const float* x, const float* val)" + "{\n"
+    function_header = f"void {name}(double *y, const double* x, const double* val)" + "{\n"
 
     end_header = "}"
 

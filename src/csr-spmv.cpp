@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <set>
 #include <ctime>
+#include <cstring>
 #ifdef OPENMP
 #include <omp.h>
 #endif
@@ -257,7 +258,7 @@ void spmv(const CSR &csr, const double *x, double *y) {
         for (int j = csr.row_ptrs[i]; j < csr.row_ptrs[i + 1]; j++) {
             sum += csr.values[j] * x[csr.col_indices[j]];
         }
-        y[i] = sum;
+        y[i] += sum;
     }
 }
 
@@ -303,6 +304,7 @@ int main(int argc, char *argv[]) {
     float* exec_time = new float[NUMBER_OF_RUNS];
     spmv(csrMatrix, x, y);
     for (int i = 0; i < NUMBER_OF_RUNS; i++) {
+        memset(y, 0, sizeof(double)*csrMatrix.rows);
         clock_gettime(CLOCK_MONOTONIC, &t1);
         spmv(csrMatrix, x, y);
 	    clock_gettime(CLOCK_MONOTONIC, &t2);

@@ -81,7 +81,7 @@ for i, code in enumerate(middle_chunks):
     name = f"{new_file_name}{i}"
     print(name)
 
-    function_header = f"void {name}(float *y, const float* x, const float* val)" + "{\n"
+    function_header = f"void {name}(double *y, const double* x, const double* val)" + "{\n"
 
     end_header = "}"
 

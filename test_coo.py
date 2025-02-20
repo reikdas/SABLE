@@ -72,12 +72,16 @@ if __name__ == "__main__":
                 val, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, VBR_DIR, 100)
                 vbr_spmv_codegen(fname, dir_name=CODEGEN_DIR, vbr_dir=VBR_DIR, threads=1)
                 try:
-                    subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", CODEGEN_DIR + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, timeout=COMPILE_TIMEOUT)
+                    subprocess.run(["taskset", "-a", "-c", str(core), "gcc", "-o", fname, f"{fname}.c"] + CFLAGS, cwd=CODEGEN_DIR, check=True, timeout=COMPILE_TIMEOUT)
+                # try:
+                #     subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", CODEGEN_DIR + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, timeout=COMPILE_TIMEOUT)
                 except subprocess.TimeoutExpired:
                     print("SABLE Sparse: Compilation failed for ", fname)
                     continue
                 try:
-                    output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=os.path.join(BASE_PATH,"split-and-binaries",fname)).decode("utf-8").split("\n")[0]
+                    output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=CODEGEN_DIR).decode("utf-8").split("\n")[0]
+                # try:
+                #     output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname}"], cwd=os.path.join(BASE_PATH,"split-and-binaries",fname)).decode("utf-8").split("\n")[0]
                 except subprocess.CalledProcessError:
                     print("SABLE Sparse: Execution failed for ", fname)
                     continue

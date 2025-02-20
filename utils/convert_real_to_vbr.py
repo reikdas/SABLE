@@ -46,15 +46,15 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
                 dense_count = len(dense_elems)
                 calc_density = (dense_count/(dense_count + sparse_count))*100
                 if density is not None:
-                    unroll = False
+                    unroll = True
                     if calc_density > density:
-                        unroll = True
+                        unroll = False
                 else:
                     block_size = (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
                     unroll = True
                     if model.predict([[block_size, calc_density]])[0] == 1:
                         unroll = False
-                if unroll:
+                if not unroll:
                     val2.extend(val[indx[count]:indx[count+1]])
                     indx2.append(len(val2))
                 else:
@@ -63,11 +63,20 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
                     coo_i.extend(idxs_i)
                     coo_j.extend(idxs_j)
                 count+=1
+    if len(coo_i) > 0:
+        csr = scipy.sparse.coo_array((coo_val, (coo_i, coo_j))).tocsr()
+        indptr = csr.indptr
+        indices = csr.indices
+        csr_val = csr.data
+    else:
+        csr_val = []
+        indptr = []
+        indices = []
     with open(os.path.join(dst_dir, f"{fname}.vbrc"), "w") as f:
         f.write(f"val=[{','.join(map(str, val2))}]\n")
-        f.write(f"coo_val=[{','.join(map(str, coo_val))}]\n")
-        f.write(f"coo_i=[{','.join(map(str, coo_i))}]\n")
-        f.write(f"coo_j=[{','.join(map(str, coo_j))}]\n")
+        f.write(f"csr_val=[{','.join(map(str, csr_val))}]\n")
+        f.write(f"indptr=[{','.join(map(str, indptr))}]\n")
+        f.write(f"indices=[{','.join(map(str, indices))}]\n")
         f.write(f"indx=[{','.join(map(str, indx2))}]\n")
         f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
         f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
@@ -75,7 +84,7 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
         f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
         f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
         f.write(f"ublocks=[{','.join(map(str, ublocks))}]\n")
-    return val2, indx2, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
+    return val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val
 
 def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
     '''

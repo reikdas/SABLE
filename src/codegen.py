@@ -271,7 +271,7 @@ def spmv_kernel():
     code.append("}\n\n")
     return "".join(code)
 
-def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val, dir_name, filename, vbr_dir, bench:int=5)->None:
+def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
@@ -292,7 +292,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append(f"\tdouble* y = (double*)calloc({rpntr[-1]}, sizeof(double));\n")
     code.append(f"\tdouble* x = (double*)calloc({cpntr[-1]}, sizeof(double));\n")
     code.append(f"\tdouble* val = (double*)calloc({len(val)}, sizeof(double));\n")
-    code.append(f"\tdouble* coo_val = (double*)calloc({len(coo_val)}, sizeof(double));\n")
+    code.append(f"\tdouble* csr_val = (double*)calloc({len(csr_val)}, sizeof(double));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -315,12 +315,12 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
     if (len(ublocks) > 0):
         code.append('''\tval_size=0;
-    assert(fscanf(file1, "coo_val=[%lf", &coo_val[val_size]) == 1.0);
+    assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
     val_size++;
     while (1) {
         assert(fscanf(file1, "%c", &c) == 1);
         if (c == ',') {
-            assert(fscanf(file1, "%lf", &coo_val[val_size]) == 1.0);
+            assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
             val_size++;
         } else if (c == ']') {
             break;
@@ -329,17 +329,17 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         }
     }
     if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');''')
-    if (len(coo_i) > 0):
-        code.append(f"""\tint* coo_i = (int*)malloc({len(coo_i)} * sizeof(int));
-    int* coo_j = (int*)malloc({len(coo_j)} * sizeof(int));
+    assert(c=='\\n');\n''')
+    if (len(indptr) > 0):
+        code.append(f"""\tint* indptr = (int*)malloc({len(indptr)} * sizeof(int));
+    int* indices = (int*)malloc({len(indices)} * sizeof(int));
     val_size=0;
-    assert(fscanf(file1, "coo_i=[%d", &coo_i[val_size]) == 1.0);
+    assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
     val_size++;
     while (1) {{
         assert(fscanf(file1, "%c", &c) == 1);
         if (c == ',') {{
-            assert(fscanf(file1, "%d", &coo_i[val_size]) == 1.0);
+            assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
             val_size++;
         }} else if (c == ']') {{
             break;
@@ -350,12 +350,12 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');
     val_size=0;
-    assert(fscanf(file1, "coo_j=[%d", &coo_j[val_size]) == 1.0);
+    assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
     val_size++;
     while (1) {{
         assert(fscanf(file1, "%c", &c) == 1);
         if (c == ',') {{
-            assert(fscanf(file1, "%d", &coo_j[val_size]) == 1.0);
+            assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
             val_size++;
         }} else if (c == ']') {{
             break;
@@ -364,7 +364,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         }}
     }}
     if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');""")
+    assert(c=='\\n');\n""")
     code.append("\tfclose(file1);\n")
     code.append('''
     while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
@@ -372,7 +372,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
     code.append("\tstruct timespec t1;\n")
-    code.append("\n\tstruct timespec t2;\n")
+    code.append("\tstruct timespec t2;\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
     code.append("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
@@ -389,8 +389,14 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
                     count+=1
                 nnz_block += 1
     if (len(ublocks) > 0):
-        code.append(f"\t\tfor (int j=0; j<{len(coo_i)}; j++)\n")
-        code.append(f"\t\t\ty[coo_i[j]] += coo_val[j] * x[coo_j[j]];\n")
+        code.append(f"""\t\tdouble sum;
+        for (int i=0; i<{rpntr[-1]}; i++) {{
+            sum = 0;
+            for (int j=indptr[i]; j<indptr[i+1]; j++) {{
+                sum += csr_val[j] * x[indices[j]];
+            }}
+            y[i] += sum;
+        }}\n""")
     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
     code.append("\t\tif (i!=0)\n")
     code.append("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")

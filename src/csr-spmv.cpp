@@ -13,11 +13,11 @@ struct COO {
     int rows, cols, nnz;
     std::vector<int> row_indices;
     std::vector<int> col_indices;
-    std::vector<float> values;
+    std::vector<double> values;
 
     void remove_duplicates() {
         // write a function to remove duplicates using set
-        std::set<std::tuple<int, int, float>> unique_entries;
+        std::set<std::tuple<int, int, double>> unique_entries;
         for (int i = 0; i < nnz; i++) {
             if (col_indices[i] >= cols || row_indices[i] >= rows) {
                 std::cerr << "Error: Invalid matrix entry\n";
@@ -40,7 +40,7 @@ struct COO {
 
     // Sort by (row, column)
     void sort() {
-        std::vector<std::tuple<int, int, float>> entries;
+        std::vector<std::tuple<int, int, double>> entries;
         for (int i = 0; i < nnz; i++) {
             entries.push_back({row_indices[i], col_indices[i], values[i]});
         }
@@ -71,7 +71,7 @@ struct CSR {
     int rows, cols, nnz;
     int *row_ptrs;
     int *col_indices;
-    float *values;
+    double *values;
 };
 
 // add a function to convert COO to CSR
@@ -83,7 +83,7 @@ CSR coo_to_csr(const COO &coo) {
 
     csr.row_ptrs = new int[csr.rows + 1];
     csr.col_indices = new int[csr.nnz];
-    csr.values = new float[csr.nnz];
+    csr.values = new double[csr.nnz];
 
     std::vector<int> csr_row_ptr;
 
@@ -202,7 +202,7 @@ COO readMTXtoCOO(const std::string &filename) {
     // Read matrix entries
     for (int i = 0; i < nz; i++) {
         int row, col;
-        float value;
+        double value;
 
         if (matrixType == MatrixType::REAL) {
             double double_value;
@@ -210,14 +210,14 @@ COO readMTXtoCOO(const std::string &filename) {
                 std::cerr << "Error: Invalid matrix entry format\n";
                 exit(1);
             }
-            value = (float) double_value;
+            value = (double) double_value;
         } else if (matrixType == MatrixType::INTEGER) {
             int int_value;
             if (!(file >> row >> col >> int_value)) {
                 std::cerr << "Error: Invalid matrix entry format\n";
                 exit(1);
             }
-            value = (float) int_value;
+            value = (double) int_value;
         } else if (matrixType == MatrixType::PATTERN) {
             if (!(file >> row >> col)) {
                 std::cerr << "Error: Invalid matrix entry format\n";
@@ -246,14 +246,14 @@ COO readMTXtoCOO(const std::string &filename) {
 }
 
 // add a function to calculate the matrix-vector product
-void spmv(const CSR &csr, const float *x, float *y) {
+void spmv(const CSR &csr, const double *x, double *y) {
 
     // add pragma omp parallel for only if a flag is defined at compile time
     #ifdef OPENMP
     #pragma omp parallel for
     #endif
     for (int i = 0; i < csr.rows; i++) {
-        float sum = 0;
+        double sum = 0;
         for (int j = csr.row_ptrs[i]; j < csr.row_ptrs[i + 1]; j++) {
             sum += csr.values[j] * x[csr.col_indices[j]];
         }
@@ -290,14 +290,14 @@ int main(int argc, char *argv[]) {
     
 
     // create an array with the same size as the number of cols in the csrMatrix
-    float *x = new float[csrMatrix.cols];
+    double *x = new double[csrMatrix.cols];
     int x_size=0;
-    while (x_size < csrMatrix.cols && fscanf(file2, "%f,", &x[x_size]) == 1) {
+    while (x_size < csrMatrix.cols && fscanf(file2, "%lf,", &x[x_size]) == 1) {
         x_size++;
     }
 
     // create an array with the same size as the number of rows in the csrMatrix
-    float *y = new float[csrMatrix.rows];
+    double *y = new double[csrMatrix.rows];
 
     // calculate the matrix-vector product and time it
     float* exec_time = new float[NUMBER_OF_RUNS];

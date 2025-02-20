@@ -262,7 +262,7 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
 
 def spmv_kernel():
     code = []
-    code.append("void spmv_kernel(float *y, const float* x, const float* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("void spmv_kernel(double *y, const double* x, const double* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
     code.append("\tfor (int j = j_start; j < j_end; j++) {\n")
     code.append("\t\tfor (int i = i_start; i < i_end; i++) {\n")
     code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
@@ -289,21 +289,21 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tfloat* y = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-    code.append(f"\tfloat* x = (float*)calloc({cpntr[-1]}, sizeof(float));\n")
-    code.append(f"\tfloat* val = (float*)calloc({len(val)}, sizeof(float));\n")
-    code.append(f"\tfloat* coo_val = (float*)calloc({len(coo_val)}, sizeof(float));\n")
+    code.append(f"\tdouble* y = (double*)calloc({rpntr[-1]}, sizeof(double));\n")
+    code.append(f"\tdouble* x = (double*)calloc({cpntr[-1]}, sizeof(double));\n")
+    code.append(f"\tdouble* val = (double*)calloc({len(val)}, sizeof(double));\n")
+    code.append(f"\tdouble* coo_val = (double*)calloc({len(coo_val)}, sizeof(double));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
     if (c != ']') {
         ungetc(c, file1);
-        assert(fscanf(file1, "%f", &val[val_size]) == 1);
+        assert(fscanf(file1, "%lf", &val[val_size]) == 1);
         val_size++;
         while (1) {
             assert(fscanf(file1, "%c", &c) == 1);
             if (c == ',') {
-                assert(fscanf(file1, "%f", &val[val_size]) == 1);
+                assert(fscanf(file1, "%lf", &val[val_size]) == 1);
                 val_size++;
             } else if (c == ']') {
                 break;
@@ -315,12 +315,12 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
     if (len(ublocks) > 0):
         code.append('''\tval_size=0;
-    assert(fscanf(file1, "coo_val=[%f", &coo_val[val_size]) == 1.0);
+    assert(fscanf(file1, "coo_val=[%lf", &coo_val[val_size]) == 1.0);
     val_size++;
     while (1) {
         assert(fscanf(file1, "%c", &c) == 1);
         if (c == ',') {
-            assert(fscanf(file1, "%f", &coo_val[val_size]) == 1.0);
+            assert(fscanf(file1, "%lf", &coo_val[val_size]) == 1.0);
             val_size++;
         } else if (c == ']') {
             break;
@@ -367,14 +367,14 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     assert(c=='\\n');""")
     code.append("\tfclose(file1);\n")
     code.append('''
-    while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
+    while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
     code.append("\tstruct timespec t1;\n")
     code.append("\n\tstruct timespec t2;\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
-    code.append("\t\tmemset(y, 0, sizeof(float)*{0});\n".format(rpntr[-1]))
+    code.append("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     nnz_block = 0
@@ -401,7 +401,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\t}\n")
     code.append("\tprintf(\"\\n\");\n")
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
-    code.append("\t\tprintf(\"%f\\n\", y[i]);\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
     code.append("\t}\n")
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
@@ -473,12 +473,12 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
         f.write('''
-    assert(fscanf(file1, "val=[%f", &val[val_size]) == 1.0);
+    assert(fscanf(file1, "val=[l%lf", &val[val_size]) == 1.0);
     val_size++;
     while (1) {
         assert(fscanf(file1, "%c", &c) == 1);
         if (c == ',') {
-            assert(fscanf(file1, "%f", &val[val_size]) == 1.0);
+            assert(fscanf(file1, "%lf", &val[val_size]) == 1.0);
             val_size++;
         } else if (c == ']') {
             break;
@@ -490,7 +490,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     assert(c=='\\n');
     fclose(file1);''')
         f.write('''
-    while (x_size < {0} && fscanf(file2, "%f,", &x[x_size]) == 1) {{
+    while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))

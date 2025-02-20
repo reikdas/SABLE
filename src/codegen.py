@@ -395,7 +395,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
             for (int j=indptr[i]; j<indptr[i+1]; j++) {{
                 sum += csr_val[j] * x[indices[j]];
             }}
-            y[i] += sum;
+            y[i] = sum;
         }}\n""")
     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
     code.append("\t\tif (i!=0)\n")

@@ -152,7 +152,7 @@ def run_spmv(threads):
 def run_spmv_multi_out(threads):
     test_setup_file()
     vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[0]
     output = extract_mul_nums(output)
     assert(len(output)==5)
@@ -160,7 +160,7 @@ def run_spmv_multi_out(threads):
 def run_spmv_unroll(threads):
     test_compression()
     vbr_spmv_codegen("example2", "tests", "tests", threads)
-    subprocess.check_call(["gcc", "-o", "example2", "example2.c", "-march=native", "-O3", "-lpthread"], cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example2", "example2.c"] + CFLAGS, cwd="tests")
     output = subprocess.check_output(["./example2"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -279,24 +279,24 @@ def run_spmv_unroll_splitter(threads):
 
 def test_spmv():
     run_spmv(1)
-#     run_spmv(2)
-#     run_spmv(4)
-#     run_spmv(8)
-#     run_spmv(16)
+    run_spmv(2)
+    run_spmv(4)
+    run_spmv(8)
+    run_spmv(16)
 
 def test_spmv_multi_out():
     run_spmv_multi_out(1)
-#     run_spmv_multi_out(2)
-#     run_spmv_multi_out(4)
-#     run_spmv_multi_out(8)
-#     run_spmv_multi_out(16)
+    run_spmv_multi_out(2)
+    run_spmv_multi_out(4)
+    run_spmv_multi_out(8)
+    run_spmv_multi_out(16)
 
 def test_spmv_unroll():
     run_spmv_unroll(1)
-#     run_spmv_unroll(2)
-#     run_spmv_unroll(4)
-#     run_spmv_unroll(8)
-#     run_spmv_unroll(16)
+    run_spmv_unroll(2)
+    run_spmv_unroll(4)
+    run_spmv_unroll(8)
+    run_spmv_unroll(16)
 
 def test_spmv_splitter():
     run_spmv_splitter(1)

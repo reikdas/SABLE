@@ -413,7 +413,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
 
-def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name: str, filename: str, vbr_dir: str, bench:int=5) -> None:
+def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indices, indptr, csr_val, dir_name: str, filename: str, vbr_dir: str, bench:int=5) -> None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
@@ -424,8 +424,9 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("#include <stdlib.h>\n")
         f.write("#include <assert.h>\n")
         f.write("#include <string.h>\n")
+        f.write("#include <omp.h>\n")
         f.write("#include <pthread.h>\n\n")
-        f.write("float *x, *val, *y;\n\n")
+        f.write("double *x, *val, *y;\n\n")
         f.write(spmv_kernel())
         work_per_br = [0]*(len(rpntr)-1)
         count = 0
@@ -437,8 +438,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                 if b in valid_cols:
                     if count not in ublocks:
                         work_per_br[a] += (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
-                    else:
-                        work_per_br[a] += indx[count+1] - indx[count]
                     count += 1
         count2 = 0
         thread_br_map = split_chunks(work_per_br, threads)
@@ -451,17 +450,19 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                 ublocks_count = copy.copy(bpntrb[a])
                 valid_cols = bindx[bpntrb[a]:bpntre[a]]
                 count = 0
+                # find num_ublocks before this block
+                idx_offset = 0
+                for ub in ublocks:
+                    if ub < bpntrb[a]:
+                        idx_offset += 1
+                    if ub > bpntrb[a]:
+                        break
+                indx_start = bpntrb[a] - idx_offset
                 for b in range(len(cpntr)-1):
                     if b in valid_cols:
                         if ublocks_count not in ublocks:
-                            f.write(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[bpntrb[a]+count]});\n")
-                        else:
-                            num_elems = indx[bpntrb[a] + count+1] - indx[bpntrb[a] + count]
-                            coo_start = num_past_unrolled(ublocks, indx, ublocks_count)
-                            for i, j, v in zip(coo_i[coo_start:coo_start+num_elems], coo_j[coo_start:coo_start+num_elems], [elem for elem in range(indx[bpntrb[a] +count],indx[bpntrb[a] +count+1])]):
-                                f.write(f"\ty[{i}] += val[{v}] * x[{j}];")
-                            f.write("\n")
-                        count += 1
+                            f.write(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[indx_start+count]});\n")
+                            count += 1
                         ublocks_count += 1
             f.write("}\n")
             funcount += 1
@@ -473,18 +474,39 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
         f.write(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
         f.write("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-        f.write(f"\ty = (float*)calloc({rpntr[-1]}, sizeof(float));\n")
-        f.write(f"\tx = (float*)calloc({cpntr[-1] + 1}, sizeof(float));\n")
-        f.write(f"\tval = (float*)calloc({len(val) + 1}, sizeof(float));\n")
+        f.write(f"\ty = (double*)calloc({rpntr[-1]}, sizeof(double));\n")
+        f.write(f"\tx = (double*)calloc({cpntr[-1] + 1}, sizeof(double));\n")
+        f.write(f"\tval = (double*)calloc({len(val) + 1}, sizeof(double));\n")
+        f.write(f"\tdouble* csr_val = (double*)calloc({len(csr_val)}, sizeof(double));\n")
+        f.write(f"\tomp_set_num_threads({threads});\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
-        f.write('''
-    assert(fscanf(file1, "val=[l%lf", &val[val_size]) == 1.0);
+        f.write('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
+    if (c != ']') {
+        ungetc(c, file1);
+        assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+        val_size++;
+        while (1) {
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {
+                assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+                val_size++;
+            } else if (c == ']') {
+                break;
+            } else {
+                assert(0);
+            }
+        }
+    }
+    assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
+        if (len(ublocks) > 0):
+            f.write('''\tval_size=0;
+    assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
     val_size++;
     while (1) {
         assert(fscanf(file1, "%c", &c) == 1);
         if (c == ',') {
-            assert(fscanf(file1, "%lf", &val[val_size]) == 1.0);
+            assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
             val_size++;
         } else if (c == ']') {
             break;
@@ -493,23 +515,67 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         }
     }
     if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');\n''')
+        if (len(indptr) > 0):
+            f.write(f"""\tint* indptr = (int*)malloc({len(indptr)} * sizeof(int));
+    int* indices = (int*)malloc({len(indices)} * sizeof(int));
+    val_size=0;
+    assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
     assert(c=='\\n');
-    fclose(file1);''')
-        f.write('''
-    while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
+    val_size=0;
+    assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');\n""")
+        f.write("\tfclose(file1);\n")
+        f.write('''while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
         f.write("\tstruct timespec t1;\n")
         f.write("\tstruct timespec t2;\n")
         f.write(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
-        f.write("\t\tmemset(y, 0, sizeof(float)*{0});\n".format(rpntr[-1]))
+        f.write("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
         f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_join(tid[{a}], NULL);\n")
+        if (len(ublocks) > 0):
+            f.write(f"""\t\tdouble sum;
+        #pragma omp parallel for
+        for (int i=0; i<{rpntr[-1]}; i++) {{
+            sum = 0;
+            for (int j=indptr[i]; j<indptr[i+1]; j++) {{
+                sum += csr_val[j] * x[indices[j]];
+            }}
+            y[i] += sum;
+        }}\n""")
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         f.write("\t\tif (i!=0)\n")
         f.write("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
@@ -1321,12 +1387,12 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
 
 def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int)->int:
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = read_vbrc(vbr_path)
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbr_path)
     time1 = time.time_ns() // 1_000_000
     if threads == 1:
-        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val, dir_name, filename, vbr_dir)
+        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir)
     else:
-        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, dir_name, filename, vbr_dir)
+        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir)
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 

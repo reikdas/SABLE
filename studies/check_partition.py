@@ -22,7 +22,7 @@ FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
 mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
-vbr_dir = os.path.join(BASE_PATH, "partition_test_vbr")
+vbr_dir = os.path.join(BASE_PATH, "Generated_VBR")
 
 cut_indices = cut_indices2
 similarity = similarity2

@@ -14,7 +14,7 @@ BASE_PATH = os.path.join(FILEPATH)
 BENCHMARK_FREQ = 5
 
 MKL_PATH = os.path.join(BASE_PATH, "..", "intel", "oneapi", "mkl", "latest")
-MKL_FLAGS = [f"-I{MKL_PATH}/include", f"-L{MKL_PATH}/lib/intel64"]
+MKL_FLAGS = [f"-I{MKL_PATH}/include", f"-L{MKL_PATH}/lib/intel64", "-lmkl_rt"]
 
 if __name__ == "__main__":
     mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))

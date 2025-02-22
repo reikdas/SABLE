@@ -30,3 +30,4 @@ Suitesparse*/
 split-and-binaries/
 mat_dist*.csv
 *.o
+studies/stats_dist*.csv

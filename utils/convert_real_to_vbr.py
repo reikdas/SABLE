@@ -7,7 +7,6 @@ import joblib
 import numpy
 import scipy
 from scipy.io import mmread
-from tqdm import tqdm
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +134,7 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
 
     logger.info(f"mat shape: {mat.shape}, num block rows: {len(rpntr)}, num block cols : {len(cpntr)}, nnz: {mat.nnz}")
 
-    for r_i in tqdm(range(len(rpntr) - 1)):
+    for r_i in range(len(rpntr) - 1):
         for c_i in range(len(cpntr) - 1):
             r_start, r_end = rpntr[r_i], rpntr[r_i + 1]
             c_start, c_end = cpntr[c_i], cpntr[c_i + 1]
@@ -175,13 +174,13 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
     bpntrb = numpy.concat([[0], block_counts_per_row[:-1]])
     bpntre = block_counts_per_row
 
+    assert(len(bpntrb) == len(bpntre))
+    assert(len(bpntrb) == len(rpntr)-1)
+
     logger.info(f"created bpntrb, bpntre with lengths: {bpntrb.shape},{bpntre.shape}")
     logger.debug(f"created bpntrb, bpntre: {bpntrb},{bpntre}")
 
     # save to file
-
-    out_path = os.path.join(dst_dir, f"{fname}.vbr")
-
     with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
         f.write(f"val=[{','.join(map(str, val))}]\n")
         f.write(f"indx=[{','.join(map(str, indx))}]\n")

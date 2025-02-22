@@ -64,8 +64,12 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
                     coo_j.extend(idxs_j)
                 count+=1
     if len(coo_i) > 0:
+        coo_i.append(rpntr[-1]-1)
+        coo_j.append(cpntr[-1]-1)
+        coo_val.append(0.0)
         csr = scipy.sparse.coo_array((coo_val, (coo_i, coo_j))).tocsr()
         indptr = csr.indptr
+        assert(len(indptr) == (rpntr[-1]+1))
         indices = csr.indices
         csr_val = csr.data
     else:

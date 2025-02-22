@@ -284,7 +284,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("#include <assert.h>\n\n")
     code.append(spmv_kernel())
     code.append("int main() {\n")
-    code.append("\tlong times[5];\n")
+    code.append(f"\tlong times[{bench}];\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
@@ -390,12 +390,12 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
                 nnz_block += 1
     if (len(ublocks) > 0):
         code.append(f"""\t\tdouble sum;
-        for (int i=0; i<{rpntr[-1]}; i++) {{
+        for (int k=0; k<{rpntr[-1]}; k++) {{
             sum = 0;
-            for (int j=indptr[i]; j<indptr[i+1]; j++) {{
+            for (int j=indptr[k]; j<indptr[k+1]; j++) {{
                 sum += csr_val[j] * x[indices[j]];
             }}
-            y[i] += sum;
+            y[k] += sum;
         }}\n""")
     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
     code.append("\t\tif (i!=0)\n")
@@ -469,7 +469,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         num_working_threads = len(thread_br_map)
         f.write("\n")
         f.write("int main() {\n")
-        f.write("\tlong times[5];\n")
+        f.write(f"\tlong times[{bench}];\n")
         f.write(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
         f.write("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
         f.write(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
@@ -569,12 +569,12 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         if (len(ublocks) > 0):
             f.write(f"""\t\tdouble sum;
         #pragma omp parallel for
-        for (int i=0; i<{rpntr[-1]}; i++) {{
+        for (int k=0; k<{rpntr[-1]}; k++) {{
             sum = 0;
-            for (int j=indptr[i]; j<indptr[i+1]; j++) {{
+            for (int j=indptr[k]; j<indptr[k+1]; j++) {{
                 sum += csr_val[j] * x[indices[j]];
             }}
-            y[i] += sum;
+            y[k] += sum;
         }}\n""")
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         f.write("\t\tif (i!=0)\n")
@@ -1385,14 +1385,14 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
     time2 = time.time_ns() // 1_000
     return time2-time1
 
-def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int)->int:
+def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, bench: int = 5)->int:
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbr_path)
     time1 = time.time_ns() // 1_000_000
     if threads == 1:
-        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir)
+        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
     else:
-        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir)
+        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 

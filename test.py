@@ -298,20 +298,6 @@ def test_spmv_unroll():
     run_spmv_unroll(8)
     run_spmv_unroll(16)
 
-def test_spmv_splitter():
-    run_spmv_splitter(1)
-    # run_spmv_splitter(2)
-    # run_spmv_splitter(4)
-    # run_spmv_splitter(8)
-    # run_spmv_splitter(16)
-
-def test_spmv_unroll_splitter():
-    run_spmv_unroll_splitter(1)
-    # run_spmv_unroll_splitter(2)
-    # run_spmv_unroll_splitter(4)
-    # run_spmv_unroll_splitter(8)
-    # run_spmv_unroll_splitter(16)
-
 # def test_spmm():
 #     run_spmm(1)
 #     run_spmm(2)

@@ -9,6 +9,7 @@ FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
 mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
+codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV")
 
 pid = os.getpid()
 cpu_affinity = os.sched_getaffinity(pid)
@@ -76,4 +77,4 @@ if __name__ == "__main__":
                         evaled_fnames.append(parts[0])
                 f.write(g.read())
             os.remove(f"mat_dist_{core}.csv")
-    eval_single_proc(evaled_fnames)
+    eval_single_proc(evaled_fnames, codegen_dir)

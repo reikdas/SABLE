@@ -70,16 +70,16 @@ def read_vbrc(filename):
         if l_val != "":
             val.extend(list(map(float, l_val.split(","))))
         l_val = f.readline().split("=")[1][1:-2]
-        coo_val: list[float] = []
+        csr_val: list[float] = []
         if l_val != "":
-            coo_val.extend(list(map(float, l_val.split(","))))
+            csr_val.extend(list(map(float, l_val.split(","))))
         l_i = f.readline().split("=")[1][1:-2]
         l_j = f.readline().split("=")[1][1:-2]
-        coo_i: list[int] = []
-        coo_j: list[int] = []
+        indptr: list[int] = []
+        indices: list[int] = []
         if l_i != "":
-            coo_i = list(map(int, l_i.split(",")))
-            coo_j = list(map(int, l_j.split(",")))
+            indptr = list(map(int, l_i.split(",")))
+            indices = list(map(int, l_j.split(",")))
         indx: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         bindx: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
         rpntr: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
@@ -90,7 +90,7 @@ def read_vbrc(filename):
         l = f.readline().split("=")[1][1:-2]
         if l != "":
             ublocks = list(map(int, l.split(",")))
-    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val
+    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val
 
 def read_vector(filename):
     with open(filename, "r") as f:

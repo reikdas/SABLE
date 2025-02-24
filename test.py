@@ -8,6 +8,7 @@ import pytest
 from src.baseline import *
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
+from src.consts import MKL_FLAGS as MKL_FLAGS
 from src.autopartition import cut_indices2, similarity2
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
                                        convert_vbr_to_compressed)
@@ -160,7 +161,7 @@ def run_spmv_multi_out(threads):
 def run_spmv_unroll(threads):
     test_compression()
     vbr_spmv_codegen("example2", "tests", "tests", threads)
-    subprocess.check_call(["gcc", "-o", "example2", "example2.c"] + CFLAGS, cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example2", "example2.c"] + CFLAGS+MKL_FLAGS, cwd="tests")
     output = subprocess.check_output(["./example2"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))

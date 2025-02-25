@@ -262,18 +262,25 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
 
 def spmv_kernel():
     code = []
-    code.append("void spmv_kernel(double *y, const double* x, const double* val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
-    code.append("\tfor (int j = j_start; j < j_end; j++) {\n")
-    code.append("\t\tfor (int i = i_start; i < i_end; i++) {\n")
-    code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
-    code.append("\t\t}\n")
-    code.append("\t}\n")
-    code.append("}\n\n")
+    code.append("""void spmv_kernel(double *y, const double *x, const double *val, int i_start, int i_end, int j_start, int j_end, int val_offset) {
+    for (int j = j_start; j < j_end; j += 2) {
+        double vec0 = x[j];
+        double vec1 = (j + 1 < j_end) ? x[j + 1] : 0.0;
+        
+        for (int i = i_start; i < i_end; i++) {
+            y[i] += ((&val[val_offset])[(((j - j_start) * (i_end - i_start)) + (i - i_start))] * vec0);
+            if (j + 1 < j_end) {
+                y[i] += ((&val[val_offset])[(((j + 1 - j_start) * (i_end - i_start)) + (i - i_start))] * vec1);
+            }
+        }
+    }
+}""")
     return "".join(code)
 
 def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     code = []
@@ -281,6 +288,8 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
+    code.append("#include <mkl.h>\n")
+    code.append("#include <mkl_spblas.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append(spmv_kernel())
     code.append("int main() {\n")
@@ -371,6 +380,12 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
+    if len(ublocks) > 0:
+        code.append(f"""\tsparse_matrix_t A;
+    mkl_sparse_d_create_csr(&A, SPARSE_INDEX_BASE_ZERO, {rpntr[-1]}, {cpntr[-1]}, indptr, indptr+1, indices, csr_val);
+    struct matrix_descr descr;
+    descr.type = SPARSE_MATRIX_TYPE_GENERAL;
+    mkl_set_num_threads(1);\n""")
     code.append("\tstruct timespec t1;\n")
     code.append("\tstruct timespec t2;\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
@@ -378,6 +393,8 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     count = 0
     nnz_block = 0
+    if (len(ublocks) > 0):
+        code.append("\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
             continue
@@ -388,15 +405,6 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
                     code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     count+=1
                 nnz_block += 1
-    if (len(ublocks) > 0):
-        code.append(f"""\t\tdouble sum;
-        for (int k=0; k<{rpntr[-1]}; k++) {{
-            sum = 0;
-            for (int j=indptr[k]; j<indptr[k+1]; j++) {{
-                sum += csr_val[j] * x[indices[j]];
-            }}
-            y[k] += sum;
-        }}\n""")
     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
     code.append("\t\tif (i!=0)\n")
     code.append("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
@@ -412,8 +420,10 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
 
-def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indices, indptr, csr_val, dir_name: str, filename: str, vbr_dir: str, bench:int=5) -> None:
+def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name: str, filename: str, vbr_dir: str, bench:int=5) -> None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
@@ -424,7 +434,8 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("#include <stdlib.h>\n")
         f.write("#include <assert.h>\n")
         f.write("#include <string.h>\n")
-        f.write("#include <omp.h>\n")
+        f.write("#include <mkl.h>\n")
+        f.write("#include <mkl_spblas.h>\n")
         f.write("#include <pthread.h>\n\n")
         f.write("double *x, *val, *y;\n\n")
         f.write(spmv_kernel())
@@ -475,10 +486,9 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
         f.write("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
         f.write(f"\ty = (double*)calloc({rpntr[-1]}, sizeof(double));\n")
-        f.write(f"\tx = (double*)calloc({cpntr[-1] + 1}, sizeof(double));\n")
-        f.write(f"\tval = (double*)calloc({len(val) + 1}, sizeof(double));\n")
+        f.write(f"\tx = (double*)calloc({cpntr[-1]}, sizeof(double));\n")
+        f.write(f"\tval = (double*)calloc({len(val)}, sizeof(double));\n")
         f.write(f"\tdouble* csr_val = (double*)calloc({len(csr_val)}, sizeof(double));\n")
-        f.write(f"\tomp_set_num_threads({threads});\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
         f.write('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -556,26 +566,25 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
+        if len(ublocks) > 0:
+            f.write(f"""\tsparse_matrix_t A;
+    mkl_sparse_d_create_csr(&A, SPARSE_INDEX_BASE_ZERO, {rpntr[-1]}, {cpntr[-1]}, indptr, indptr+1, indices, csr_val);
+    struct matrix_descr descr;
+    descr.type = SPARSE_MATRIX_TYPE_GENERAL;
+    mkl_set_num_threads({threads});\n""")
         f.write("\tstruct timespec t1;\n")
         f.write("\tstruct timespec t2;\n")
         f.write(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
         f.write("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-        f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
+        if (len(ublocks) > 0):
+            f.write("\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
+        if num_working_threads > 0:
+            f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_join(tid[{a}], NULL);\n")
-        if (len(ublocks) > 0):
-            f.write(f"""\t\tdouble sum;
-        #pragma omp parallel for
-        for (int k=0; k<{rpntr[-1]}; k++) {{
-            sum = 0;
-            for (int j=indptr[k]; j<indptr[k+1]; j++) {{
-                sum += csr_val[j] * x[indices[j]];
-            }}
-            y[k] += sum;
-        }}\n""")
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         f.write("\t\tif (i!=0)\n")
         f.write("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")

@@ -8,6 +8,8 @@ import numpy
 import scipy
 from scipy.io import mmread
 
+from src.consts import *
+
 logger = logging.getLogger(__name__)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
@@ -43,15 +45,15 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
                             idxs_j.append(idx_j)
                         count2+=1
                 dense_count = len(dense_elems)
+                assert(dense_count + sparse_count == (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b]))
                 calc_density = (dense_count/(dense_count + sparse_count))*100
                 if density is not None:
                     unroll = True
                     if calc_density > density:
                         unroll = False
                 else:
-                    block_size = (rpntr[a+1] - rpntr[a])*(cpntr[b+1] - cpntr[b])
                     unroll = True
-                    if model.predict([[block_size, calc_density]])[0] == 1:
+                    if model.predict([[(rpntr[a+1]-rpntr[a]), (cpntr[b+1]-cpntr[b]), dense_count, calc_density]])[0] >= SPEEDUP_THRESH:
                         unroll = False
                 if not unroll:
                     val2.extend(val[indx[count]:indx[count+1]])
@@ -63,9 +65,10 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
                     coo_j.extend(idxs_j)
                 count+=1
     if len(coo_i) > 0:
-        coo_i.append(rpntr[-1]-1)
-        coo_j.append(cpntr[-1]-1)
-        coo_val.append(0.0)
+        if (rpntr[-1]-1) not in coo_i or (cpntr[-1]-1) not in coo_j:
+            coo_i.append(rpntr[-1]-1)
+            coo_j.append(cpntr[-1]-1)
+            coo_val.append(0.0)
         csr = scipy.sparse.coo_array((coo_val, (coo_i, coo_j))).tocsr()
         indptr = csr.indptr
         assert(len(indptr) == (rpntr[-1]+1))

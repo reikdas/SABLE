@@ -14,7 +14,9 @@ FILEPATH = pathlib.Path(__file__).resolve().parent.parent
 sys.path.append(str(FILEPATH))
 
 from src.autopartition import cut_indices2, similarity2
+from src.consts import *
 from utils.convert_real_to_vbr import convert_sparse_to_vbr
+from utils.fileio import read_vbr
 
 # from utils.utils import timeout
 
@@ -53,7 +55,8 @@ if __name__ == "__main__":
                 mtx_nnz = mtx.nnz
                 A = scipy.sparse.csc_matrix(mtx, copy=False)
                 cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
-                val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, fname, vbr_dir)
+                val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname))
+                val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, fname, fname+".vbr"))
                 count = 0
                 dense_blocks = 0
                 num_blocks = 0
@@ -78,7 +81,7 @@ if __name__ == "__main__":
                             size = sparse_count + dense_count
                             total_nnz += dense_count
                             density = (dense_count / size) * 100
-                            if model.predict([[size, density]])[0] == 1:
+                            if model.predict([[(rpntr[a+1]-rpntr[a]), (cpntr[b+1]-cpntr[b]), dense_count, density]])[0] >= SPEEDUP_THRESH:
                                 dense_blocks += 1
                                 operated_nnz += size
                             else:
@@ -89,7 +92,7 @@ if __name__ == "__main__":
                 new_density = round(operated_nnz/mtx_size, 2)
                 f.write(f"{fname},{total_nnz},{operated_nnz-total_nnz},{num_blocks},{dense_blocks},{old_density},{new_density}\n")
                 f.flush()
-            except Exception:
-                f.write(f"{fname},ERROR\n")
+            except Exception as e:
+                f.write(f"{fname},{e}\n")
                 f.flush()
             print(f"Done {fname} on core {core}")

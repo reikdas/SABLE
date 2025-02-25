@@ -8,8 +8,10 @@ import psutil
 from mpi4py import MPI
 
 from src.codegen import gen_single_threaded_spmv
+from src.consts import CFLAGS as CFLAGS
 from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbrc
-from utils.fileio import write_dense_vector
+from utils.fileio import write_dense_vector, read_vbr
+from utils.convert_real_to_vbr import convert_vbr_to_compressed
 from utils.utils import timeout
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
@@ -20,8 +22,8 @@ COMPILE_TIMEOUT = 60 * 60 * 4
 PARTITION_TIMEOUT = 60 * 60 * 3
 
 mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
-vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_vbr_thresh0.2_cut2_sim2"))
-codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_suitesparse_thresh0.2_cut2_sim2_fastc")
+vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR"))
+codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV")
 
 @timeout(PARTITION_TIMEOUT)
 def vbrc_wrapper(file_path, dest_path):
@@ -44,23 +46,19 @@ if __name__ == "__main__":
                 relative_path = file_path.relative_to(mtx_dir)
                 dest_path = vbr_dir / relative_path.with_suffix(".vbr")
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val = vbrc_wrapper(str(file_path), str(dest_path))
-                except:
-                    f.write(f"{fname},ERROR1,ERROR1\n")
-                    f.flush()
-                    print(f"{fname} partition timed out")
-                    continue
+                # val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir, fname, fname+".vbrc"))
+                val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, fname, fname+".vbr"))
+                val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, os.path.join(vbr_dir,fname))
                 if val is None:
                     f.write(f"{fname},ERROR2,ERROR2\n")
                     f.flush()
                     print(f"{fname} could not partition")
                     continue
                 write_dense_vector(1.0, cpntr[-1])
-                codegen_time = gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, coo_i, coo_j, coo_val, codegen_dir, fname, dest_path.parent)
+                codegen_time = gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir, fname, os.path.join(vbr_dir, fname))
                 try:
                     time1 = time.time_ns() // 1_000_000
-                    subprocess.run(["taskset", "-a", "-c", str(core), "./split_compile.sh", codegen_dir + "/" + fname + ".c", "2000"], cwd=BASE_PATH, check=True, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)
+                    subprocess.run(["taskset", "-a", "-c", str(core), "gcc", f"{fname}.c", "-o", fname] + CFLAGS, cwd=codegen_dir, check=True, timeout=COMPILE_TIMEOUT)
                     time2 = time.time_ns() // 1_000_000
                     compile_time = time2-time1
                 except subprocess.TimeoutExpired:

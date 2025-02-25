@@ -7,9 +7,7 @@
 #include <ctime>
 #include <cstring>
 #include <mkl_spblas.h>
-#ifdef OPENMP
-#include <omp.h>
-#endif
+#include <mkl.h>
 
 struct COO {
     int rows, cols, nnz;
@@ -247,22 +245,6 @@ COO readMTXtoCOO(const std::string &filename) {
     return coo;
 }
 
-// add a function to calculate the matrix-vector product
-void spmv(const CSR &csr, const double *x, double *y) {
-
-    // add pragma omp parallel for only if a flag is defined at compile time
-    #ifdef OPENMP
-    #pragma omp parallel for
-    #endif
-    for (int i = 0; i < csr.rows; i++) {
-        double sum = 0;
-        for (int j = csr.row_ptrs[i]; j < csr.row_ptrs[i + 1]; j++) {
-            sum += csr.values[j] * x[csr.col_indices[j]];
-        }
-        y[i] += sum;
-    }
-}
-
 // Example usage
 int main(int argc, char *argv[]) {
 
@@ -280,9 +262,7 @@ int main(int argc, char *argv[]) {
     const char* dense_vec_path = argv[4];
 
     // set the number of threads
-    #ifdef OPENMP
-    omp_set_num_threads(num_threads);
-    #endif
+    mkl_set_num_threads(num_threads);
 
     COO cooMatrix = readMTXtoCOO(filename);
     CSR csrMatrix = coo_to_csr(cooMatrix);

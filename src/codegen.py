@@ -423,7 +423,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 
-def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indices, indptr, csr_val, dir_name: str, filename: str, vbr_dir: str, bench:int=5) -> None:
+def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name: str, filename: str, vbr_dir: str, bench:int=5) -> None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
@@ -486,10 +486,9 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
         f.write("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
         f.write(f"\ty = (double*)calloc({rpntr[-1]}, sizeof(double));\n")
-        f.write(f"\tx = (double*)calloc({cpntr[-1] + 1}, sizeof(double));\n")
-        f.write(f"\tval = (double*)calloc({len(val) + 1}, sizeof(double));\n")
+        f.write(f"\tx = (double*)calloc({cpntr[-1]}, sizeof(double));\n")
+        f.write(f"\tval = (double*)calloc({len(val)}, sizeof(double));\n")
         f.write(f"\tdouble* csr_val = (double*)calloc({len(csr_val)}, sizeof(double));\n")
-        f.write(f"\tomp_set_num_threads({threads});\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
         f.write('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -580,7 +579,8 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
         if (len(ublocks) > 0):
             f.write("\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
-        f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
+        if num_working_threads > 0:
+            f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
         for a in range(num_working_threads):

@@ -4,3 +4,4 @@ tqdm
 pytest
 joblib
 scikit-learn
+mpi4py

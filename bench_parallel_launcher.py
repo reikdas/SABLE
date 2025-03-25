@@ -4,16 +4,19 @@ import subprocess
 
 from eval import eval_single_proc
 from utils.utils import check_file_matches_parent_dir
+import scipy
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
 mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
 codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV")
+vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR"))
 
 pid = os.getpid()
 cpu_affinity = os.sched_getaffinity(pid)
 
+THREADS = [1]
 # eval = [
 #     "rim",
 #     "ns3Da",
@@ -65,9 +68,9 @@ if __name__ == "__main__":
     subprocess.run(["mpirun", "--cpu-list", ",".join(map(str, cpu_affinity)), "--bind-to", "cpu-list:ordered", "-np", str(num_cores), "python3", "bench_launcher.py"], check=True, env=dict(os.environ) | {"HWLOC_COMPONENTS": "-gl"})
     evaled_fnames = []
     with open(os.path.join(BASE_PATH, "results", "compile_res.csv"), "w") as f:
-        f.write("Filename,Codegen(ms),Compile(ms)\n")
+        f.write("Filename,Partition(ms),VBR_convert(ms),Compress(ms),Codegen(ms),Compile(ms)\n")
         for core in range(num_cores):
-            with open(f"mat_dist_{core}.csv") as g:
+            with open(os.path.join(BASE_PATH, f"mat_dist_{core}.csv")) as g:
                 for line in g:
                     parts = line.strip().split(',')
                     if parts[0] == "Filename":
@@ -75,6 +78,8 @@ if __name__ == "__main__":
                     if 'ERROR' not in parts[1] and 'ERROR' not in parts[2]:
                         f.write(line)
                         evaled_fnames.append(parts[0])
+                    else:
+                        print(parts)
                 f.write(g.read())
             os.remove(f"mat_dist_{core}.csv")
-    eval_single_proc(evaled_fnames, codegen_dir)
+    print(evaled_fnames)

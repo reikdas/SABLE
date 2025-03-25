@@ -1,6 +1,6 @@
 import os
 
-BASE_PATH = os.path.join(os.path.dirname(__file__))
+BASE_PATH = os.path.join(os.path.dirname(__file__), "..")
 
 MKL_PATH = os.path.join(BASE_PATH, "..", "intel", "oneapi", "mkl", "latest")
 MKL_FLAGS = [f"-I{MKL_PATH}/include", f"-L{MKL_PATH}/lib/intel64", "-lmkl_rt"]

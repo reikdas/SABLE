@@ -23,17 +23,11 @@ from bench_parallel_launcher import vbr_dir as vbr_dir
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
-BENCHMARK_FREQ = 5
 COMPILE_TIMEOUT = 60 * 60 * 4
-PARTITION_TIMEOUT = 60 * 60 * 3
 
-mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
-vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR"))
-codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV")
-
-@timeout(PARTITION_TIMEOUT)
-def vbrc_wrapper(file_path, dest_path):
-    return my_convert_dense_to_vbrc((str(file_path), str(dest_path)), 0.2, cut_indices2, similarity2)
+cut_indices = cut_indices2
+similarity = similarity2
+cut_threshold = 0.2
 
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD

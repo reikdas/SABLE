@@ -16,7 +16,7 @@ FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
 def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, dst_dir, density=None):
-    model = joblib.load(os.path.join(BASE_PATH, "models", "density_threshold_spmv.pkl"))
+        model = joblib.load(os.path.join(BASE_PATH, "models", "density_threshold_spmv.pkl"))
     val2: list[float] = []
     indx2: list[int] = [0]
     ublocks: list[int] = []
@@ -53,7 +53,9 @@ def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fn
                         unroll = False
                 else:
                     unroll = True
-                    if model.predict([[(rpntr[a+1]-rpntr[a]), (cpntr[b+1]-cpntr[b]), dense_count, calc_density]])[0] >= SPEEDUP_THRESH:
+                    # if model.predict([[(rpntr[a+1]-rpntr[a]), (cpntr[b+1]-cpntr[b]), dense_count, calc_density]])[0] == 1:
+                    if model.predict([[(rpntr[a+1]-rpntr[a]), (cpntr[b+1]-cpntr[b]), calc_density]])[0] == 1:
+                        #print(f"{rpntr[a+1]-rpntr[a]},{cpntr[b+1]-cpntr[b]},{calc_density}")
                         unroll = False
                 if not unroll:
                     val2.extend(val[indx[count]:indx[count+1]])

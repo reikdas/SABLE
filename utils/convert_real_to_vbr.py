@@ -16,6 +16,7 @@ FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
 def convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, dst_dir, density=None):
+    if density is None:
         model = joblib.load(os.path.join(BASE_PATH, "models", "density_threshold_spmv.pkl"))
     val2: list[float] = []
     indx2: list[int] = [0]

@@ -144,7 +144,7 @@ def test_partition():
 def run_spmv(threads):
     test_setup_file()
     vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS + MKL_FLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))

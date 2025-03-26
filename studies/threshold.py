@@ -40,8 +40,8 @@ def calculate_threshold():
     with open(os.path.join(FILEPATH,"threshold_results.csv"), "w") as f:
         f.write(f"dim1,dim2,perc_zeros,nnz,CSR_time,sable_time\n")
         for dim1 in tqdm(dims, desc="Processing dimensions"):
-            for dim2 in dims:
-                for perc_zeros in tqdm(perc_zeros_list, desc=f"Dim {dim1}: Processing % zeros", leave=False):
+            for dim2 in tqdm(dims, desc=f"Dim {dim1}: Processing dimensions", leave=False):
+                for perc_zeros in tqdm(perc_zeros_list, desc=f"Dim {dim2}: Processing % zeros", leave=False):
                     nnz = (dim1*dim2*(100-perc_zeros))//100
                     fname: str = vbr_matrix_gen(mat_side, mat_side, "uniform", mat_side//dim1, mat_side//dim2, 1, perc_zeros, 0, True, DENSE_VBR_DIR)
                     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(DENSE_VBR_DIR, fname+".vbr"))
@@ -66,12 +66,12 @@ def calculate_threshold():
                     convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname2, SPARSE_VBR_DIR, 100)
                     vbr_spmv_codegen(fname2, dir_name=SPARSE_CODEGEN_DIR, vbr_dir=SPARSE_VBR_DIR, threads=1, bench=BENCHMARK_FREQ)
                     try:
-                        subprocess.run(["taskset", "-a", "-c", str(core), "gcc", f"{fname2}.c", "-o", fname2] + CFLAGS + MKL_FLAGS, cwd=os.path.join(FILEPATH, SPARSE_CODEGEN_DIR), check=True, timeout=COMPILE_TIMEOUT)
+                        subprocess.run(["taskset", "-a", "-c", str(core), "gcc", f"{fname2}.c", "-o", fname2] + CFLAGS + MKL_FLAGS, cwd=os.path.join(BASE_PATH, SPARSE_CODEGEN_DIR), check=True, timeout=COMPILE_TIMEOUT)
                     except subprocess.TimeoutExpired:
                         print("SABLE Sparse: Compilation failed for ", fname2)
                         continue
                     try:
-                        output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname2}"], cwd=os.path.join(FILEPATH, SPARSE_CODEGEN_DIR)).decode("utf-8").split("\n")[0]
+                        output = subprocess.check_output(["taskset", "-a", "-c", str(core), f"./{fname2}"], cwd=os.path.join(BASE_PATH, SPARSE_CODEGEN_DIR)).decode("utf-8").split("\n")[0]
                     except subprocess.CalledProcessError as e:
                         print("SABLE Sparse: Execution failed for ", fname2, " with ", e)
                         continue

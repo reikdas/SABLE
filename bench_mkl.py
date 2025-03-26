@@ -1,9 +1,11 @@
 import subprocess
 import os
 import pathlib
+import statistics
 
 from scipy.io import mmread
 import pandas as pd
+import numpy as np
 
 from utils.utils import check_file_matches_parent_dir
 from utils.fileio import write_dense_vector
@@ -13,9 +15,18 @@ from src.consts import MKL_FLAGS as MKL_FLAGS
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
-BENCHMARK_FREQ = 5
+BENCHMARK_FREQ = 100
 
 results_dir = os.path.join(BASE_PATH, "results")
+
+def remove_outliers_deciles(data):
+    if len(data) < 10:  # Ensure enough data points for deciles
+        return data
+    
+    D1 = np.percentile(data, 10)  # 10th percentile
+    D9 = np.percentile(data, 90)  # 90th percentile
+
+    return [x for x in data if D1 <= x <= D9]
 
 if __name__ == "__main__":
     mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
@@ -33,8 +44,13 @@ if __name__ == "__main__":
                     mtx = mmread(file_path)
                     cols = mtx.get_shape()[1]
                     write_dense_vector(1.0, cols)
-                    output = subprocess.run(["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), f"{BASE_PATH}/src/mkl-spmv", str(file_path), str(thread), str(BENCHMARK_FREQ), os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cols}.vector")], capture_output=True, check=True, text=True)
-                    csr_spmv_exec_time = float(output.stdout.split(" ")[1])
+                    l = []
+                    for _ in range(100):
+                        output = subprocess.run(["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), f"{BASE_PATH}/src/mkl-spmv", str(file_path), str(thread), str(BENCHMARK_FREQ), os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cols}.vector")], capture_output=True, check=True, text=True)
+                        csr_spmv_exec_time = float(output.stdout.split("\n")[0].split(" ")[1])
+                        l.append(csr_spmv_exec_time)
+                    l = remove_outliers_deciles(l)
+                    csr_spmv_exec_time = statistics.mean(l)
                     f.write(f"{fname},{csr_spmv_exec_time}\n")
                     f.flush()
     

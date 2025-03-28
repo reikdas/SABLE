@@ -298,10 +298,10 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tdouble* y = (double*)calloc({rpntr[-1]}, sizeof(double));\n")
-    code.append(f"\tdouble* x = (double*)calloc({cpntr[-1]}, sizeof(double));\n")
-    code.append(f"\tdouble* val = (double*)calloc({len(val)}, sizeof(double));\n")
-    code.append(f"\tdouble* csr_val = (double*)calloc({len(csr_val)}, sizeof(double));\n")
+    code.append(f"\tdouble y[{rpntr[-1]}] = {{0}};\n")
+    code.append(f"\tdouble x[{cpntr[-1]}] = {{0}};\n")
+    code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
+    code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -340,8 +340,8 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');\n''')
     if (len(indptr) > 0):
-        code.append(f"""\tint* indptr = (int*)malloc({len(indptr)} * sizeof(int));
-    int* indices = (int*)malloc({len(indices)} * sizeof(int));
+        code.append(f"""\tint indptr[{len(indptr)}] = {{0}};
+    int indices[{len(indices)}] = {{0}};
     val_size=0;
     assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
     val_size++;

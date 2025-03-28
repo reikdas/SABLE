@@ -272,14 +272,14 @@ int main(int argc, char *argv[]) {
     
 
     // create an array with the same size as the number of cols in the csrMatrix
-    double *x = new double[csrMatrix.cols];
+    std::array<double, csrMatrix.cols> x = {};
     int x_size=0;
     while (x_size < csrMatrix.cols && fscanf(file2, "%lf,", &x[x_size]) == 1) {
         x_size++;
     }
 
     // create an array with the same size as the number of rows in the csrMatrix
-    double *y = new double[csrMatrix.rows];
+    std::array<double, csrMatrix.rows> y = {};
 
     MKL_INT n = csrMatrix.rows; // Size of the matrix (n x n)
     MKL_INT m = csrMatrix.cols; // Number of non-zero elements

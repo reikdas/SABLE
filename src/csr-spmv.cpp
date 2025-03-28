@@ -314,7 +314,7 @@ int main(int argc, char *argv[]) {
     // get the median of the execution time
     std::sort(exec_time, exec_time + NUMBER_OF_RUNS);
     const int mid_point = NUMBER_OF_RUNS/2;
-    std::cout << "Time: " << exec_time[mid_point] << " us" << std::endl;
+    std::cout << "Time: " << exec_time[mid_point] << " ns" << std::endl;
     for (int i=0; i<csrMatrix.rows; i++) {
         std::cout << y[i] << std::endl;
     }

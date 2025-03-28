@@ -262,19 +262,13 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
 
 def spmv_kernel():
     code = []
-    code.append("""void spmv_kernel(double *y, const double *x, const double *val, int i_start, int i_end, int j_start, int j_end, int val_offset) {
-    for (int j = j_start; j < j_end; j += 2) {
-        double vec0 = x[j];
-        double vec1 = (j + 1 < j_end) ? x[j + 1] : 0.0;
-        
-        for (int i = i_start; i < i_end; i++) {
-            y[i] += ((&val[val_offset])[(((j - j_start) * (i_end - i_start)) + (i - i_start))] * vec0);
-            if (j + 1 < j_end) {
-                y[i] += ((&val[val_offset])[(((j + 1 - j_start) * (i_end - i_start)) + (i - i_start))] * vec1);
-            }
-        }
-    }
-}""")
+    code.append("void spmv_kernel(double *restrict y, const double *restrict x, const double *restrict val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("\tfor (int j = j_start; j < j_end; j++) {\n")
+    code.append("\t\tfor (int i = i_start; i < i_end; i++) {\n")
+    code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
     return "".join(code)
 
 def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->None:
@@ -394,7 +388,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     count = 0
     nnz_block = 0
     if (len(ublocks) > 0):
-        code.append("\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
+        code.append("\t\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
             continue

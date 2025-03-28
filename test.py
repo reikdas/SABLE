@@ -162,7 +162,11 @@ def run_spmv_unroll(threads):
     test_compression()
     vbr_spmv_codegen("example2", "tests", "tests", threads)
     subprocess.check_call(["gcc", "-o", "example2", "example2.c"] + CFLAGS+MKL_FLAGS, cwd="tests")
-    output = subprocess.check_output(["./example2"], cwd="tests").decode("utf-8").split("\n")[1:]
+    output = subprocess.check_output(["./example2"], cwd="tests").decode("utf-8").split("\n")
+    if "warning" in output[0].lower():
+        output = output[2:]
+    else:
+        output = output[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))

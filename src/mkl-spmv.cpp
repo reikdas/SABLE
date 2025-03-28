@@ -313,7 +313,7 @@ int main(int argc, char *argv[]) {
     std::sort(times, times + NUMBER_OF_RUNS);
 
     const int mid_point = NUMBER_OF_RUNS/2;
-    std::cout << "Time: " << times[mid_point] << " us" << std::endl;
+    std::cout << "Time: " << times[mid_point] << " ns" << std::endl;
     for (int i=0; i<csrMatrix.rows; i++) {
         std::cout << y[i] << std::endl;
     }

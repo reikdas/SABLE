@@ -574,13 +574,13 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     mkl_set_num_threads({threads});\n""")
         f.write("\tstruct timespec t1;\n")
         f.write("\tstruct timespec t2;\n")
+        if num_working_threads > 0:
+            f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
         f.write(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
         f.write("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
         if (len(ublocks) > 0):
             f.write("\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
-        if num_working_threads > 0:
-            f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
         for a in range(num_working_threads):

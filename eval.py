@@ -3,11 +3,10 @@ import pathlib
 import statistics
 import subprocess
 
-import psutil
 import numpy as np
 
 from src.consts import CFLAGS as CFLAGS
-from utils.utils import extract_mul_nums
+from utils.utils import extract_mul_nums, set_ulimit
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
@@ -28,7 +27,7 @@ def eval_single_proc(eval, codegen_dir, threads):
             for fname in eval:
                 l = []
                 for _ in range(100):
-                    output = subprocess.check_output(["taskset", "-a", "-c", "0", f"./{fname}"], cwd=codegen_dir+"_"+str(thread)).decode("utf-8").split("\n")
+                    output = subprocess.check_output(["taskset", "-a", "-c", "0", f"./{fname}"], cwd=codegen_dir+"_"+str(thread), preexec_fn=set_ulimit).decode("utf-8").split("\n")
                     if "warning" in output[0].lower():
                         output = output[1]
                     else:

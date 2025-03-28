@@ -82,7 +82,7 @@ if __name__ == "__main__":
                         codegen_time = gen_multi_threaded_spmv(thread, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir+"_"+str(thread), fname, os.path.join(vbr_dir, fname))
                     try:
                         time1 = time.time_ns() // 1_000_000
-                        subprocess.run(["taskset", "-a", "-c", str(core), "gcc", f"{fname}.c", "-o", fname] + CFLAGS + MKL_FLAGS + PAPI_COMPILE_FLAGS, cwd=codegen_dir+"_"+str(thread), check=True, timeout=COMPILE_TIMEOUT)
+                        subprocess.run(["taskset", "-a", "-c", str(core), "gcc", f"{fname}.c", "-o", fname] + CFLAGS + MKL_FLAGS, cwd=codegen_dir+"_"+str(thread), check=True, timeout=COMPILE_TIMEOUT)
                         time2 = time.time_ns() // 1_000_000
                         compile_time = time2-time1
                     except subprocess.TimeoutExpired:

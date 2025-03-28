@@ -1,7 +1,8 @@
 import os
-import time
+import resource
 import signal
 from functools import wraps
+
 
 def check_file_matches_parent_dir(filepath):
     """
@@ -59,3 +60,6 @@ def timeout(timeout_secs: int):
         return time_limited
 
     return wrapper
+
+def set_ulimit():
+    resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))

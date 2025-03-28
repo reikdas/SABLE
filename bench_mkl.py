@@ -7,7 +7,7 @@ from scipy.io import mmread
 import pandas as pd
 import numpy as np
 
-from utils.utils import check_file_matches_parent_dir
+from utils.utils import check_file_matches_parent_dir, set_ulimit
 from utils.fileio import write_dense_vector
 from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
@@ -46,8 +46,12 @@ if __name__ == "__main__":
                     write_dense_vector(1.0, cols)
                     l = []
                     for _ in range(100):
-                        output = subprocess.run(["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), f"{BASE_PATH}/src/mkl-spmv", str(file_path), str(thread), str(BENCHMARK_FREQ), os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cols}.vector")], capture_output=True, check=True, text=True)
-                        csr_spmv_exec_time = float(output.stdout.split("\n")[0].split(" ")[1])
+                        output = subprocess.run(["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), f"{BASE_PATH}/src/mkl-spmv", str(file_path), str(thread), str(BENCHMARK_FREQ), os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cols}.vector")], capture_output=True, check=True, text=True, preexec_fn=set_ulimit).stdout.split("\n")
+                        if "warning" in output[0].lower():
+                            output = output[1]
+                        else:
+                            output = output[0]
+                        csr_spmv_exec_time = float(output.split(" ")[1])
                         l.append(csr_spmv_exec_time)
                     l = remove_outliers_deciles(l)
                     csr_spmv_exec_time = statistics.mean(l)

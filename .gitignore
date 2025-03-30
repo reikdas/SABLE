@@ -3,7 +3,6 @@
 **.venv**
 .mypy_cache/
 src/csr-spmv
-src/mkl-spmv
 Generated_VBR*/
 Generated_MMarket*/
 Generated_SpMV*/
@@ -31,3 +30,5 @@ split-and-binaries/
 mat_dist*.csv
 *.o
 studies/stats_dist*.csv
+Generated_MKL_*/
+MKL_VBRC/

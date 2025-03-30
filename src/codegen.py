@@ -294,7 +294,8 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
     code.append(f"\tdouble y[{rpntr[-1]}] = {{0}};\n")
     code.append(f"\tdouble x[{cpntr[-1]}] = {{0}};\n")
-    code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
+    if len(val) > 0:
+        code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
     code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")

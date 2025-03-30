@@ -431,7 +431,10 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("#include <mkl.h>\n")
         f.write("#include <mkl_spblas.h>\n")
         f.write("#include <pthread.h>\n\n")
-        f.write("double *x, *val, *y;\n\n")
+        f.write(f"double y[{rpntr[-1]}] = {{0}};\n")
+        f.write(f"double x[{cpntr[-1]}] = {{0}};\n")
+        f.write(f"double val[{len(val)}] = {{0}};\n")
+        f.write(f"double csr_val[{len(csr_val)}] = {{0}};\n\n")
         f.write(spmv_kernel())
         work_per_br = [0]*(len(rpntr)-1)
         count = 0
@@ -479,10 +482,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
         f.write(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
         f.write("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-        f.write(f"\ty = (double*)calloc({rpntr[-1]}, sizeof(double));\n")
-        f.write(f"\tx = (double*)calloc({cpntr[-1]}, sizeof(double));\n")
-        f.write(f"\tval = (double*)calloc({len(val)}, sizeof(double));\n")
-        f.write(f"\tdouble* csr_val = (double*)calloc({len(csr_val)}, sizeof(double));\n")
         f.write("\tchar c;\n")
         f.write(f"\tint x_size=0, val_size=0;\n")
         f.write('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -521,8 +520,8 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');\n''')
         if (len(indptr) > 0):
-            f.write(f"""\tint* indptr = (int*)malloc({len(indptr)} * sizeof(int));
-    int* indices = (int*)malloc({len(indices)} * sizeof(int));
+            f.write(f"""\tint indptr[{len(indptr)}] = {{0}};
+    int indices[{len(indices)}] = {{0}};
     val_size=0;
     assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
     val_size++;
@@ -574,7 +573,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
         if (len(ublocks) > 0):
-            f.write("\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
+            f.write("\t\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
         for a in range(num_working_threads):
             f.write(f"\t\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
         for a in range(num_working_threads):
@@ -583,8 +582,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("\t\tif (i!=0)\n")
         f.write("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
         f.write("\t}\n")
-        f.write("\tfree(x);\n")
-        f.write("\tfree(val);\n")
         f.write('\tprintf("{0} = ");\n'.format(filename))
         f.write("\tfor (int i=0; i<{0}; i++) {{\n".format(bench))
         f.write("\t\tprintf(\"%lu,\", times[i]);\n")

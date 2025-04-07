@@ -53,5 +53,6 @@ if __name__ == "__main__":
     # "dbir1",
     # "msc23052",
     # "heart1",
+    ]
     codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV")
     eval_single_proc(eval, codegen_dir, [1])

@@ -4,4 +4,5 @@ tqdm
 pytest
 joblib
 scikit-learn
+pandas
 mpi4py

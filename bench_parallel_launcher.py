@@ -2,34 +2,43 @@ import os
 import pathlib
 import subprocess
 
-from eval import eval_single_proc
 from utils.utils import check_file_matches_parent_dir
 import scipy
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
-mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
+mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "..", "Suitesparse"))
 codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV")
 vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR"))
 
 pid = os.getpid()
 cpu_affinity = os.sched_getaffinity(pid)
 
-THREADS = [1]
-# eval = [
-#     "rim",
-#     "ns3Da",
-#     "olafu",
-#     "Maragal_7",
-#     "bbmat",
-#     "bcsstk37",
-#     "nemeth26",
-#     "nemeth24",
-#     "li",
-#     "nemsemm1",
-#     "venkat25",
-# ]
+THREADS = [1, 2, 4, 8]
+eval = [
+    "hangGlider_3",
+    "hangGlider_4",
+    "hangGlider_5",
+    "lowThrust_7",
+    "lowThrust_11",
+    "lowThrust_12",
+    "TSOPF_FS_b9_c1",
+    "brainpc2",
+    "TSOPF_FS_b9_c6",
+    "Journals",
+    "eris1176",
+    "freeFlyingRobot_7",
+    "freeFlyingRobot_9",
+    "Zd_Jac3",
+    "freeFlyingRobot_6",
+    "lowThrust_3",
+    "lowThrust_2",
+    "lowThrust_5",
+    "bloweybl",
+    # "rail4284",
+    "std1_Jac2",
+]
 
 skip = [
     "xenon1",
@@ -45,8 +54,8 @@ if __name__ == "__main__":
     for file_path in mtx_dir.rglob("*"):
         if file_path.is_file() and file_path.suffix == ".mtx" and check_file_matches_parent_dir(file_path):
             fname = pathlib.Path(file_path).resolve().stem
-            # if fname not in eval:
-            #     continue
+            if fname not in eval:
+                continue
             if fname in skip:
                 continue
             files.append(file_path)

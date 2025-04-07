@@ -282,8 +282,9 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
-    code.append("#include <mkl.h>\n")
-    code.append("#include <mkl_spblas.h>\n")
+    if (len(ublocks) > 0):
+        code.append("#include <mkl.h>\n")
+        code.append("#include <mkl_spblas.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append(spmv_kernel())
     code.append("int main() {\n")
@@ -296,6 +297,8 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append(f"\tdouble x[{cpntr[-1]}] = {{0}};\n")
     if len(val) > 0:
         code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
+    else:
+        code.append(f"\tdouble val[1] = {{0}};\n")
     code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")

@@ -7,7 +7,8 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
-from src.consts import SPEEDUP_THRESH
+# from src.consts import SPEEDUP_THRESH
+SPEEDUP_THRESH=1.5
 
 FILEPATH=pathlib.Path(__file__).resolve().parent
 BASEPATH=os.path.join(FILEPATH.parent)

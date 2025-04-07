@@ -48,18 +48,18 @@ if __name__ == "__main__":
                 dest_path.parent.mkdir(parents=True, exist_ok=True)
                 # val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir, fname, fname+".vbrc"))
                 # val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, fname, fname+".vbr"))
-                # A = scipy.io.mmread(file_path)
-                # A = scipy.sparse.csc_matrix(A, copy=False)
+                A = scipy.io.mmread(file_path)
+                A = scipy.sparse.csc_matrix(A, copy=False)
                 time1 = time.time_ns() // 1_000_000
-                # cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
+                cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
                 time2 = time.time_ns() // 1_000_000
                 partition_time = time2-time1
                 time1 = time.time_ns() // 1_000_000
-                # val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname))
+                val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname))
                 time2 = time.time_ns() // 1_000_000
                 VBR_convert_time = time2-time1
                 time1 = time.time_ns() // 1_000_000
-                val,indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, fname, fname+".vbr"))
+                # val,indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, fname, fname+".vbr"))
                 val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, os.path.join(vbr_dir,fname))
                 time2 = time.time_ns() // 1_000_000
                 compress_time = time2-time1

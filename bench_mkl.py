@@ -54,7 +54,7 @@ if __name__ == "__main__":
                     print(f"Processing {fname}")
                     mtx = mmread(file_path)
                     cols = mtx.get_shape()[1]
-                    # write_dense_vector(1.0, cols)
+                    write_dense_vector(1.0, cols)
                     val,indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, fname, fname+".vbr"))
                     val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, mkl_vbrc_dir, 100)
                     for thread in threads:

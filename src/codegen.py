@@ -299,7 +299,8 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
     else:
         code.append(f"\tdouble val[1] = {{0}};\n")
-    code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
+    if len(csr_val) > 0:
+        code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -438,7 +439,8 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write(f"double y[{rpntr[-1]}] = {{0}};\n")
         f.write(f"double x[{cpntr[-1]}] = {{0}};\n")
         f.write(f"double val[{len(val)}] = {{0}};\n")
-        f.write(f"double csr_val[{len(csr_val)}] = {{0}};\n\n")
+        if len(ublocks) > 0:
+            f.write(f"double csr_val[{len(csr_val)}] = {{0}};\n\n")
         f.write(spmv_kernel())
         work_per_br = [0]*(len(rpntr)-1)
         count = 0

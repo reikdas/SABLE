@@ -262,11 +262,30 @@ def vbr_spmv_cuda_codegen_for_all(density: int = 0):
 
 def spmv_kernel():
     code = []
-    code.append("void spmv_kernel(double *restrict y, const double *restrict x, const double *restrict val, int i_start, int i_end, int j_start, int j_end, int val_offset) {\n")
+    code.append("void spmv_kernel(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int j_end, const int val_offset) {\n")
     code.append("\tfor (int j = j_start; j < j_end; j++) {\n")
     code.append("\t\tfor (int i = i_start; i < i_end; i++) {\n")
     code.append("\t\t\ty[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);\n")
     code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    return "".join(code)
+
+def spmv_kernel_2():
+    code = []
+    code.append("void spmv_kernel_2(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int j_start, const int j_end, const int val_offset) {\n")
+    code.append("\tfor (int j = j_start; j < j_end; j++) {\n")
+    code.append("\t\ty[i_start] += ((&val[val_offset])[(((j-j_start)))] * x[j]);\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    return "".join(code)
+
+def spmv_kernel_3():
+    code = []
+    code.append("void spmv_kernel_3(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int val_offset) {\n")
+    code.append("\tdouble xj = x[j_start];\n")
+    code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
+    code.append("\t\ty[i] += ((&val[val_offset])[(i-i_start)] * xj);\n")
     code.append("\t}\n")
     code.append("}\n\n")
     return "".join(code)
@@ -287,6 +306,11 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         code.append("#include <mkl_spblas.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append(spmv_kernel())
+    code.append("\n")
+    code.append(spmv_kernel_2())
+    code.append("\n")
+    code.append(spmv_kernel_3())
+    code.append("\n")
     code.append("int main() {\n")
     code.append(f"\tlong times[{bench}];\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
@@ -401,7 +425,12 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 if nnz_block not in ublocks:
-                    code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    if (rpntr[a+1] - rpntr[a]) == 1:
+                        code.append(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    elif (cpntr[b+1] - cpntr[b]) == 1:
+                        code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
+                    else:
+                        code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     count+=1
                 nnz_block += 1
     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
@@ -438,7 +467,10 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("#include <pthread.h>\n\n")
         f.write(f"double y[{rpntr[-1]}] = {{0}};\n")
         f.write(f"double x[{cpntr[-1]}] = {{0}};\n")
-        f.write(f"double val[{len(val)}] = {{0}};\n")
+        if len(val) > 0:
+            f.write(f"double val[{len(val)}] = {{0}};\n")
+        else:
+            f.write(f"double val[1] = {{0}};\n")
         if len(ublocks) > 0:
             f.write(f"double csr_val[{len(csr_val)}] = {{0}};\n\n")
         f.write(spmv_kernel())

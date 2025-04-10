@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 # from src.consts import SPEEDUP_THRESH
-SPEEDUP_THRESH=1.5
+SPEEDUP_THRESH=1.3
 
 FILEPATH=pathlib.Path(__file__).resolve().parent
 BASEPATH=os.path.join(FILEPATH.parent)
@@ -34,7 +34,9 @@ if __name__ == "__main__":
     df.loc[df['density'] <= 25, 'target'] = 0
 
     # df.loc[(df['dim1'] < 8) & (df['dim2'] < 8), 'target'] = 0
-    df.loc[(df['nnz'] < 500), 'target'] = 0
+    df.loc[(df['nnz'] < 800), 'target'] = 0
+
+    df.loc[(df['dim2'] == 1) & (df['dim1'] < 1300), 'target'] = 0
 
     # Set target for size < 500 to 0
     # df.loc[(df['dim1'] * df['dim2']) < 1000, 'target'] = 0
@@ -61,10 +63,15 @@ if __name__ == "__main__":
 
     # print(model.predict([[10*10, 45]])) # Variable
     print(model.predict([[50, 50, 1]])) # Expect 0
-    print(model.predict([[150, 150, 100]])) # Expect 1
     print(model.predict([[153, 9, 0.65]])) # Expect 0
     print(model.predict([[125, 8, 1]])) # Expect 0
     print(model.predict([[465, 2, 1]])) # Expect 0
+    print(model.predict([[1000, 1, 100.0]])) # Expect 0
+    print(model.predict([[1139, 1, 100.0]])) # Expect 0
+    print(model.predict([[150, 150, 100]])) # Expect 1
+    print(model.predict([[1,9996,100.0]])) # Expect 1
+    print(model.predict([[9996,1,100.0]])) # Expect 1
+
     # print(X_train)
     # print(y_train)
     # print(df['target'].value_counts())

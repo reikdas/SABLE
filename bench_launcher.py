@@ -11,7 +11,7 @@ from mpi4py import MPI
 from src.codegen import gen_single_threaded_spmv, gen_multi_threaded_spmv
 from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
-from src.autopartition import cut_indices2, similarity2, my_convert_dense_to_vbrc
+from src.autopartition import cut_indices2_fast, similarity2_numba, my_convert_dense_to_vbrc, cut_indices2, similarity2
 from utils.fileio import write_dense_vector, read_vbr, read_vbrc
 from utils.convert_real_to_vbr import convert_vbr_to_compressed, convert_sparse_to_vbr
 from utils.utils import timeout
@@ -25,8 +25,8 @@ BASE_PATH = os.path.join(FILEPATH)
 
 COMPILE_TIMEOUT = 60 * 60 * 4
 
-cut_indices = cut_indices2
-similarity = similarity2
+cut_indices = cut_indices2_fast
+similarity = similarity2_numba
 cut_threshold = 0.2
 
 if __name__ == "__main__":
@@ -79,7 +79,7 @@ if __name__ == "__main__":
                     if thread == 1:
                         codegen_time = gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir+"_"+str(thread), fname, os.path.join(vbr_dir, fname), bench=100)
                     else:
-                        codegen_time = gen_multi_threaded_spmv(thread, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir+"_"+str(thread), fname, os.path.join(vbr_dir, fname))
+                        codegen_time = gen_multi_threaded_spmv(thread, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir+"_"+str(thread), fname, os.path.join(vbr_dir, fname), bench=100)
                     try:
                         time1 = time.time_ns() // 1_000_000
                         subprocess.run(["taskset", "-a", "-c", str(core), "gcc", f"{fname}.c", "-o", fname] + CFLAGS + MKL_FLAGS, cwd=codegen_dir+"_"+str(thread), check=True, timeout=COMPILE_TIMEOUT)

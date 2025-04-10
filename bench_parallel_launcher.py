@@ -49,16 +49,18 @@ skip = [
     "2cubes_sphere",
 ]
 
+done = []
+
 if __name__ == "__main__":
     files = []
     fnames = []
     for file_path in mtx_dir.rglob("*"):
         if file_path.is_file() and file_path.suffix == ".mtx" and check_file_matches_parent_dir(file_path):
             fname = pathlib.Path(file_path).resolve().stem
-            if fname not in eval:
-                continue
-            # if fname in skip or fname in done:
+            # if fname not in eval:
             #     continue
+            if fname in skip or fname in done:
+                continue
             A = scipy.io.mmread(file_path)
             if A.nnz > 20_000_000:
                 continue
@@ -66,8 +68,8 @@ if __name__ == "__main__":
                 continue
             files.append(file_path)
             fnames.append(fname)
-            if len(files) > 500:
-                break
+            # if len(files) > 500:
+            #     break
     num_cores = len(cpu_affinity)
     # Distribute the files among the cores
     files_per_core = len(files) // num_cores

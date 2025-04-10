@@ -51,14 +51,23 @@ skip = [
 
 if __name__ == "__main__":
     files = []
+    fnames = []
     for file_path in mtx_dir.rglob("*"):
         if file_path.is_file() and file_path.suffix == ".mtx" and check_file_matches_parent_dir(file_path):
             fname = pathlib.Path(file_path).resolve().stem
             if fname not in eval:
                 continue
-            if fname in skip:
+            # if fname in skip or fname in done:
+            #     continue
+            A = scipy.io.mmread(file_path)
+            if A.nnz > 20_000_000:
+                continue
+            if A.nnz < 10_000:
                 continue
             files.append(file_path)
+            fnames.append(fname)
+            if len(files) > 500:
+                break
     num_cores = len(cpu_affinity)
     # Distribute the files among the cores
     files_per_core = len(files) // num_cores
@@ -91,4 +100,9 @@ if __name__ == "__main__":
                         print(parts)
                 f.write(g.read())
             os.remove(f"mat_dist_{core}.csv")
-    print(evaled_fnames)
+    # Print fnames not in evaled_fnames
+    print("No = " + str(set(fnames) - set(evaled_fnames)))
+    print("Yes = " + str(evaled_fnames))
+    with open(os.path.join(BASE_PATH, "matrices.txt"), "w") as f:
+        f.write("No = " + str(set(fnames) - set(evaled_fnames)))
+        f.write("Yes = " + str(evaled_fnames))

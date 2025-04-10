@@ -44,6 +44,7 @@ if __name__ == "__main__":
     if not os.path.exists(mkl_vbrc_dir):
         os.makedirs(mkl_vbrc_dir)
     for thread in threads:
+        print(f"{thread} Threads")
         with open(os.path.join(BASE_PATH, "results", f"mkl-spmv-suitesparse_{thread}thrd.csv"), "w") as f:
             f.write("Matrix,Time(ns)\n")
             for file_path in mtx_dir.rglob("*"):
@@ -57,15 +58,14 @@ if __name__ == "__main__":
                     write_dense_vector(1.0, cols)
                     val,indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(vbr_dir, fname, fname+".vbr"))
                     val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, fname, mkl_vbrc_dir, 100)
-                    for thread in threads:
-                        if thread == 1:
-                            gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir+"_"+str(thread), fname, mkl_vbrc_dir, bench=100)
-                        else:
-                            gen_multi_threaded_spmv(thread, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir+"_"+str(thread), fname, os.path.join(vbr_dir, fname))
-                    subprocess.run(["gcc", f"{fname}.c", "-o", fname] + CFLAGS + MKL_FLAGS, cwd=codegen_dir+"_"+str(thread), check=True, timeout=COMPILE_TIMEOUT)
+                    if thread == 1:
+                        gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir+"_"+str(thread), fname, mkl_vbrc_dir, bench=100)
+                    else:
+                        gen_multi_threaded_spmv(thread, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir+"_"+str(thread), fname, mkl_vbrc_dir, bench=100)
+                    subprocess.run(["gcc", f"{fname}.c", "-g", "-o", fname] + CFLAGS + MKL_FLAGS, cwd=codegen_dir+"_"+str(thread), check=True, timeout=COMPILE_TIMEOUT)
                     l = []
                     for _ in range(100):
-                        output = subprocess.check_output(["taskset", "-a", "-c", "0", f"./{fname}"], cwd=codegen_dir+"_"+str(thread), preexec_fn=set_ulimit).decode("utf-8").split("\n")
+                        output = subprocess.check_output(["taskset", "-a", "-c", ",".join([str(core) for core in cores][:thread]), f"./{fname}"], cwd=codegen_dir+"_"+str(thread), preexec_fn=set_ulimit).decode("utf-8").split("\n")
                         if "warning" in output[0].lower():
                             output = output[1]
                         else:

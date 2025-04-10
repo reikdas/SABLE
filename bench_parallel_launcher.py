@@ -61,7 +61,11 @@ if __name__ == "__main__":
             #     continue
             if fname in skip or fname in done:
                 continue
-            A = scipy.io.mmread(file_path)
+            try:
+                A = scipy.io.mmread(file_path)
+            except:
+                print("Error reading file:", file_path)
+                continue
             if A.nnz > 20_000_000:
                 continue
             if A.nnz < 10_000:

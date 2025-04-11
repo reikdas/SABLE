@@ -507,7 +507,12 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
                 for b in range(len(cpntr)-1):
                     if b in valid_cols:
                         if ublocks_count not in ublocks:
-                            f.write(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[indx_start+count]});\n")
+                            if (rpntr[a+1] - rpntr[a]) == 1:
+                                f.write(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                            elif (cpntr[b+1] - cpntr[b]) == 1:
+                                f.write(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
+                            else:
+                                f.write(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[indx_start+count]});\n")
                             count += 1
                         ublocks_count += 1
             f.write("}\n")

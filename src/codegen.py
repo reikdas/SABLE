@@ -464,7 +464,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("#include <string.h>\n")
         f.write("#include <mkl.h>\n")
         f.write("#include <mkl_spblas.h>\n")
-        f.write("#include <pthread.h>\n\n")
+        f.write("#include <omp.h>\n\n")
         f.write(f"double y[{rpntr[-1]}] = {{0}};\n")
         f.write(f"double x[{cpntr[-1]}] = {{0}};\n")
         if len(val) > 0:
@@ -474,6 +474,9 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         if len(ublocks) > 0:
             f.write(f"double csr_val[{len(csr_val)}] = {{0}};\n\n")
         f.write(spmv_kernel())
+        f.write(spmv_kernel_2())
+        f.write(spmv_kernel_3())
+        f.write("\n")
         work_per_br = [0]*(len(rpntr)-1)
         count = 0
         for a in range(len(rpntr) - 1):
@@ -488,35 +491,6 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         count2 = 0
         thread_br_map = split_chunks(work_per_br, threads)
         funcount = 0
-        for br_list in thread_br_map:
-            f.write(f"void *func{funcount}(){{\n")
-            for a in br_list:
-                if bpntrb[a] == -1:
-                    continue
-                ublocks_count = copy.copy(bpntrb[a])
-                valid_cols = bindx[bpntrb[a]:bpntre[a]]
-                count = 0
-                # find num_ublocks before this block
-                idx_offset = 0
-                for ub in ublocks:
-                    if ub < bpntrb[a]:
-                        idx_offset += 1
-                    if ub > bpntrb[a]:
-                        break
-                indx_start = bpntrb[a] - idx_offset
-                for b in range(len(cpntr)-1):
-                    if b in valid_cols:
-                        if ublocks_count not in ublocks:
-                            if (rpntr[a+1] - rpntr[a]) == 1:
-                                f.write(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                            elif (cpntr[b+1] - cpntr[b]) == 1:
-                                f.write(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
-                            else:
-                                f.write(f"\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[indx_start+count]});\n")
-                            count += 1
-                        ublocks_count += 1
-            f.write("}\n")
-            funcount += 1
         num_working_threads = len(thread_br_map)
         f.write("\n")
         f.write("int main() {\n")
@@ -598,7 +572,7 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');\n""")
         f.write("\tfclose(file1);\n")
-        f.write('''while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
+        f.write('''\twhile (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
         x_size++;
     }}
     fclose(file2);\n'''.format(cpntr[-1]))
@@ -608,19 +582,52 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     struct matrix_descr descr;
     descr.type = SPARSE_MATRIX_TYPE_GENERAL;
     mkl_set_num_threads({threads});\n""")
+        f.write("\t#pragma omp parallel\n")
+        f.write("\t{\n")
+        f.write(f"\tomp_set_num_threads({threads});\n")
+        f.write("\t}\n")
         f.write("\tstruct timespec t1;\n")
         f.write("\tstruct timespec t2;\n")
-        if num_working_threads > 0:
-            f.write(f"\t\tpthread_t tid[{num_working_threads}];\n")
         f.write(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
         f.write("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
         if (len(ublocks) > 0):
             f.write("\t\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
-        for a in range(num_working_threads):
-            f.write(f"\t\tpthread_create(&tid[{a}], NULL, &func{a}, NULL);\n")
-        for a in range(num_working_threads):
-            f.write(f"\t\tpthread_join(tid[{a}], NULL);\n")
+        if len(thread_br_map) > 0:
+            f.write("\t\t#pragma omp parallel sections\n")
+            f.write("\t\t{\n")
+        for br_list in thread_br_map:
+            f.write("\t\t#pragma omp section\n")
+            f.write("\t\t{\n")
+            for a in br_list:
+                if bpntrb[a] == -1:
+                    continue
+                ublocks_count = copy.copy(bpntrb[a])
+                valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                count = 0
+                # find num_ublocks before this block
+                idx_offset = 0
+                for ub in ublocks:
+                    if ub < bpntrb[a]:
+                        idx_offset += 1
+                    if ub > bpntrb[a]:
+                        break
+                indx_start = bpntrb[a] - idx_offset
+                for b in range(len(cpntr)-1):
+                    if b in valid_cols:
+                        if ublocks_count not in ublocks:
+                            if (rpntr[a+1] - rpntr[a]) == 1:
+                                f.write(f"\t\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                            elif (cpntr[b+1] - cpntr[b]) == 1:
+                                f.write(f"\t\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
+                            else:
+                                f.write(f"\t\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[indx_start+count]});\n")
+                            count += 1
+                        ublocks_count += 1
+            f.write("}\n")
+            funcount += 1
+        if len(thread_br_map) > 0:
+            f.write("\t\t}\n")
         f.write("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         f.write("\t\tif (i!=0)\n")
         f.write("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")

@@ -186,6 +186,9 @@ def convert_sparse_to_vbr(mat, rpntr, cpntr, fname, dst_dir):
     logger.info(f"created bpntrb, bpntre with lengths: {bpntrb.shape},{bpntre.shape}")
     logger.debug(f"created bpntrb, bpntre: {bpntrb},{bpntre}")
 
+    if not os.path.exists(dst_dir):
+        os.makedirs(dst_dir)
+    
     # save to file
     with open(os.path.join(dst_dir, f"{fname}.vbr"), "w") as f:
         f.write(f"val=[{','.join(map(str, val))}]\n")

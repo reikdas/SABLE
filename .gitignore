@@ -33,3 +33,4 @@ studies/stats_dist*.csv
 Generated_MKL_*/
 MKL_VBRC/
 artifact_codegen_*/
+artifact_partition/

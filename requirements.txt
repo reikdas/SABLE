@@ -7,3 +7,4 @@ scikit-learn
 pandas
 mpi4py
 numba
+ssgetpy

@@ -21,13 +21,14 @@ def remove_outliers_deciles(data):
     return [x for x in data if D1 <= x <= D9]
 
 def eval_single_proc(eval, codegen_dir, threads):
+    cores = [i for i in range(0, threads)]
     for thread in threads:
         with open(os.path.join(BASE_PATH, "results", f"res_{thread}.csv"), "w") as f:
             f.write("Filename,SABLE(ns)\n")
             for fname in eval:
                 l = []
                 for _ in range(100):
-                    output = subprocess.check_output(["taskset", "-a", "-c", "0", f"./{fname}"], cwd=codegen_dir+"_"+str(thread), preexec_fn=set_ulimit).decode("utf-8").split("\n")
+                    output = subprocess.check_output(["taskset", "-a", "-c", ",".join([str(core) for core in cores][:thread]), f"./{fname}"], cwd=codegen_dir+"_"+str(thread), preexec_fn=set_ulimit).decode("utf-8").split("\n")
                     if "warning" in output[0].lower():
                         output = output[1]
                     else:
@@ -45,14 +46,39 @@ def eval_single_proc(eval, codegen_dir, threads):
                 print(f"Done {fname}")
 
 if __name__ == "__main__":
-    eval = [
-    # "std1_Jac3",
-    # "ts-palko",
-    # "dbir2",
-    # "Zd_Jac2",
-    # "dbir1",
-    # "msc23052",
-    # "heart1",
-    ]
+    eval = ["eris1176",
+    "std1_Jac3",
+    "lp_wood1p",
+    "jendrec1",
+    "lowThrust_5",
+    "hangGlider_4",
+    "brainpc2",
+    "hangGlider_3",
+    "lowThrust_7",
+    "lowThrust_11",
+    "lowThrust_3",
+    "lowThrust_6",
+    "lowThrust_12",
+    "hangGlider_5",
+    "Journals",
+    "bloweybl",
+    "heart1",
+    "TSOPF_FS_b9_c6",
+    "Sieber",
+    "case9",
+    "c-30",
+    "c-32",
+    "freeFlyingRobot_10",
+    "freeFlyingRobot_11",
+    "freeFlyingRobot_12",
+    "lowThrust_10",
+    "lowThrust_13",
+    "lowThrust_4",
+    "lowThrust_8",
+    "lowThrust_9",
+    "lp_fit2p",
+    "nd12k",
+    "std1_Jac2",
+    "vsp_c-30_data_data"]
     codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV")
-    eval_single_proc(eval, codegen_dir, [1])
+    eval_single_proc(eval, codegen_dir, [1,2,4,8])

@@ -290,7 +290,7 @@ def spmv_kernel_3():
     code.append("}\n\n")
     return "".join(code)
 
-def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->None:
+def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     time1 = time.time_ns() // 1_000_000

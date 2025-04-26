@@ -1,0 +1,8 @@
+[submodule "partially-strided-codelet"]
+	path = partially-strided-codelet
+	url = git@github.com:reikdas/partially-strided-codelet.git
+	branch = sc25-artifact
+[submodule "Benchmark_SpMV_using_CSR5"]
+	path = Benchmark_SpMV_using_CSR5
+	url = git@github.com:reikdas/Benchmark_SpMV_using_CSR5.git
+	branch = sc25-artifact

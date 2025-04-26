@@ -13,10 +13,10 @@ FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 results_dir = os.path.join(BASE_PATH, "results")
 
-BENCHMARK_FREQ = 5
+BENCHMARK_FREQ = 100
 
 if __name__ == "__main__":
-    mtx_dir = pathlib.Path(os.path.join("/local", "scratch", "a", "Suitesparse"))
+    mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
     pid = os.getpid()
     cpu_affinity = os.sched_getaffinity(pid)
     subprocess.check_output(["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), "g++", "-DOPENMP", "-o", "csr-spmv", "csr-spmv.cpp"] + CFLAGS, cwd=os.path.join(BASE_PATH, "src"))

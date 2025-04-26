@@ -35,12 +35,11 @@ if __name__ == "__main__":
     mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
     pid = os.getpid()
     cpu_affinity = os.sched_getaffinity(pid)
-    #threads = [1, 2, 4, 8]
-    threads = [1]
-    eval = ["heart1", "std1_Jac2", "lowThrust_11", "lowThrust_12", "hangGlider_4", "hangGlider_5", "freeFlyingRobot_9"]
+    threads = [1, 2, 4, 8]
     vbr_dir = os.path.join(BASE_PATH, "Generated_VBR")
     mkl_vbrc_dir = os.path.join(BASE_PATH, "MKL_VBRC")
     codegen_dir = os.path.join(BASE_PATH, "Generated_MKL")
+    cores = list(cpu_affinity)
     if not os.path.exists(mkl_vbrc_dir):
         os.makedirs(mkl_vbrc_dir)
     for thread in threads:
@@ -50,8 +49,6 @@ if __name__ == "__main__":
             for file_path in mtx_dir.rglob("*"):
                 if file_path.is_file() and file_path.suffix == ".mtx" and check_file_matches_parent_dir(file_path):
                     fname = pathlib.Path(file_path).resolve().stem
-                    if fname not in eval:
-                        continue
                     print(f"Processing {fname}")
                     mtx = mmread(file_path)
                     cols = mtx.get_shape()[1]

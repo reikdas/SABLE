@@ -21,7 +21,7 @@ def remove_outliers_deciles(data):
     return [x for x in data if D1 <= x <= D9]
 
 def eval_single_proc(eval, codegen_dir, threads):
-    cores = [i for i in range(0, threads)]
+    cores = list(range(0, threads[-1]))
     for thread in threads:
         with open(os.path.join(BASE_PATH, "results", f"res_{thread}.csv"), "w") as f:
             f.write("Filename,SABLE(ns)\n")

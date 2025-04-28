@@ -1,13 +1,9 @@
-import gc
 import os
 import pathlib
 
 import numpy as np
 import numba as nb
 import scipy
-
-from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
-                                       convert_vbr_to_compressed)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
@@ -192,28 +188,3 @@ def cut_indices2_fast(A, cut_threshold, similarity):
 # col_indices, row_indices = cut_indices(A, cut_threshold)
 # print("Column indices:", col_indices)
 # print("Row indices:", row_indices)
-
-def my_convert_dense_to_vbrc(file_info, cut_threshold, cut_indices, similarity):
-    src_path, dest_path = file_info
-    mtx = scipy.io.mmread(src_path)
-    A = scipy.sparse.csc_matrix(mtx, copy=False)
-    del mtx
-    gc.collect()
-    cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(A, rpntr, cpntr, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
-    val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, pathlib.Path(src_path).resolve().stem, pathlib.Path(dest_path).resolve().parent)
-    return val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val
-
-# def partition_dlmc(mtx_dir, vbr_dir):
-#     src_dir = pathlib.Path(os.path.join(BASE_PATH, mtx_dir))
-#     dest_dir = pathlib.Path(os.path.join(BASE_PATH, vbr_dir))
-#     parallel_dispatch(src_dir, dest_dir, cpu_count(), my_convert_dense_to_vbr, ".mtx", ".vbr")
-
-# def partition_suitesparse():
-#     src_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
-#     dest_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse_vbr"))
-#     parallel_dispatch(src_dir, dest_dir, cpu_count(), my_convert_dense_to_vbr, ".mtx", ".vbr")
-
-# if __name__ == "__main__":
-#     # partition_dlmc("Real_mtx", "Real_vbr")
-#     partition_suitesparse()

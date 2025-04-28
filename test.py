@@ -5,14 +5,13 @@ import numpy
 import scipy
 import pytest
 
-from src.baseline import *
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
 from src.autopartition import cut_indices2, similarity2
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
                                        convert_vbr_to_compressed)
-from utils.fileio import write_dense_matrix, write_dense_vector
+from utils.fileio import write_dense_matrix, write_dense_vector, read_vbr
 from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
 
@@ -171,117 +170,6 @@ def run_spmv_unroll(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
 
-def run_spmv_cuda():
-    test_setup_file()
-    vbr_spmv_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", density=0)
-    subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3"], cwd="tests")
-    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
-
-def run_spmm(threads):
-    test_setup_file()
-    vbr_spmm_codegen(filename="example", density=0, dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
-    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
-
-def run_spmm_libxsmm():
-    filename = "example"
-    dir_name = "tests"
-    test_setup_file()
-    vbr_path = os.path.join(dir_name, filename + ".vbr")
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
-    gen_spmm_libxsmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename, dir_name)
-    subprocess.check_call([
-    "gcc",
-    "-o", "example",
-    "example.c",
-    "-I", "/local/scratch/a/das160/libxsmm/include",
-    "-L", "/local/scratch/a/das160/libxsmm/lib",
-    "-lblas",
-    "-lm"
-] + CFLAGS, cwd="tests")
-    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
-
-def run_spmm_cblas():
-    filename = "example"
-    dir_name = "tests"
-    test_setup_file()
-    vbr_path = os.path.join(dir_name, filename + ".vbr")
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(vbr_path)
-    gen_spmm_cblas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, dir_name, filename, dir_name)
-    subprocess.check_call([
-    "gcc",
-    "-o", "example",
-    "example.c",
-    "-lblas",
-]+CFLAGS, cwd="tests")
-    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
-
-def run_spmm_cuda():
-    test_setup_file()
-    vbr_spmm_cuda_codegen(filename="example", dir_name="tests", vbr_dir="tests", density=0)
-    subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3"], cwd="tests")
-    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
-
-# def test_spmm_cuda_cublas():
-#     test_setup_file()
-#     vbr_spmm_cuda_codegen_cublas(filename="example", dir_name="tests", vbr_dir="tests", density=0)
-#     subprocess.check_call(["nvcc", "-o", "example", "example.cu", "-O3", "-lcublas"], cwd="tests")
-#     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
-#     with open(os.path.join("tests", "output.txt"), "w") as f:
-#         f.write("\n".join(output))
-#     assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
-
-def run_nonzeros_spmv():
-    test_setup_file()
-    subprocess.check_output(["g++", "-o", "csr-spmv", "csr-spmv.cpp"] + CFLAGS, cwd=os.path.join(BASE_PATH, "src"))
-    baseline_output = subprocess.run(["./csr-spmv", os.path.join(BASE_PATH, "tests", "example-canon.mtx"), str(1), str(1), os.path.join(BASE_PATH, "Generated_dense_tensors", "generated_vector_11.vector")], capture_output=True, cwd=os.path.join(BASE_PATH, "src"))
-    output = baseline_output.stdout.decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
-
-def run_nonzeros_spmm():
-    test_setup_file()
-    only_nonzeros_spmm(filename="example", dir_name="tests", vbr_dir="tests")
-    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS, cwd="tests")
-    output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmm_canon.txt"))
-
-def run_spmv_splitter(threads):
-    test_setup_file()
-    vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["./../split_compile.sh", "example.c", "2"], cwd="tests")
-    output = subprocess.check_output(["./example"], cwd="tests/split-and-binaries/example/").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
-
-def run_spmv_unroll_splitter(threads):
-    test_compression()
-    vbr_spmv_codegen(filename="example2", dir_name="tests", threads=threads, vbr_dir="tests")
-    subprocess.check_call(["./../split_compile.sh", "example2.c", "2"], cwd="tests")
-    output = subprocess.check_output(["./example2"], cwd="tests/split-and-binaries/example2/").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
-
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
@@ -302,25 +190,6 @@ def test_spmv_unroll():
     run_spmv_unroll(4)
     run_spmv_unroll(8)
     run_spmv_unroll(16)
-
-# def test_spmm():
-#     run_spmm(1)
-#     run_spmm(2)
-#     run_spmm(4)
-#     run_spmm(8)
-#     run_spmm(16)
-#     run_spmm_libxsmm()
-#     run_spmm_cblas()
-
-# def test_spmv_cuda():
-#     run_spmv_cuda()
-
-# def test_spmm_cuda():
-#     run_spmm_cuda()
-
-def test_baselines():
-    run_nonzeros_spmv()
-    run_nonzeros_spmm()
 
 @pytest.mark.skip(reason="Git cannot store Franz8_canon.vbr")
 def test_partition_vals_real():

@@ -16,6 +16,40 @@ results_dir = os.path.join(BASE_PATH, "results")
 BENCHMARK_FREQ = 100
 
 if __name__ == "__main__":
+    eval = ["eris1176",
+    "std1_Jac3",
+    "lp_wood1p",
+    "jendrec1",
+    "lowThrust_5",
+    "hangGlider_4",
+    "brainpc2",
+    "hangGlider_3",
+    "lowThrust_7",
+    "lowThrust_11",
+    "lowThrust_3",
+    "lowThrust_6",
+    "lowThrust_12",
+    "hangGlider_5",
+    "Journals",
+    "bloweybl",
+    "heart1",
+    "TSOPF_FS_b9_c6",
+    "Sieber",
+    "case9",
+    "c-30",
+    "c-32",
+    "freeFlyingRobot_10",
+    "freeFlyingRobot_11",
+    "freeFlyingRobot_12",
+    "lowThrust_10",
+    "lowThrust_13",
+    "lowThrust_4",
+    "lowThrust_8",
+    "lowThrust_9",
+    "lp_fit2p",
+    "nd12k",
+    "std1_Jac2",
+    "vsp_c-30_data_data"]
     mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
     pid = os.getpid()
     cpu_affinity = os.sched_getaffinity(pid)
@@ -27,6 +61,8 @@ if __name__ == "__main__":
             for file_path in mtx_dir.rglob("*"):
                 if file_path.is_file() and file_path.suffix == ".mtx" and check_file_matches_parent_dir(file_path):
                     fname = pathlib.Path(file_path).resolve().stem
+                    if fname not in eval:
+                        continue
                     print(f"Processing {fname}")
                     mtx = mmread(file_path)
                     cols = mtx.get_shape()[1]

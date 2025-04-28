@@ -12,13 +12,9 @@ import scipy
 from src.codegen import gen_single_threaded_spmv, gen_multi_threaded_spmv
 from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
-from src.autopartition import cut_indices2_fast, similarity2_numba, my_convert_dense_to_vbrc, cut_indices2, similarity2
-from utils.fileio import write_dense_vector, read_vbr, read_vbrc
+from src.autopartition import cut_indices2_fast, similarity2_numba
+from utils.fileio import write_dense_vector
 from utils.convert_real_to_vbr import convert_vbr_to_compressed, convert_sparse_to_vbr
-from bench_parallel_launcher import THREADS as THREADS
-from bench_parallel_launcher import mtx_dir as mtx_dir
-from bench_parallel_launcher import codegen_dir as codegen_dir
-from bench_parallel_launcher import vbr_dir as vbr_dir
 
 from utils.utils import check_file_matches_parent_dir
 import scipy
@@ -27,6 +23,8 @@ FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
 COMPILE_TIMEOUT = 60 * 60 * 4
+
+THREADS = [1, 2, 4, 8]
 
 mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
 codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV")

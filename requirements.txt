@@ -8,3 +8,4 @@ pandas
 mpi4py
 numba
 ssgetpy
+matplotlib

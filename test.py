@@ -149,6 +149,14 @@ def run_spmv(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
 
+def run_spmv_py():
+    test_setup_file()
+    vbr_spmv_codegen_python(filename="example", dir_name="tests", vbr_dir="tests")
+    output = subprocess.check_output(["python3", "example.py"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
+
 def run_spmv_multi_out(threads):
     test_setup_file()
     vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests")
@@ -170,12 +178,23 @@ def run_spmv_unroll(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
 
+def run_spmv_unroll_py():
+    test_compression()
+    vbr_spmv_codegen_python(filename="example2", dir_name="tests", vbr_dir="tests")
+    output = subprocess.check_output(["python3", "example2.py"], cwd="tests").decode("utf-8").split("\n")[1:]
+    with open(os.path.join("tests", "output.txt"), "w") as f:
+        f.write("\n".join(output))
+    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
+
 def test_spmv():
     run_spmv(1)
     run_spmv(2)
     run_spmv(4)
     run_spmv(8)
     run_spmv(16)
+
+def test_spmv_py():
+    run_spmv_py()
 
 def test_spmv_multi_out():
     run_spmv_multi_out(1)
@@ -190,6 +209,9 @@ def test_spmv_unroll():
     run_spmv_unroll(4)
     run_spmv_unroll(8)
     run_spmv_unroll(16)
+
+def test_spmv_unroll_py():
+    run_spmv_unroll_py()
 
 @pytest.mark.skip(reason="Git cannot store Franz8_canon.vbr")
 def test_partition_vals_real():

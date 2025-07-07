@@ -89,11 +89,18 @@ def spmv_kernel_3():
     return "".join(code)
 
 def gen_loop(i_start, i_end, j_start, j_end, indx_offset) -> str:
-    code = []
-    code.append(f"""\tfor j in range({j_start}, {j_end}):
-        for i in range({i_start}, {i_end}):
-            bla[i] += val[{indx_offset}+((j-{j_start})*({i_end-i_start}))+(i-{i_start})] * vec[j]\n""")
-    return "".join(code)
+    I = i_end - i_start               # number of columns written
+    J = j_end - j_start               # number of rows read
+    stop = indx_offset + I * J        # one-past-the-end in `val`
+
+    # `val[offset:stop]` is the flattened block.
+    # `.reshape(J, I).T` → shape (I, J) so that rows align with `bla` indices.
+    # `@ vec[j_start:j_end]` performs the dot product for all I outputs at once.
+    return (
+        f"\tbla[{i_start}:{i_end}] "
+        f"+= val[{indx_offset}:{stop}].reshape({J}, {I}).T "
+        f"@ vec[{j_start}:{j_end}]\n"
+    )
 
 def gen_single_threaded_spmv_python(val: list[float], indx: list[int], bindx: list[int], rpntr: list[int], cpntr: list[int], bpntrb: list[int], bpntre: list[int], ublocks: list[int], indptr: list[int], indices: list[int], csr_val: list[float], dir_name: str, filename: str, vbr_dir: str, bench: int = 5) -> int:
     if not os.path.exists(dir_name):
@@ -107,10 +114,12 @@ from tvm.script import relax as R
 from tvm.script import ir as I
 import numpy as np
 from scipy.sparse import csr_matrix
+import numba as nb
 from pathlib import Path\n\n""")
     
     count = 0 
     nnz_block = 0
+    code.append("@nb.njit(fastmath=True, nogil=True)\n")
     code.append("def dense_loop(bla, val, vec):\n")
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1: 

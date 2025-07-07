@@ -88,6 +88,118 @@ def spmv_kernel_3():
     code.append("}\n\n")
     return "".join(code)
 
+def gen_loop(i_start, i_end, j_start, j_end, indx_offset) -> str:
+    code = []
+    code.append(f"""\tfor j in range({j_start}, {j_end}):
+        for i in range({i_start}, {i_end}):
+            bla[i] += val[{indx_offset}+((j-{j_start})*({i_end-i_start}))+(i-{i_start})] * vec[j]\n""")
+    return "".join(code)
+
+def gen_single_threaded_spmv_python(val: list[float], indx: list[int], bindx: list[int], rpntr: list[int], cpntr: list[int], bpntrb: list[int], bpntre: list[int], ublocks: list[int], indptr: list[int], indices: list[int], csr_val: list[float], dir_name: str, filename: str, vbr_dir: str, bench: int = 5) -> int:
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+    code = []
+    code.append(f"""import tvm
+from tvm.script import relax as R
+from tvm.script import ir as I
+import numpy as np
+from scipy.sparse import csr_matrix
+from pathlib import Path\n\n""")
+    
+    count = 0 
+    nnz_block = 0
+    code.append("def dense_loop(bla, val, vec):\n")
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1: 
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    code.append(gen_loop(rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[count]))
+                    count+=1
+                nnz_block += 1
+    code.append("\treturn bla\n\n")
+
+    code.append(f"""def bar(data, indices, indptr, vec, bla):
+    csr=csr_matrix((data, indices, indptr), shape=({rpntr[-1]},{cpntr[-1]}))
+    bla = csr.dot(vec)
+    return bla
+    
+@tvm.register_func("foo", override=True)
+def foo(data, indices, indptr, vec, bla, val, out):
+    data = data.numpy()
+    indices = indices.numpy()
+    indptr = indptr.numpy()
+    vec = vec.numpy()
+    val = val.numpy()
+    bla = bla.numpy()
+""")
+
+    if len(csr_val) > 0:
+        code.append("""\tbla = bar(data, indices, indptr, vec, bla)\n""")
+    
+    code.append(f"""\tbla = dense_loop(bla, val, vec)
+    out.copyfrom(bla)
+
+@I.ir_module
+class Module:
+    @R.function
+    def main(data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32"), vec: R.Tensor(("k",), dtype="float64"), bla: R.Tensor(("p",), dtype="float64"), val: R.Tensor(("v",), dtype="float64")):
+        out = R.call_dps_packed("foo", (data, indices, indptr, vec, bla, val), out_sinfo=R.Tensor((p,), dtype="float64"))
+        return out
+
+if __name__ == "__main__":
+    vbrc_path = Path("{os.path.abspath(vbr_path)}")
+    vector_path = Path("{vector_path}")
+    expected = {{
+        "val": (np.float64, {len(val)}),
+        "csr_val": (np.float64, {len(csr_val)}),
+        "indptr": (np.int32, {len(indptr)}),
+        "indices": (np.int32, {len(indices)}),
+    }}
+    arrays = {{}}
+    with vbrc_path.open() as f:
+        for line in f:
+            for key, (dtype, _) in expected.items():
+                if line.startswith(f"{{key}}="):
+                    payload = line.split("=", 1)[1].strip().lstrip("[").rstrip("]\\n")
+                    arrays[key] = np.fromstring(payload, sep=",", dtype=dtype)
+                    break
+    missing = [k for k in expected if k not in arrays]
+    if missing:
+        raise ValueError(f"Keys not found in {{vbrc_path}}: {{missing}}")
+    for key, (_, want) in expected.items():
+        got = arrays[key].size
+        assert got == want, f"{{key}} has length {{got}}, expected {{want}}"
+
+    val, csr_val = arrays["val"], arrays["csr_val"]
+    indptr, indices = arrays["indptr"], arrays["indices"]
+
+    x = np.fromstring(vector_path.read_text(), sep=",", dtype=np.float64)
+    assert x.size == {cpntr[-1]}, f"x length {{x.size}}, expected {cpntr[-1]}"
+
+    y = np.zeros_like(x)
+    ex = tvm.relax.build(Module, target="llvm")
+    vm = tvm.relax.VirtualMachine(ex, tvm.cpu())
+    val_arg = tvm.nd.array(val, device=tvm.cpu())
+    data_arg = tvm.nd.array(csr_val, device=tvm.cpu())
+    indices_arg = tvm.nd.array(indices, device=tvm.cpu())
+    indptr_arg = tvm.nd.array(indptr, device=tvm.cpu())
+    vec_arg = tvm.nd.array(x, device=tvm.cpu())
+    bla = tvm.nd.array(y, device=tvm.cpu())
+    out = vm["main"](data_arg, indices_arg, indptr_arg, vec_arg, bla, val_arg)
+    print(out)""")
+    full_source = "".join(code).expandtabs(4)
+    with open(os.path.join(dir_name, filename+".py"), "w") as f:
+        f.writelines(full_source)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
+
+
 def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -448,5 +560,13 @@ def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, b
         gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
     else:
         gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
+
+def vbr_spmv_codegen_python(filename: str, dir_name: str, vbr_dir: str, bench: int = 5)->int:
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbr_path)
+    time1 = time.time_ns() // 1_000_000
+    gen_single_threaded_spmv_python(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
     time2 = time.time_ns() // 1_000_000
     return time2-time1

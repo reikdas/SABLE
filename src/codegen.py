@@ -88,18 +88,17 @@ def spmv_kernel_3():
     code.append("}\n\n")
     return "".join(code)
 
-def gen_loop(i_start, i_end, j_start, j_end, indx_offset) -> str:
-    I = i_end - i_start               # number of columns written
-    J = j_end - j_start               # number of rows read
-    stop = indx_offset + I * J        # one-past-the-end in `val`
-
-    # `val[offset:stop]` is the flattened block.
-    # `.reshape(J, I).T` → shape (I, J) so that rows align with `bla` indices.
-    # `@ vec[j_start:j_end]` performs the dot product for all I outputs at once.
+def gen_loop(i_start: int, i_end: int,
+             j_start: int, j_end: int,
+             indx_offset: int) -> str:
+    i_extent = i_end - i_start
+    j_extent = j_end - j_start
     return (
-        f"\tbla[{i_start}:{i_end}] "
-        f"+= val[{indx_offset}:{stop}].reshape({J}, {I}).T "
-        f"@ vec[{j_start}:{j_end}]\n"
+        f"\t\tfor j in range({j_extent}):\n"
+        f"\t\t    for i in range({i_extent}):\n"
+        f"\t\t        out[i + {i_start}] "
+        f"+= val[{indx_offset} + j*{i_extent} + i] "
+        f"* vec[j + {j_start}]\n"
     )
 
 def gen_single_threaded_spmv_python(val: list[float], indx: list[int], bindx: list[int], rpntr: list[int], cpntr: list[int], bpntrb: list[int], bpntre: list[int], ublocks: list[int], indptr: list[int], indices: list[int], csr_val: list[float], dir_name: str, filename: str, vbr_dir: str, bench: int = 5) -> int:
@@ -112,26 +111,11 @@ def gen_single_threaded_spmv_python(val: list[float], indx: list[int], bindx: li
     code.append(f"""import tvm
 from tvm.script import relax as R
 from tvm.script import ir as I
+from tvm.script import tir as T
 import numpy as np
 from scipy.sparse import csr_matrix
-import numba as nb
+import time
 from pathlib import Path\n\n""")
-    
-    count = 0 
-    nnz_block = 0
-    code.append("@nb.njit(fastmath=True, nogil=True)\n")
-    code.append("def dense_loop(bla, val, vec):\n")
-    for a in range(len(rpntr)-1):
-        if bpntrb[a] == -1: 
-            continue
-        valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                if nnz_block not in ublocks:
-                    code.append(gen_loop(rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[count]))
-                    count+=1
-                nnz_block += 1
-    code.append("\treturn bla\n\n")
 
     code.append(f"""def bar(data, indices, indptr, vec, bla):
     csr=csr_matrix((data, indices, indptr), shape=({rpntr[-1]},{cpntr[-1]}))
@@ -151,14 +135,39 @@ def foo(data, indices, indptr, vec, bla, val, out):
     if len(csr_val) > 0:
         code.append("""\tbla = bar(data, indices, indptr, vec, bla)\n""")
     
-    code.append(f"""\tbla = dense_loop(bla, val, vec)
-    out.copyfrom(bla)
+    code.append(f"""\tout.copyfrom(bla)
 
 @I.ir_module
-class Module:
-    @R.function
+class Module:\n""")
+    
+    count = 0 
+    nnz_block = 0
+    code.append(f"""\t@T.prim_func
+    def dense_loop(VAL: T.handle, VEC: T.handle, BLA: T.handle, OUT: T.handle):
+        val = T.match_buffer(VAL, ({len(val)},), "float64")
+        vec = T.match_buffer(VEC, ({cpntr[-1]},), "float64")
+        bla = T.match_buffer(BLA, ({rpntr[-1]},), "float64")
+        out = T.match_buffer(OUT, ({rpntr[-1]},), "float64")
+        for i in range({rpntr[-1]}):
+            out[i] = bla[i]\n""")
+
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1: 
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    code.append(gen_loop(rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[count]))
+                    count+=1
+                nnz_block += 1
+    code.append("\n")
+
+    code.append(f"""\t@R.function
     def main(data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32"), vec: R.Tensor(("k",), dtype="float64"), bla: R.Tensor(("p",), dtype="float64"), val: R.Tensor(("v",), dtype="float64")):
-        out = R.call_dps_packed("foo", (data, indices, indptr, vec, bla, val), out_sinfo=R.Tensor((p,), dtype="float64"))
+        cls = Module
+        out1 = R.call_tir(cls.dense_loop, (val, vec, bla), out_sinfo=R.Tensor(({rpntr[-1]},), dtype="float64"))
+        out = R.call_dps_packed("foo", (data, indices, indptr, vec, out1, val), out_sinfo=R.Tensor((p,), dtype="float64"))
         return out
 
 if __name__ == "__main__":
@@ -200,8 +209,15 @@ if __name__ == "__main__":
     indptr_arg = tvm.nd.array(indptr, device=tvm.cpu())
     vec_arg = tvm.nd.array(x, device=tvm.cpu())
     bla = tvm.nd.array(y, device=tvm.cpu())
-    out = vm["main"](data_arg, indices_arg, indptr_arg, vec_arg, bla, val_arg)
-    print(out)""")
+    times = []
+    for i in range({bench}):
+        time1 = time.time_ns()
+        out = vm["main"](data_arg, indices_arg, indptr_arg, vec_arg, bla, val_arg)
+        time2 = time.time_ns()
+        times.append(time2-time1)
+    print("Time = ", (sum(times)/len(times)))
+    for elem in out.numpy():
+        print(elem)""")
     full_source = "".join(code).expandtabs(4)
     with open(os.path.join(dir_name, filename+".py"), "w") as f:
         f.writelines(full_source)

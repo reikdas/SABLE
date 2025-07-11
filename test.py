@@ -1,19 +1,55 @@
 import os
 import subprocess
+from typing import List, Union
 
 import numpy
-import scipy
 import pytest
+import scipy
 
+from src.autopartition import cut_indices2, similarity2
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
-from src.autopartition import cut_indices2, similarity2
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
-                                       convert_vbr_to_compressed)
-from utils.fileio import write_dense_matrix, write_dense_vector, read_vbr
+                                       convert_sparse_to_vbrc)
+from utils.fileio import read_vbr, write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
+
+
+def reconstruct_matrix_from_vbr(
+    val: List[float],
+    indx: List[int],
+    bindx: List[int],
+    rpntr: List[int],
+    cpntr: List[int],
+    bpntrb: List[int],
+    bpntre: List[int],
+    return_sparse: bool = True
+) -> Union[numpy.ndarray, scipy.sparse.spmatrix]:
+    num_rows = rpntr[-1]
+    num_cols = cpntr[-1]
+    dense_mat = numpy.zeros((num_rows, num_cols), dtype=numpy.float64)
+
+    count = 0
+    for br in range(len(rpntr) - 1):  # block row
+        row_start, row_end = rpntr[br], rpntr[br + 1]
+        for bidx in range(bpntrb[br], bpntre[br]):
+            bc = bindx[bidx]  # block column index
+            col_start, col_end = cpntr[bc], cpntr[bc + 1]
+            block_rows = row_end - row_start
+            block_cols = col_end - col_start
+            block_size = block_rows * block_cols
+
+            block_vals = numpy.array(val[indx[count]:indx[count + 1]])
+            block = block_vals.reshape((block_rows, block_cols), order='F')
+            dense_mat[row_start:row_end, col_start:col_end] = block
+            count += 1
+
+    if return_sparse:
+        return scipy.sparse.csr_matrix(dense_mat)
+    else:
+        return dense_mat
 
 def cmp_file(file1, file2):
     with open(file1, "r") as f1, open(file2, "r") as f2:
@@ -62,7 +98,8 @@ def test_read_vbr():
 
 def test_compression_full_dense():
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "example.vbr"))
-    val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, "example", "tests", 0)
+    mat = reconstruct_matrix_from_vbr(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
+    val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(mat, rpntr, cpntr, "example", "tests", 0)
     assert(numpy.array_equal(val,[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0]))
     assert(numpy.array_equal(indx,[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51]))
     assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
@@ -91,8 +128,7 @@ def test_compression():
     sparse = scipy.sparse.csc_matrix(dense)
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
-    val, indx, bindx, bpntrb, bpntre = convert_sparse_to_vbr(sparse, rpntr, cpntr, "example2", "tests")
-    val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_vbr_to_compressed(val, rpntr, cpntr, indx, bindx, bpntrb, bpntre, "example2", "tests", 80)
+    val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(sparse, rpntr, cpntr, "example2", "tests", 80)
     assert(numpy.array_equal(val2,[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0]))
     assert(numpy.array_equal(indx2,[0, 4, 6, 15, 17, 20, 21, 24, 33, 37]))
     assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))

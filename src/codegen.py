@@ -123,12 +123,11 @@ from pathlib import Path\n\n""")
     return bla
     
 @tvm.register_func("foo", override=True)
-def foo(data, indices, indptr, vec, bla, val, out):
+def foo(data, indices, indptr, vec, bla, out):
     data = data.numpy()
     indices = indices.numpy()
     indptr = indptr.numpy()
     vec = vec.numpy()
-    val = val.numpy()
     bla = bla.numpy()
 """)
 
@@ -164,10 +163,16 @@ class Module:\n""")
     code.append("\n")
 
     code.append(f"""\t@R.function
-    def main(data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32"), vec: R.Tensor(("k",), dtype="float64"), bla: R.Tensor(("p",), dtype="float64"), val: R.Tensor(("v",), dtype="float64")):
-        cls = Module
-        out1 = R.call_tir(cls.dense_loop, (val, vec, bla), out_sinfo=R.Tensor(({rpntr[-1]},), dtype="float64"))
-        out = R.call_dps_packed("foo", (data, indices, indptr, vec, out1, val), out_sinfo=R.Tensor((p,), dtype="float64"))
+    def main(data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32"), vec: R.Tensor(("k",), dtype="float64"), bla: R.Tensor(("p",), dtype="float64"), val: R.Tensor(("v",), dtype="float64")):\n""")
+    
+    if len(val) != 0:
+        code.append(f'''\t\tcls = Module
+        out1 = R.call_tir(cls.dense_loop, (val, vec, bla), out_sinfo=R.Tensor(({rpntr[-1]},), dtype="float64"))\n''')
+        out_var = "out1"
+    else:
+        out_var = "bla"
+    
+    code.append(f"""\t\tout = R.call_dps_packed("foo", (data, indices, indptr, vec, {out_var}), out_sinfo=R.Tensor((p,), dtype="float64"))
         return out
 
 if __name__ == "__main__":

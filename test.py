@@ -11,45 +11,11 @@ from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
-                                       convert_sparse_to_vbrc)
-from utils.fileio import read_vbr, write_dense_matrix, write_dense_vector
+                                       convert_sparse_to_vbrc,
+                                       vbrc_matrix_gen)
+from utils.fileio import read_vbr, read_vbrc, write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
-
-
-def reconstruct_matrix_from_vbr(
-    val: List[float],
-    indx: List[int],
-    bindx: List[int],
-    rpntr: List[int],
-    cpntr: List[int],
-    bpntrb: List[int],
-    bpntre: List[int],
-    return_sparse: bool = True
-) -> Union[numpy.ndarray, scipy.sparse.spmatrix]:
-    num_rows = rpntr[-1]
-    num_cols = cpntr[-1]
-    dense_mat = numpy.zeros((num_rows, num_cols), dtype=numpy.float64)
-
-    count = 0
-    for br in range(len(rpntr) - 1):  # block row
-        row_start, row_end = rpntr[br], rpntr[br + 1]
-        for bidx in range(bpntrb[br], bpntre[br]):
-            bc = bindx[bidx]  # block column index
-            col_start, col_end = cpntr[bc], cpntr[bc + 1]
-            block_rows = row_end - row_start
-            block_cols = col_end - col_start
-            block_size = block_rows * block_cols
-
-            block_vals = numpy.array(val[indx[count]:indx[count + 1]])
-            block = block_vals.reshape((block_rows, block_cols), order='F')
-            dense_mat[row_start:row_end, col_start:col_end] = block
-            count += 1
-
-    if return_sparse:
-        return scipy.sparse.csr_matrix(dense_mat)
-    else:
-        return dense_mat
 
 def cmp_file(file1, file2):
     with open(file1, "r") as f1, open(file2, "r") as f2:
@@ -95,22 +61,6 @@ def test_read_vbr():
     assert(numpy.array_equal(cpntr,[0, 2, 5, 6, 9, 11]))
     assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
     assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
-
-def test_compression_full_dense():
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "example.vbr"))
-    mat = reconstruct_matrix_from_vbr(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre)
-    val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(mat, rpntr, cpntr, "example", "tests", 0)
-    assert(numpy.array_equal(val,[4.0,1.0,2.0,5.0,1.0,2.0,-1.0,0.0,1.0,-1.0,6.0,2.0,-1.0,1.0,7.0,2.0,2.0,1.0,9.0,2.0,0.0,3.0,2.0,1.0,3.0,4.0,5.0,10.0,4.0,3.0,2.0,4.0,3.0,0.0,13.0,3.0,2.0,4.0,11.0,0.0,2.0,3.0,7.0,8.0,-2.0,4.0,3.0,25.0,8.0,3.0,12.0]))
-    assert(numpy.array_equal(indx,[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51]))
-    assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
-    assert(numpy.array_equal(rpntr,[0, 2, 5, 6, 9, 11]))
-    assert(numpy.array_equal(cpntr,[0, 2, 5, 6, 9, 11]))
-    assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
-    assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
-    assert(numpy.array_equal(ublocks,[]))
-    assert(numpy.array_equal(indptr,[]))
-    assert(numpy.array_equal(indices,[]))
-    assert(numpy.array_equal(csr_val,[]))
 
 
 def test_compression():
@@ -175,6 +125,11 @@ def test_partition():
     assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
     assert(numpy.array_equal(bpntrb,[0, 3, 5, 9, 11]))
     assert(numpy.array_equal(bpntre,[3, 5, 9, 11, 13]))
+    # Since density=0, all blocks should be dense, so ublocks, indptr, indices, csr_val should be empty
+    assert(len(ublocks) == 0)
+    assert(len(indptr) == 0)
+    assert(len(indices) == 0)
+    assert(len(csr_val) == 0)
 
 def run_spmv(threads):
     test_setup_file()
@@ -275,3 +230,57 @@ def test_partition_vals_real():
     assert(numpy.array_equal(bindx, bindx2))
     assert(numpy.array_equal(bpntrb, bpntrb2))
     assert(numpy.array_equal(bpntre, bpntre2))
+
+def test_vbrc_matrix_gen():
+    """Test vbrc_matrix_gen function by generating a small matrix and verifying it can be read back."""
+    # Generate a small 6x6 matrix with 2x2 blocks
+    # 2 row splits, 2 col splits = 4 blocks total
+    # 2 dense blocks, 50% zeros in dense blocks, 1 sparse block
+    filename = vbrc_matrix_gen(
+        m=6, n=6, 
+        partitioning="uniform", 
+        row_split=2, col_split=2, 
+        num_dense=2, perc_dense_zeros=50, 
+        num_sparse=1, 
+        dense_blocks_only=False, 
+        vbr_dir="tests", 
+        density=80  # Use density threshold instead of ML model
+    )
+    
+    # Read back the generated file
+    vbrc_path = os.path.join("tests", f"{filename}.vbrc")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbrc_path)
+    
+    # Verify basic structure
+    assert len(rpntr) == 3  # 2 splits + 1
+    assert len(cpntr) == 3  # 2 splits + 1
+    assert rpntr[0] == 0 and rpntr[-1] == 6
+    assert cpntr[0] == 0 and cpntr[-1] == 6
+    
+    # Verify block structure
+    assert len(bpntrb) == 2  # 2 row splits
+    assert len(bpntre) == 2  # 2 row splits
+    
+    # Verify that we have some data
+    assert len(val) > 0 or len(csr_val) > 0
+    
+    # Verify that indx starts with 0
+    assert indx[0] == 0
+    
+    # Verify that bindx contains valid column indices
+    assert all(0 <= idx < 2 for idx in bindx)  # 2 column splits
+    
+    # Verify that ublocks, indptr, indices, csr_val are consistent
+    if len(ublocks) > 0:
+        assert len(indptr) > 0
+        assert len(indices) > 0
+        assert len(csr_val) > 0
+        # indptr should have length equal to number of rows + 1
+        assert len(indptr) == 7  # 6 rows + 1
+    
+    # Clean up the generated file
+    if os.path.exists(vbrc_path):
+        os.remove(vbrc_path)
+    # Also clean up the directory if it's empty
+    if os.path.exists("tests") and not os.listdir("tests"):
+        os.rmdir("tests")

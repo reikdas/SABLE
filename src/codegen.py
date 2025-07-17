@@ -108,48 +108,75 @@ def gen_single_threaded_spmv_python(val: list[float], indx: list[int], bindx: li
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     code = []
-    code.append(f"""import tvm
-from tvm.script import relax as R
-from tvm.script import ir as I
-from tvm.script import tir as T
-import numpy as np
-from scipy.sparse import csr_matrix
+    code.append(f"""import logging
+import tempfile
 import time
-from pathlib import Path\n\n""")
+from pathlib import Path
 
-    code.append(f"""def bar(data, indices, indptr, vec, bla):
-    csr=csr_matrix((data, indices, indptr), shape=({rpntr[-1]},{cpntr[-1]}))
-    bla = csr.dot(vec)
-    return bla
-    
-@tvm.register_func("foo", override=True)
-def foo(data, indices, indptr, vec, bla, out):
-    data = data.numpy()
-    indices = indices.numpy()
-    indptr = indptr.numpy()
-    vec = vec.numpy()
-    bla = bla.numpy()
-""")
+import numpy as np
+import tvm
+import tvm.meta_schedule as ms
+from tvm import relax
+from tvm.script import ir as I
+from tvm.script import relax as R
+from tvm.script import tir as T
 
-    if len(csr_val) > 0:
-        code.append("""\tbla = bar(data, indices, indptr, vec, bla)\n""")
-    
-    code.append(f"""\tout.copyfrom(bla)
+logging.getLogger("tvm.meta_schedule").setLevel(logging.ERROR)\n\n""")
 
-@I.ir_module
+    code.append(f"""@I.ir_module
 class Module:\n""")
     
+    if len(csr_val) > 0:
+        code.append(f"""\t@T.prim_func
+    def sparse_loop(
+                CSR_VAL: T.handle,
+                INDICES: T.handle,
+                IND_PTR: T.handle,
+                VEC: T.handle,
+                OUT: T.handle,
+                ):
+        csr_val = T.match_buffer(CSR_VAL, ({len(csr_val)},), "float64")
+        indices = T.match_buffer(INDICES, ({len(indices)},), "int32")
+        indptr = T.match_buffer(IND_PTR, ({len(indptr)},), "int32")
+        vec = T.match_buffer(VEC, ({cpntr[-1]},), "float64")
+        out = T.match_buffer(OUT, ({rpntr[-1]},), "float64")
+        for i in T.serial({rpntr[-1]}):
+            out[i] = 0.0
+        for i in T.serial({rpntr[-1]}):
+                row_start = indptr[i]
+                row_end = indptr[i + 1]
+                for j in T.serial(row_end - row_start):
+                    out[i] += csr_val[row_start + j] * vec[indices[row_start + j]]\n\n""")
+                
+    if len(val) > 0:
+        code.append(f"""\t@T.prim_func
+    def dense_loop(
+        VAL: T.handle,
+        VEC: T.handle,\n""")
+
+        if len(csr_val) > 0:
+            code.append(f"\t\tOUT_T: T.handle,\n")
+        
+        code.append(f"""\t\tOUT: T.handle
+    ):
+        val = T.match_buffer(VAL, ({len(val)},), "float64")
+        vec = T.match_buffer(VEC, ({cpntr[-1]},), "float64")\n""")
+
+        if len(csr_val) > 0:
+            code.append(f"\t\tout_t = T.match_buffer(OUT_T, ({rpntr[-1]},), \"float64\")\n")
+
+        code.append(f"""\t\tout = T.match_buffer(OUT, ({rpntr[-1]},), "float64")\n""")
+
+        if len(csr_val) > 0:
+            code.append(f"\t\tfor i in T.serial({rpntr[-1]}):\n")
+            code.append(f"\t\t\tout[i] = out_t[i]\n")
+        else:
+            code.append(f"\t\tfor i in T.serial({rpntr[-1]}):\n")
+            code.append(f"\t\t\tout[i] = 0.0\n")
+
+    # Add dense blocks computation
     count = 0 
     nnz_block = 0
-    code.append(f"""\t@T.prim_func
-    def dense_loop(VAL: T.handle, VEC: T.handle, BLA: T.handle, OUT: T.handle):
-        val = T.match_buffer(VAL, ({len(val)},), "float64")
-        vec = T.match_buffer(VEC, ({cpntr[-1]},), "float64")
-        bla = T.match_buffer(BLA, ({rpntr[-1]},), "float64")
-        out = T.match_buffer(OUT, ({rpntr[-1]},), "float64")
-        for i in range({rpntr[-1]}):
-            out[i] = bla[i]\n""")
-
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1: 
             continue
@@ -157,23 +184,39 @@ class Module:\n""")
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 if nnz_block not in ublocks:
-                    code.append(gen_loop(rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[count]))
+                    i_extent = rpntr[a+1] - rpntr[a]
+                    j_extent = cpntr[b+1] - cpntr[b]
+                    code.append(f"""\t\tfor j in T.serial({j_extent}):
+            for i in T.serial({i_extent}):
+                with T.block("db{nnz_block}"):
+                    T.init()
+                    out[i + {rpntr[a]}] += val[{indx[count]} + j * {i_extent} + i] * vec[j + {cpntr[b]}]\n""")
                     count+=1
                 nnz_block += 1
-    code.append("\n")
 
-    code.append(f"""\t@R.function
-    def main(data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32"), vec: R.Tensor(("k",), dtype="float64"), bla: R.Tensor(("p",), dtype="float64"), val: R.Tensor(("v",), dtype="float64")):\n""")
+    arg_str = 'vec: R.Tensor(("k",), dtype="float64"),'
+    if len(csr_val) > 0:
+        arg_str += 'data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32"),'
+    if len(val) > 0:
+        arg_str += 'val: R.Tensor(("v",), dtype="float64")'
     
-    if len(val) != 0:
-        code.append(f'''\t\tcls = Module
-        out1 = R.call_tir(cls.dense_loop, (val, vec, bla), out_sinfo=R.Tensor(({rpntr[-1]},), dtype="float64"))\n''')
-        out_var = "out1"
+
+    code.append(f"""\n\t@R.function
+    def main({arg_str}):
+        cls = Module\n""")
+    
+    if len(csr_val) > 0:
+        code.append(f"\t\tout = R.call_tir(cls.sparse_loop, (data, indices, indptr, vec), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
+
+    outvar = "out1"
+    if len(val) and len(csr_val) > 0:
+        code.append(f"\t\t{outvar} = R.call_tir(cls.dense_loop, (val, vec, out), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
+    elif len(val) > 0:
+        code.append(f"\t\t{outvar} = R.call_tir(cls.dense_loop, (val, vec), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
     else:
-        out_var = "bla"
-    
-    code.append(f"""\t\tout = R.call_dps_packed("foo", (data, indices, indptr, vec, {out_var}), out_sinfo=R.Tensor((p,), dtype="float64"))
-        return out
+        outvar = "out"
+
+    code.append(f"""\t\treturn {outvar}
 
 if __name__ == "__main__":
     vbrc_path = Path("{os.path.abspath(vbr_path)}")
@@ -204,25 +247,71 @@ if __name__ == "__main__":
 
     x = np.fromstring(vector_path.read_text(), sep=",", dtype=np.float64)
     assert x.size == {cpntr[-1]}, f"x length {{x.size}}, expected {cpntr[-1]}"
+    
+    target = tvm.target.Target("llvm -num-cores 1")
 
-    y = np.zeros_like(x)
-    ex = tvm.relax.build(Module, target="llvm")
-    vm = tvm.relax.VirtualMachine(ex, tvm.cpu())
     val_arg = tvm.nd.array(val, device=tvm.cpu())
     data_arg = tvm.nd.array(csr_val, device=tvm.cpu())
     indices_arg = tvm.nd.array(indices, device=tvm.cpu())
     indptr_arg = tvm.nd.array(indptr, device=tvm.cpu())
     vec_arg = tvm.nd.array(x, device=tvm.cpu())
-    bla = tvm.nd.array(y, device=tvm.cpu())
+
+    mod = Module\n""")
+
+    if len(val) > 0:
+        code.append(f"""
+    dense_loop_tir = mod["dense_loop"]
+
+    with tempfile.TemporaryDirectory() as work_dir:
+        database = ms.tir_integration.tune_tir(
+            mod=Module,
+            target=target,
+            work_dir=work_dir,
+            max_trials_global=64,
+            num_trials_per_iter=8,
+        )
+
+        if database is None:
+            raise ValueError("Database is None!")
+
+        sch = ms.tir_integration.compile_tir(database, dense_loop_tir, target)
+        if sch is None:
+            raise ValueError("No valid schedule found!")
+
+        optimized_tir = sch.mod["main"]""")
+    
+        init_str = '{"main": Module["main"], "dense_loop": optimized_tir'
+        if len(csr_val) > 0:
+            init_str += ', "sparse_loop": Module["sparse_loop"]'
+        init_str += '}'
+
+        code.append(f"""
+        mod = tvm.IRModule({init_str})
+
+        mod = relax.transform.LegalizeOps()(mod)
+        """)
+            
+    code.append(f"""
+    ex = relax.build(mod, target=target)
+    vm = relax.VirtualMachine(ex, tvm.cpu())
     times = []
-    for i in range({bench}):
-        time1 = time.time_ns()
-        out = vm["main"](data_arg, indices_arg, indptr_arg, vec_arg, bla, val_arg)
+    for _ in range(5):
+        time1 = time.time_ns()\n""")
+    
+    vm_arg_str = 'vec_arg'
+    if len(csr_val) > 0:
+        vm_arg_str += ', data_arg, indices_arg, indptr_arg'
+    if len(val) > 0:
+        vm_arg_str += ', val_arg'
+    
+    code.append(f"""
+        out = vm["main"]({vm_arg_str})
         time2 = time.time_ns()
-        times.append(time2-time1)
-    print("Time = ", (sum(times)/len(times)))
+        times.append(time2 - time1)
+    print("Average time (ns):", sum(times) / len(times))
     for elem in out.numpy():
         print(elem)""")
+                    
     full_source = "".join(code).expandtabs(4)
     with open(os.path.join(dir_name, filename+".py"), "w") as f:
         f.writelines(full_source)

@@ -143,10 +143,10 @@ class Module:\n""")
         for i in T.serial({rpntr[-1]}):
             out[i] = 0.0
         for i in T.serial({rpntr[-1]}):
-                row_start = indptr[i]
-                row_end = indptr[i + 1]
-                for j in T.serial(row_end - row_start):
-                    out[i] += csr_val[row_start + j] * vec[indices[row_start + j]]\n\n""")
+            row_start = indptr[i]
+            row_end = indptr[i + 1]
+            for j in T.serial(row_end - row_start):
+                out[i] += csr_val[row_start + j] * vec[indices[row_start + j]]\n\n""")
                 
     if len(val) > 0:
         code.append(f"""\t@T.prim_func
@@ -258,44 +258,44 @@ if __name__ == "__main__":
 
     mod = Module\n""")
 
-    if len(val) > 0:
-        code.append(f"""
-    dense_loop_tir = mod["dense_loop"]
+    # if len(val) > 0:
+    #     code.append(f"""
+    # dense_loop_tir = mod["dense_loop"]
 
-    with tempfile.TemporaryDirectory() as work_dir:
-        database = ms.tir_integration.tune_tir(
-            mod=Module,
-            target=target,
-            work_dir=work_dir,
-            max_trials_global=64,
-            num_trials_per_iter=8,
-        )
+    # with tempfile.TemporaryDirectory() as work_dir:
+    #     database = ms.tir_integration.tune_tir(
+    #         mod=Module,
+    #         target=target,
+    #         work_dir=work_dir,
+    #         max_trials_global=64,
+    #         num_trials_per_iter=8,
+    #     )
 
-        if database is None:
-            raise ValueError("Database is None!")
+    #     if database is None:
+    #         raise ValueError("Database is None!")
 
-        sch = ms.tir_integration.compile_tir(database, dense_loop_tir, target)
-        if sch is None:
-            raise ValueError("No valid schedule found!")
+    #     sch = ms.tir_integration.compile_tir(database, dense_loop_tir, target)
+    #     if sch is None:
+    #         raise ValueError("No valid schedule found!")
 
-        optimized_tir = sch.mod["main"]""")
+    #     optimized_tir = sch.mod["main"]""")
     
-        init_str = '{"main": Module["main"], "dense_loop": optimized_tir'
-        if len(csr_val) > 0:
-            init_str += ', "sparse_loop": Module["sparse_loop"]'
-        init_str += '}'
+    #     init_str = '{"main": Module["main"], "dense_loop": optimized_tir'
+    #     if len(csr_val) > 0:
+    #         init_str += ', "sparse_loop": Module["sparse_loop"]'
+    #     init_str += '}'
 
-        code.append(f"""
-        mod = tvm.IRModule({init_str})
+    #     code.append(f"""
+    #     mod = tvm.IRModule({init_str})
 
-        mod = relax.transform.LegalizeOps()(mod)
-        """)
+    #     mod = relax.transform.LegalizeOps()(mod)
+    #     """)
             
     code.append(f"""
     ex = relax.build(mod, target=target)
     vm = relax.VirtualMachine(ex, tvm.cpu())
     times = []
-    for _ in range(5):
+    for i in range({bench+1}):
         time1 = time.time_ns()\n""")
     
     vm_arg_str = 'vec_arg'
@@ -304,14 +304,19 @@ if __name__ == "__main__":
     if len(val) > 0:
         vm_arg_str += ', val_arg'
     
-    code.append(f"""
-        out = vm["main"]({vm_arg_str})
-        time2 = time.time_ns()
-        times.append(time2 - time1)
-    print("Average time (ns):", sum(times) / len(times))
+    code.append(f'\t\tout = vm["main"]({vm_arg_str})\n')
+    code.append('\t\ttime2 = time.time_ns()\n')
+    code.append('\t\tif i != 0:\n')
+    code.append('\t\t\ttimes.append(time2 - time1)\n')
+
+    code.append(f'\tprint("{filename} = ", end="")\n')
+    code.append('\tfor t in times:\n')
+    code.append('\t\tprint(f"{t},", end="")\n')
+    code.append('\tprint()\n')
+    code.append("""
     for elem in out.numpy():
         print(elem)""")
-                    
+
     full_source = "".join(code).expandtabs(4)
     with open(os.path.join(dir_name, filename+".py"), "w") as f:
         f.writelines(full_source)

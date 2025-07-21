@@ -8,7 +8,7 @@ from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 
 # from src.consts import SPEEDUP_THRESH
-SPEEDUP_THRESH=1.3
+SPEEDUP_THRESH=1.2
 
 FILEPATH=pathlib.Path(__file__).resolve().parent
 BASEPATH=os.path.join(FILEPATH.parent)
@@ -19,10 +19,6 @@ if __name__ == "__main__":
 
     # Filter for rows where dim1=1, dim2=1, and nnz=0
     filtered_df = df[(df['dim1'] == 1) & (df['dim2'] == 1) & (df['nnz'] == 0)]
-    startup_time = filtered_df.iloc[0]['CSR_time']
-    
-    # Subtract startup_time from all CSR_time values
-    df['CSR_time'] = df['CSR_time'] - startup_time
 
     df['density'] = 100 - df['perc_zeros']
     # df['size'] = df['dim1'] * df['dim2']
@@ -71,6 +67,9 @@ if __name__ == "__main__":
     print(model.predict([[150, 150, 100]])) # Expect 1
     print(model.predict([[1,9996,100.0]])) # Expect 1
     print(model.predict([[9996,1,100.0]])) # Expect 1
+    print(model.predict([[10000, 10000, 100.0]])) # Expect 1
+    print(model.predict([[5000, 5000, 75.0]])) # Expect 1
+    print(model.predict([[1000, 1000, 60.0]])) # Expect 1
 
     # print(X_train)
     # print(y_train)

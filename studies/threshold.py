@@ -32,13 +32,14 @@ def calculate_threshold():
     core = psutil.Process(pid).cpu_num()
     perc_zeros_list = [0, 20, 40, 50, 75, 80, 85, 90, 95, 99]
     dims = [1, 2, 4, 5, 8, 10, 16, 20, 25, 40, 50, 80, 100, 125, 200, 250, 400, 500, 625, 1000, 1250, 2000, 2500, 5000]
-    mat_side = 10000
-    assert (mat_side % dim == 0 for dim in dims)
-    write_dense_vector(1.0, mat_side)
+    # mat_side = 10000
+    # assert (mat_side % dim == 0 for dim in dims)
+    # write_dense_vector(1.0, mat_side)
     with open(os.path.join(FILEPATH,"threshold_results.csv"), "w") as f:
         f.write(f"dim1,dim2,perc_zeros,nnz,CSR_time,sable_time\n")
-        for dim1 in tqdm(dims, desc="Processing dimensions"):
-            for dim2 in tqdm(dims, desc=f"Dim {dim1}: Processing dimensions", leave=False):
+        for dim1 in tqdm(reversed(dims), desc="Processing dimensions"):
+            for dim2 in tqdm(reversed(dims), desc=f"Dim {dim1}: Processing dimensions", leave=False):
+                write_dense_vector(1.0, dim2)
                 for perc_zeros in tqdm(perc_zeros_list, desc=f"Dim {dim2}: Processing % zeros", leave=False):
                     nnz = (dim1*dim2*(100-perc_zeros))//100
                     fname: str = vbrc_matrix_gen(dim1, dim2, "uniform", 1, 1, 1, perc_zeros, 0, True, DENSE_VBR_DIR, 0)
@@ -50,7 +51,6 @@ def calculate_threshold():
                         continue
                     output = extract_mul_nums(output)
                     median_sable_time_dense = statistics.median([float(x) for x in output])
-                    # write_dense_vector(1.0, dim2)
                     fname2: str = vbrc_matrix_gen(dim1, dim2, "uniform", 1, 1, 1, perc_zeros, 0, True, SPARSE_VBR_DIR, 100)
                     vbr_spmv_codegen_python(fname2, dir_name=SPARSE_CODEGEN_DIR, vbr_dir=SPARSE_VBR_DIR, bench=BENCHMARK_FREQ)
                     try:

@@ -108,117 +108,136 @@ def gen_single_threaded_spmv_python(val: list[float], indx: list[int], bindx: li
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
     code = []
-    code.append(f"""import logging
-import tempfile
-import time
+    code.append(f"""import time
 from pathlib import Path
 
 import numpy as np
 import tvm
-import tvm.meta_schedule as ms
 from tvm import relax
 from tvm.script import ir as I
 from tvm.script import relax as R
-from tvm.script import tir as T
-
-logging.getLogger("tvm.meta_schedule").setLevel(logging.ERROR)\n\n""")
+from tvm.script import tir as T\n\n""")
 
     code.append(f"""@I.ir_module
 class Module:\n""")
     
+
+    code.append(f"""\t@T.prim_func
+    def spmv(VEC: T.handle,\n""")
+
+    if len(val) > 0:
+        code.append(f"\t\tVAL: T.handle,\n")
+    
     if len(csr_val) > 0:
-        code.append(f"""\t@T.prim_func
-    def sparse_loop(
-                CSR_VAL: T.handle,
-                INDICES: T.handle,
-                IND_PTR: T.handle,
-                VEC: T.handle,
-                OUT: T.handle,
-                ):
-        csr_val = T.match_buffer(CSR_VAL, ({len(csr_val)},), "float64")
+        code.append(f"""\t\tCSR_VAL: T.handle,
+        INDICES: T.handle,
+        IND_PTR: T.handle,\n""")
+    
+    code.append(f"""\t\tOUT: T.handle):
+        vec = T.match_buffer(VEC, ({cpntr[-1]},), "float64")\n""")
+    
+    if len(val) > 0:
+        code.append(f"\t\tval = T.match_buffer(VAL, ({len(val)},), \"float64\")\n")
+
+    if len(csr_val) > 0:
+        code.append(f"""\t\tcsr_val = T.match_buffer(CSR_VAL, ({len(csr_val)},), "float64")
         indices = T.match_buffer(INDICES, ({len(indices)},), "int32")
-        indptr = T.match_buffer(IND_PTR, ({len(indptr)},), "int32")
-        vec = T.match_buffer(VEC, ({cpntr[-1]},), "float64")
-        out = T.match_buffer(OUT, ({rpntr[-1]},), "float64")
+        indptr = T.match_buffer(IND_PTR, ({len(indptr)},), "int32")\n""")
+
+    code.append(f"""\t\tout = T.match_buffer(OUT, ({rpntr[-1]},), \"float64\")
         for i in T.serial({rpntr[-1]}):
             out[i] = 0.0
-        for i in T.serial({rpntr[-1]}):
+        T.evaluate(tvm.tir.call_packed("my_timer.start", 0))\n""")
+    
+    if len(csr_val) > 0:
+        code.append(f"""\t\tfor i in T.serial({rpntr[-1]}):
             row_start = indptr[i]
             row_end = indptr[i + 1]
             for j in T.serial(row_end - row_start):
                 out[i] += csr_val[row_start + j] * vec[indices[row_start + j]]\n\n""")
-                
+
+    code.append("\t\tT.evaluate(tvm.tir.call_packed(\"my_timer.stop\", 0))\n")
+
+    # Calculate number of dense timers needed
+    num_dense_timers = 0
     if len(val) > 0:
-        code.append(f"""\t@T.prim_func
-    def dense_loop(
-        VAL: T.handle,
-        VEC: T.handle,\n""")
+        nnz_block = 0
+        for a in range(len(rpntr)-1):
+            if bpntrb[a] == -1: 
+                continue
+            valid_cols = bindx[bpntrb[a]:bpntre[a]]
+            for b in range(len(cpntr)-1):
+                if b in valid_cols:
+                    if nnz_block not in ublocks:
+                        num_dense_timers += 1
+                    nnz_block += 1
 
-        if len(csr_val) > 0:
-            code.append(f"\t\tOUT_T: T.handle,\n")
-        
-        code.append(f"""\t\tOUT: T.handle
-    ):
-        val = T.match_buffer(VAL, ({len(val)},), "float64")
-        vec = T.match_buffer(VEC, ({cpntr[-1]},), "float64")\n""")
-
-        if len(csr_val) > 0:
-            code.append(f"\t\tout_t = T.match_buffer(OUT_T, ({rpntr[-1]},), \"float64\")\n")
-
-        code.append(f"""\t\tout = T.match_buffer(OUT, ({rpntr[-1]},), "float64")\n""")
-
-        if len(csr_val) > 0:
-            code.append(f"\t\tfor i in T.serial({rpntr[-1]}):\n")
-            code.append(f"\t\t\tout[i] = out_t[i]\n")
-        else:
-            code.append(f"\t\tfor i in T.serial({rpntr[-1]}):\n")
-            code.append(f"\t\t\tout[i] = 0.0\n")
-
-    # Add dense blocks computation
-    count = 0 
-    nnz_block = 0
-    for a in range(len(rpntr)-1):
-        if bpntrb[a] == -1: 
-            continue
-        valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                if nnz_block not in ublocks:
-                    i_extent = rpntr[a+1] - rpntr[a]
-                    j_extent = cpntr[b+1] - cpntr[b]
-                    code.append(f"""\t\tfor j in T.serial({j_extent}):
+    if len(val) > 0:
+        # Add dense blocks computation
+        count = 0 
+        nnz_block = 0
+        for a in range(len(rpntr)-1):
+            if bpntrb[a] == -1: 
+                continue
+            valid_cols = bindx[bpntrb[a]:bpntre[a]]
+            for b in range(len(cpntr)-1):
+                if b in valid_cols:
+                    if nnz_block not in ublocks:
+                        i_extent = rpntr[a+1] - rpntr[a]
+                        j_extent = cpntr[b+1] - cpntr[b]
+                        # count+1 because 0 is sparse timer
+                        code.append(f"""\t\tT.evaluate(tvm.tir.call_packed("my_timer.start", {count+1}))
+        for j in T.serial({j_extent}):
             for i in T.serial({i_extent}):
                 with T.block("db{nnz_block}"):
                     T.init()
-                    out[i + {rpntr[a]}] += val[{indx[count]} + j * {i_extent} + i] * vec[j + {cpntr[b]}]\n""")
-                    count+=1
-                nnz_block += 1
+                    out[i + {rpntr[a]}] += val[{indx[count]} + j * {i_extent} + i] * vec[j + {cpntr[b]}]
+        T.evaluate(tvm.tir.call_packed("my_timer.stop", {count+1}))\n""")
+                        count+=1
+                    nnz_block += 1
 
-    arg_str = 'vec: R.Tensor(("k",), dtype="float64"),'
-    if len(csr_val) > 0:
-        arg_str += 'data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32"),'
+    arg_str = 'vec: R.Tensor(("k",), dtype="float64")'
     if len(val) > 0:
-        arg_str += 'val: R.Tensor(("v",), dtype="float64")'
+        arg_str += ', val: R.Tensor(("v",), dtype="float64")'
+    if len(csr_val) > 0:
+        arg_str += ', data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32")'
+
     
 
     code.append(f"""\n\t@R.function
     def main({arg_str}):
         cls = Module\n""")
     
-    if len(csr_val) > 0:
-        code.append(f"\t\tout = R.call_tir(cls.sparse_loop, (data, indices, indptr, vec), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
-
-    outvar = "out1"
     if len(val) and len(csr_val) > 0:
-        code.append(f"\t\t{outvar} = R.call_tir(cls.dense_loop, (val, vec, out), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
+        code.append(f"\t\tout = R.call_tir(cls.spmv, (vec, val, data, indices, indptr), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
     elif len(val) > 0:
-        code.append(f"\t\t{outvar} = R.call_tir(cls.dense_loop, (val, vec), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
-    else:
-        outvar = "out"
+        code.append(f"\t\tout = R.call_tir(cls.spmv, (vec, val), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
+    elif len(csr_val) > 0:
+        code.append(f"\t\tout = R.call_tir(cls.spmv, (vec, data, indices, indptr), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
 
-    code.append(f"""\t\treturn {outvar}
+    code.append(f"""\t\treturn out
 
 if __name__ == "__main__":
+    # Initialize timer_log with correct number of timers
+    # Timer 0: Sparse, Timers 1 to {num_dense_timers}: Dense blocks
+    timer_log = {{i: [] for i in range({num_dense_timers + 1})}}
+
+    @tvm.register_func("my_timer.start")
+    def timer_start(id: int):
+        if "_timers" not in globals():
+            global _timers
+            _timers = {{}}
+        _timers[id] = time.perf_counter_ns()
+
+    @tvm.register_func("my_timer.stop")
+    def timer_stop(id: int):
+        t2 = time.perf_counter_ns()
+        t1 = _timers.get(id, None)
+        if t1 is None:
+            print(f"Timer {id} was not started!")
+        else:
+            timer_log[id].append(t2 - t1)
+
     vbrc_path = Path("{os.path.abspath(vbr_path)}")
     vector_path = Path("{vector_path}")
     expected = {{
@@ -258,60 +277,45 @@ if __name__ == "__main__":
 
     mod = Module\n""")
 
-    # if len(val) > 0:
-    #     code.append(f"""
-    # dense_loop_tir = mod["dense_loop"]
-
-    # with tempfile.TemporaryDirectory() as work_dir:
-    #     database = ms.tir_integration.tune_tir(
-    #         mod=Module,
-    #         target=target,
-    #         work_dir=work_dir,
-    #         max_trials_global=64,
-    #         num_trials_per_iter=8,
-    #     )
-
-    #     if database is None:
-    #         raise ValueError("Database is None!")
-
-    #     sch = ms.tir_integration.compile_tir(database, dense_loop_tir, target)
-    #     if sch is None:
-    #         raise ValueError("No valid schedule found!")
-
-    #     optimized_tir = sch.mod["main"]""")
-    
-    #     init_str = '{"main": Module["main"], "dense_loop": optimized_tir'
-    #     if len(csr_val) > 0:
-    #         init_str += ', "sparse_loop": Module["sparse_loop"]'
-    #     init_str += '}'
-
-    #     code.append(f"""
-    #     mod = tvm.IRModule({init_str})
-
-    #     mod = relax.transform.LegalizeOps()(mod)
-    #     """)
+    vm_arg_str = 'vec_arg'
+    if len(val) > 0:
+        vm_arg_str += ', val_arg'
+    if len(csr_val) > 0:
+        vm_arg_str += ', data_arg, indices_arg, indptr_arg'
             
     code.append(f"""
     ex = relax.build(mod, target=target)
     vm = relax.VirtualMachine(ex, tvm.cpu())
-    times = []
     for i in range({bench+1}):
-        time1 = time.time_ns()\n""")
-    
-    vm_arg_str = 'vec_arg'
-    if len(csr_val) > 0:
-        vm_arg_str += ', data_arg, indices_arg, indptr_arg'
-    if len(val) > 0:
-        vm_arg_str += ', val_arg'
-    
-    code.append(f'\t\tout = vm["main"]({vm_arg_str})\n')
-    code.append('\t\ttime2 = time.time_ns()\n')
-    code.append('\t\tif i != 0:\n')
-    code.append('\t\t\ttimes.append(time2 - time1)\n')
+        if i!=0:
+            out = vm["main"]({vm_arg_str})\n""")
 
     code.append(f'\tprint("{filename} = ", end="")\n')
-    code.append('\tfor t in times:\n')
-    code.append('\t\tprint(f"{t},", end="")\n')
+    
+
+    code.append(f"""\t# Print all individual sparse times
+    print("Sparse: ", end="")
+    for t in timer_log[0]:
+        print(f"{{t}},", end="")
+    print()
+
+    # Print all total dense times (sum of all dense blocks)
+    print("Dense: ", end="")
+    for i in range(len(timer_log[0])):
+        total_dense = 0
+        for dense_id in range(1, {num_dense_timers + 1}):
+            if i < len(timer_log[dense_id]):
+                total_dense += timer_log[dense_id][i]
+        print(f"{{total_dense}},", end="")
+    print()
+
+    # Print all individual dense block times
+    for dense_id in range(1, {num_dense_timers + 1}):
+        print(f"Dense Block {{dense_id}}: ", end="")
+        for t in timer_log[dense_id]:
+            print(f"{{t}},", end="")
+        print()\n""")
+
     code.append('\tprint()\n')
     code.append("""
     for elem in out.numpy():

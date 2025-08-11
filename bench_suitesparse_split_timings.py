@@ -1,9 +1,9 @@
+import json
 import os
 import pathlib
+import re
 import statistics
 import subprocess
-import time
-import re
 
 import numpy as np
 import scipy
@@ -14,9 +14,9 @@ from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
 from studies.find_threshold import is_dense_block, predict_speedup
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc
-from utils.fileio import write_dense_vector, read_vbrc
+from utils.fileio import read_vbrc, write_dense_vector
 from utils.utils import (check_file_matches_parent_dir, extract_mul_nums,
-                         set_ulimit)
+                         remove_outliers_deciles, set_ulimit)
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
@@ -31,16 +31,51 @@ cut_indices = cut_indices2_fast
 similarity = similarity2_numba
 cut_threshold = 0.2
 
-def remove_outliers_deciles(data):
-    if len(data) < 10:  # Ensure enough data points for deciles
-        return data
+def _calculate_weighted_speedup_stats(individual_dense_block_timings):
+    """Helper function to calculate weighted speedup statistics from dense block timings"""
+    total_weighted_speedup = 0.0
+    total_dense_nnz_percentage = 0.0
     
-    D1 = np.percentile(data, 10)  # 10th percentile
-    D9 = np.percentile(data, 90)  # 90th percentile
+    for block_id, block_data in individual_dense_block_timings.items():
+        nnz_percentage = block_data.get("percentage_of_total_nnz", 0)
+        predicted_speedup = block_data.get("predicted_speedup", 0)
+        
+        # Weight the predicted speedup by the percentage of nnz it handles
+        weighted_speedup = predicted_speedup * (nnz_percentage / 100.0)
+        total_weighted_speedup += weighted_speedup
+        total_dense_nnz_percentage += nnz_percentage
+    
+    return total_weighted_speedup, total_dense_nnz_percentage
 
-    return [x for x in data if D1 <= x <= D9]
 
-def eval_single_file_split_timings(fname, codegen_dir):
+def estimate_total_speedup(individual_dense_block_timings):
+    """Estimate total speedup across the entire matrix based on individual block characteristics"""
+    total_weighted_speedup, total_dense_nnz_percentage = _calculate_weighted_speedup_stats(individual_dense_block_timings)
+    
+    # If no dense blocks, speedup is 1.0 (no improvement)
+    if total_dense_nnz_percentage == 0:
+        return 1.0
+    
+    estimated_speedup = 1.0 + (total_weighted_speedup - (total_dense_nnz_percentage / 100.0))
+    
+    return estimated_speedup
+
+
+def estimate_dense_speedup(individual_dense_block_timings):
+    """Estimate speedup specifically for dense regions only"""
+    total_weighted_speedup, total_dense_nnz_percentage = _calculate_weighted_speedup_stats(individual_dense_block_timings)
+    
+    # If no dense blocks, speedup is 1.0 (no improvement)
+    if total_dense_nnz_percentage == 0:
+        return 1.0
+
+    estimated_dense_speedup = total_weighted_speedup / (total_dense_nnz_percentage / 100.0)
+    
+    return estimated_dense_speedup
+
+
+
+def eval_single_file_split_timings(fname, codegen_dir, bench_freq: int, extract_indiv_blocks: bool = True):
     pid = os.getpid()
     cpu_affinity = os.sched_getaffinity(pid)
 
@@ -48,7 +83,7 @@ def eval_single_file_split_timings(fname, codegen_dir):
     dense_times = []
     individual_dense_block_times = {}  # Dictionary to store individual block timings
     
-    for _ in range(100):
+    for _ in range(bench_freq):
         output = subprocess.check_output(["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), "python3", f"{fname}.py"], cwd=codegen_dir, preexec_fn=set_ulimit).decode("utf-8").split("\n")
         
         # Skip warning lines if present
@@ -61,27 +96,36 @@ def eval_single_file_split_timings(fname, codegen_dir):
             sparse_line = output[start_idx:][0]
             dense_line = output[start_idx:][1]
             
-            sparse_match = re.search(r'Sparse: (.+)', sparse_line)
-            dense_match = re.search(r'Dense: (.+)', dense_line)
+            # Handle sparse times (may be empty)
+            sparse_values = []
+            if sparse_line.startswith('Sparse: '):
+                sparse_content = sparse_line[8:].strip()  # Remove 'Sparse: ' prefix
+                if sparse_content:  # Only parse if there's content
+                    sparse_values = [float(x.strip()) for x in sparse_content.rstrip(',').split(',')]
             
-            if sparse_match and dense_match:
-                sparse_values = [float(x.strip()) for x in sparse_match.group(1).rstrip(',').split(',')]
+            # Handle dense times
+            dense_values = []
+            dense_match = re.search(r'Dense: (.+)', dense_line)
+            if dense_match:
                 dense_values = [float(x.strip()) for x in dense_match.group(1).rstrip(',').split(',')]
-                
+            
+            # Add times if we found any
+            if sparse_values or dense_values:
                 sparse_times.extend(sparse_values)
                 dense_times.extend(dense_values)
             
             # Extract individual dense block timings
-            for line in output[start_idx:]:
-                dense_block_match = re.search(r'Dense Block (\d+): (.+)', line)
-                if dense_block_match:
-                    block_id = int(dense_block_match.group(1))
-                    block_times_str = dense_block_match.group(2)
-                    block_times = [float(x.strip()) for x in block_times_str.rstrip(',').split(',')]
-                    
-                    if block_id not in individual_dense_block_times:
-                        individual_dense_block_times[block_id] = []
-                    individual_dense_block_times[block_id].extend(block_times)
+            if extract_indiv_blocks:
+                for line in output[start_idx:]:
+                    dense_block_match = re.search(r'Dense Block (\d+): (.+)', line)
+                    if dense_block_match:
+                        block_id = int(dense_block_match.group(1))
+                        block_times_str = dense_block_match.group(2)
+                        block_times = [float(x.strip()) for x in block_times_str.rstrip(',').split(',')]
+                        
+                        if block_id not in individual_dense_block_times:
+                            individual_dense_block_times[block_id] = []
+                        individual_dense_block_times[block_id].extend(block_times)
     
     # Remove outliers and calculate averages
     sparse_times = remove_outliers_deciles(sparse_times)
@@ -92,9 +136,10 @@ def eval_single_file_split_timings(fname, codegen_dir):
     
     # Calculate averages for individual dense blocks
     avg_individual_block_times = {}
-    for block_id, times in individual_dense_block_times.items():
-        times_clean = remove_outliers_deciles(times)
-        avg_individual_block_times[block_id] = statistics.mean(times_clean) if times_clean else 0
+    if extract_indiv_blocks:
+        for block_id, times in individual_dense_block_times.items():
+            times_clean = remove_outliers_deciles(times)
+            avg_individual_block_times[block_id] = statistics.mean(times_clean) if times_clean else 0
     
     
     return avg_sparse_time, avg_dense_time, avg_individual_block_times
@@ -173,8 +218,10 @@ eval = [
     ]
 
 if __name__ == "__main__":
+    output_file = os.path.join(BASE_PATH, "results", "matrix_analysis_results.json")
+    os.makedirs(os.path.dirname(output_file), exist_ok=True)
     
-    # Store all results in memory
+    # Start with empty results (don't load existing results)
     all_results = []
     
     for file_path in mtx_dir.rglob("*"):
@@ -199,8 +246,8 @@ if __name__ == "__main__":
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             A = scipy.sparse.csc_matrix(A, copy=False)
             cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
-            val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname))
-            # val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir,f"{fname}/{fname}.vbrc"))
+            # val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname))
+            val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir,f"{fname}/{fname}.vbrc"))
 
             # Analyze dense blocks after reading VBR data
             dense_blocks = analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks)
@@ -209,26 +256,56 @@ if __name__ == "__main__":
             if len(val) == 0:
                 continue
             
-            codegen_time = gen_single_threaded_spmv_python(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir, fname, os.path.join(vbr_dir, fname), bench=100)
+            gen_single_threaded_spmv_python(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir, fname, os.path.join(vbr_dir, fname), bench=100)
 
             print(f"Done {fname}")
             
             # Evaluate the generated program immediately
             print(f"Evaluating {fname}...")
-            avg_sparse_time, avg_dense_time, avg_individual_block_times = eval_single_file_split_timings(fname, codegen_dir)
+            avg_sparse_time, avg_dense_time, avg_individual_block_times = eval_single_file_split_timings(fname, codegen_dir, 100)
+            
+            # Benchmark fully sparse variant
+            print(f"Benchmarking fully sparse variant for {fname}...")
+            sparse_codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_Python_sparse")
+            sparse_vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR_Sparse"))
+            
+            # Create sparse variant
+            sparse_dest_path = sparse_vbr_dir / relative_path.with_suffix(".vbr")
+            sparse_dest_path.parent.mkdir(parents=True, exist_ok=True)
+            # val_sparse, indx_sparse, bindx_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(sparse_vbr_dir,fname), density=100)
+            val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = read_vbrc(os.path.join(sparse_vbr_dir,f"{fname}/{fname}.vbrc"))
+
+            # Assert that the sparse variant has no dense blocks
+            assert len(val_sparse) == 0, f"Expected fully sparse variant for {fname}, but found {len(val_sparse)} dense blocks"
+            
+            gen_single_threaded_spmv_python(val_sparse, indx_sparse, bindx_sparse, rpntr, cpntr, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse, sparse_codegen_dir, fname, os.path.join(sparse_vbr_dir, fname), bench=100)
+            
+            sparse_avg_sparse_time, _, _ = eval_single_file_split_timings(fname, sparse_codegen_dir, 100)
             
             # Calculate percentages
             total_time = avg_sparse_time + avg_dense_time
             sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
             dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
-
+            speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+            
             # Calculate nnz statistics
             dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
             dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
             sparse_nnz = matrix_nnz - dense_nnz
-            extra_nnz = dense_all - dense_nnz
+            extra_zeros = dense_all - dense_nnz
             dense_nnz_perc = (dense_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
             sparse_nnz_perc = (sparse_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+            
+            # Calculate density and verify the calculation
+            total_elements = matrix_rows * matrix_cols
+            density_calculation = (matrix_nnz / total_elements * 100) if total_elements > 0 else 0
+            
+            # Debug print to verify calculation
+            print(f"DEBUG {fname}: matrix_nnz={matrix_nnz}, total_elements={total_elements}, density={density_calculation}%")
+            
+            # Verify the calculation is correct (should be percentage, not decimal)
+            if density_calculation > 100:
+                print(f"WARNING: Density for {fname} is {density_calculation}%, which is > 100%. This indicates a calculation error.")
             
             # Store results in memory
             matrix_result = {
@@ -236,20 +313,25 @@ if __name__ == "__main__":
                 "matrix_dimensions": {
                     "rows": matrix_rows,
                     "cols": matrix_cols,
-                    "nnz": matrix_nnz
+                    "nnz": matrix_nnz,
+                    "density": density_calculation
                 },
                 "timing": {
                     "sparse_time_ns": avg_sparse_time,
                     "dense_time_ns": avg_dense_time,
                     "total_time_ns": total_time,
                     "sparse_percentage": sparse_percentage,
-                    "dense_percentage": dense_percentage
+                    "dense_percentage": dense_percentage,
+                    "fully_sparse_time": sparse_avg_sparse_time,
+                    "speedup": speedup,
+                    "expected_sparse_time_ns": ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
+                    "dense_if_sparse_time_ns": sparse_avg_sparse_time - ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time
                 },
                 "nnz": {
                     "sparse_nnz": sparse_nnz,
                     "dense_all": dense_all,
                     "dense_nnz": dense_nnz,
-                    "extra_nnz": extra_nnz,
+                    "extra_zeros": extra_zeros,
                     "dense_nnz_perc": dense_nnz_perc,
                     "sparse_nnz_perc": sparse_nnz_perc
                 },
@@ -274,25 +356,42 @@ if __name__ == "__main__":
                     "predicted_speedup": block_info.get("predicted_speedup", 0)
                 }
             
-            all_results.append(matrix_result)
+            # Calculate estimated speedup based on individual block characteristics
+            estimated_speedup = estimate_total_speedup(matrix_result["individual_dense_block_timings"])
+            estimated_dense_speedup = estimate_dense_speedup(matrix_result["individual_dense_block_timings"])
+            
+            # Add the estimated speedup to the timing section
+            matrix_result["timing"]["expected_speedup"] = estimated_speedup
+            matrix_result["timing"]["expected_dense_speedup"] = estimated_dense_speedup
+            
+            # Check if this matrix result already exists and replace it, otherwise append
+            existing_index = None
+            for i, existing_result in enumerate(all_results):
+                if existing_result["matrix_name"] == fname:
+                    existing_index = i
+                    break
+            
+            if existing_index is not None:
+                all_results[existing_index] = matrix_result
+                print(f"Updated existing result for {fname}")
+            else:
+                all_results.append(matrix_result)
+                print(f"Added new result for {fname}")
+            
+            # Write results to file after each matrix is processed
+            with open(output_file, 'w') as f:
+                json.dump(all_results, f, indent=2)
             
             print(f"Evaluation complete for {fname}: {len(dense_blocks)} dense blocks")
+            print(f"Results written to {output_file} ({len(all_results)} matrices total)")
     
-    print(f"All results stored in memory. Processed {len(all_results)} matrices.")
-    
-    # Write results to JSON file
-    import json
-    output_file = os.path.join(BASE_PATH, "results", "matrix_analysis_results.json")
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
-    
-    with open(output_file, 'w') as f:
-        json.dump(all_results, f, indent=2)
-    
-    print(f"Results written to {output_file}")
+    print(f"All processing complete. Final results in {output_file}")
     
     # Print summary
     for result in all_results:
         num_dense_blocks = len(result['individual_dense_block_timings'])
         print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
               f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
-              f"dense: {result['timing']['dense_time_ns']:.0f}ns") 
+              f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
+              f"estimated_speedup: {result['timing']['expected_speedup']:.3f}, "
+              f"estimated_dense_speedup: {result['timing']['expected_dense_speedup']:.3f}") 

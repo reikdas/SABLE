@@ -2,12 +2,13 @@ import os
 import pathlib
 from typing import List, Optional, Tuple
 
-import joblib
 import numpy
 import scipy
 from scipy.io import mmread
 from scipy.sparse import spmatrix
 from random import sample
+
+from studies.find_threshold import is_dense_block
 
 def cumsum_list(l):
     '''
@@ -56,9 +57,6 @@ def _generate_vbrc_data(
     Returns:
         Tuple of VBRC data structures: (val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
     """
-    # Load ML model if density is None
-    if density is None:
-        model = joblib.load(os.path.join(BASE_PATH, "models", "density_threshold_spmv.pkl"))
     
     val2: List[float] = []
     indx2: List[int] = [0]
@@ -94,7 +92,7 @@ def _generate_vbrc_data(
             if density is not None:
                 unroll = calc_density <= density
             else:
-                unroll = model.predict([[block_sx, block_sy, calc_density]])[0] == 0
+                unroll = not is_dense_block(block_sx, block_sy, calc_density)
             
             if not unroll:
                 # Keep as dense block

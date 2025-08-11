@@ -1,6 +1,7 @@
 import os
 import resource
 import signal
+import numpy as np
 from functools import wraps
 
 
@@ -63,3 +64,22 @@ def timeout(timeout_secs: int):
 
 def set_ulimit():
     resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
+
+def remove_outliers_deciles(data):
+    """
+    Remove outliers from data using deciles (10th and 90th percentiles).
+    
+    Args:
+        data (list): List of numerical values
+        
+    Returns:
+        list: Data with outliers removed
+    """
+    if len(data) < 10:  # Ensure enough data points for deciles
+        return data
+    
+    D1 = np.percentile(data, 10)  # 10th percentile
+    D9 = np.percentile(data, 90)  # 90th percentile
+
+    return [x for x in data if D1 <= x <= D9]
+

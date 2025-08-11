@@ -116,111 +116,103 @@ import tvm
 from tvm import relax
 from tvm.script import ir as I
 from tvm.script import relax as R
-from tvm.script import tir as T\n\n""")
+from tvm.script import tir as T
 
-    code.append(f"""@I.ir_module
-class Module:\n""")
-    
-
-    code.append(f"""\t@T.prim_func
+@I.ir_module
+class Module:
+    @T.prim_func
     def spmv(VEC: T.handle,\n""")
 
     if len(val) > 0:
-        code.append(f"\t\tVAL: T.handle,\n")
-    
+        code.append(f"""
+                    VAL: T.handle,\n""")
+        
     if len(csr_val) > 0:
-        code.append(f"""\t\tCSR_VAL: T.handle,
-        INDICES: T.handle,
-        IND_PTR: T.handle,\n""")
+        code.append(f"""
+                    CSR_VAL: T.handle,
+                    INDICES: T.handle,
+                    IND_PTR: T.handle,\n""")
     
-    code.append(f"""\t\tOUT: T.handle):
+    code.append(f"""
+        OUT: T.handle):
         vec = T.match_buffer(VEC, ({cpntr[-1]},), "float64")\n""")
     
     if len(val) > 0:
-        code.append(f"\t\tval = T.match_buffer(VAL, ({len(val)},), \"float64\")\n")
-
+        code.append(f"""\t\tval = T.match_buffer(VAL, ({len(val)},), "float64")\n""")
+    
     if len(csr_val) > 0:
-        code.append(f"""\t\tcsr_val = T.match_buffer(CSR_VAL, ({len(csr_val)},), "float64")
+        code.append(f"""
+        csr_val = T.match_buffer(CSR_VAL, ({len(csr_val)},), "float64")
         indices = T.match_buffer(INDICES, ({len(indices)},), "int32")
-        indptr = T.match_buffer(IND_PTR, ({len(indptr)},), "int32")\n""")
+        indptr = T.match_buffer(IND_PTR, ({len(indptr)},), "int32")""")
 
-    code.append(f"""\t\tout = T.match_buffer(OUT, ({rpntr[-1]},), \"float64\")
+    code.append(f"""
+        out = T.match_buffer(OUT, ({rpntr[-1]},), "float64")
+        
         for i in T.serial({rpntr[-1]}):
             out[i] = 0.0
         T.evaluate(tvm.tir.call_packed("my_timer.start", 0))\n""")
     
     if len(csr_val) > 0:
-        code.append(f"""\t\tfor i in T.serial({rpntr[-1]}):
+        code.append(f"""
+        for i in T.serial({rpntr[-1]}):
             row_start = indptr[i]
             row_end = indptr[i + 1]
             for j in T.serial(row_end - row_start):
-                out[i] += csr_val[row_start + j] * vec[indices[row_start + j]]\n\n""")
+                out[i] += csr_val[row_start + j] * vec[indices[row_start + j]]\n""")
+    
+    code.append(f"""\t\tT.evaluate(tvm.tir.call_packed("my_timer.stop", 0))\n""")
 
-    code.append("\t\tT.evaluate(tvm.tir.call_packed(\"my_timer.stop\", 0))\n")
-
-    # Calculate number of dense timers needed
-    num_dense_timers = 0
-    if len(val) > 0:
-        nnz_block = 0
-        for a in range(len(rpntr)-1):
-            if bpntrb[a] == -1: 
-                continue
-            valid_cols = bindx[bpntrb[a]:bpntre[a]]
-            for b in range(len(cpntr)-1):
-                if b in valid_cols:
-                    if nnz_block not in ublocks:
-                        num_dense_timers += 1
-                    nnz_block += 1
-
-    if len(val) > 0:
-        # Add dense blocks computation
-        count = 0 
-        nnz_block = 0
-        for a in range(len(rpntr)-1):
-            if bpntrb[a] == -1: 
-                continue
-            valid_cols = bindx[bpntrb[a]:bpntre[a]]
-            for b in range(len(cpntr)-1):
-                if b in valid_cols:
-                    if nnz_block not in ublocks:
-                        i_extent = rpntr[a+1] - rpntr[a]
-                        j_extent = cpntr[b+1] - cpntr[b]
-                        # count+1 because 0 is sparse timer
-                        code.append(f"""\t\tT.evaluate(tvm.tir.call_packed("my_timer.start", {count+1}))
+    # Add dense block computations
+    nnz_block = 0
+    count = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1: 
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    i_extent = rpntr[a+1] - rpntr[a]
+                    j_extent = cpntr[b+1] - cpntr[b]
+                    code.append(f"""
+        T.evaluate(tvm.tir.call_packed("my_timer.start", {count+1}))
         for j in T.serial({j_extent}):
             for i in T.serial({i_extent}):
                 with T.block("db{nnz_block}"):
                     T.init()
                     out[i + {rpntr[a]}] += val[{indx[count]} + j * {i_extent} + i] * vec[j + {cpntr[b]}]
         T.evaluate(tvm.tir.call_packed("my_timer.stop", {count+1}))\n""")
-                        count+=1
-                    nnz_block += 1
+                    count += 1
+                nnz_block += 1
 
-    arg_str = 'vec: R.Tensor(("k",), dtype="float64")'
+    code.append(f"""
+    @R.function\n""")
+
+    param_str = 'def main(vec: R.Tensor(("k",), dtype="float64")'
+    arg_str = "vec"
+    call_arg_str = "vec_arg"
     if len(val) > 0:
-        arg_str += ', val: R.Tensor(("v",), dtype="float64")'
+        param_str += f""", val: R.Tensor(("a",), dtype="float64")"""
+        arg_str += ", val"
+        call_arg_str += ", val_arg"
     if len(csr_val) > 0:
-        arg_str += ', data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32")'
+        param_str += f""", data: R.Tensor(("n",), dtype="float64"), indices: R.Tensor(("m",), dtype="int32"), indptr: R.Tensor(("l",), dtype="int32")"""
+        arg_str += ", data, indices, indptr"
+        call_arg_str += ", data_arg, indices_arg, indptr_arg"
+    param_str += f"""):"""
 
-    
-
-    code.append(f"""\n\t@R.function
-    def main({arg_str}):
-        cls = Module\n""")
-    
-    if len(val) and len(csr_val) > 0:
-        code.append(f"\t\tout = R.call_tir(cls.spmv, (vec, val, data, indices, indptr), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
-    elif len(val) > 0:
-        code.append(f"\t\tout = R.call_tir(cls.spmv, (vec, val), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
-    elif len(csr_val) > 0:
-        code.append(f"\t\tout = R.call_tir(cls.spmv, (vec, data, indices, indptr), out_sinfo=R.Tensor(({rpntr[-1]},), dtype=\"float64\"))\n")
-
-    code.append(f"""\t\treturn out
+    code.append(f"""
+    @R.function
+    {param_str}
+        cls = Module
+        out = R.call_tir(cls.spmv, ({arg_str}), out_sinfo=R.Tensor(({rpntr[-1]},), dtype="float64"))
+        return out
 
 if __name__ == "__main__":
     # Initialize timer_log with correct number of timers
-    # Timer 0: Sparse, Timers 1 to {num_dense_timers}: Dense blocks
-    timer_log = {{i: [] for i in range({num_dense_timers + 1})}}
+    # Timer 0: Sparse, Timers 1 to {count}: Dense blocks
+    timer_log = {{i: [] for i in range({count + 1})}}
 
     @tvm.register_func("my_timer.start")
     def timer_start(id: int):
@@ -234,7 +226,7 @@ if __name__ == "__main__":
         t2 = time.perf_counter_ns()
         t1 = _timers.get(id, None)
         if t1 is None:
-            print(f"Timer {id} was not started!")
+            print(f"Timer {{id}} was not started!")
         else:
             timer_log[id].append(t2 - t1)
 
@@ -265,35 +257,24 @@ if __name__ == "__main__":
     indptr, indices = arrays["indptr"], arrays["indices"]
 
     x = np.fromstring(vector_path.read_text(), sep=",", dtype=np.float64)
-    assert x.size == {cpntr[-1]}, f"x length {{x.size}}, expected {cpntr[-1]}"
-    
-    target = tvm.target.Target("llvm -num-cores 1")
+    assert x.size == {cpntr[-1]}, f"x length {{x.size}}, expected {cpntr[-1]}"\n""")
 
-    val_arg = tvm.nd.array(val, device=tvm.cpu())
-    data_arg = tvm.nd.array(csr_val, device=tvm.cpu())
-    indices_arg = tvm.nd.array(indices, device=tvm.cpu())
-    indptr_arg = tvm.nd.array(indptr, device=tvm.cpu())
-    vec_arg = tvm.nd.array(x, device=tvm.cpu())
-
-    mod = Module\n""")
-
-    vm_arg_str = 'vec_arg'
     if len(val) > 0:
-        vm_arg_str += ', val_arg'
+        code.append(f"\tval_arg = tvm.nd.array(val, device=tvm.cpu())\n")
     if len(csr_val) > 0:
-        vm_arg_str += ', data_arg, indices_arg, indptr_arg'
-            
+        code.append(f"""\tdata_arg = tvm.nd.array(csr_val, device=tvm.cpu())
+    indices_arg = tvm.nd.array(indices, device=tvm.cpu())
+    indptr_arg = tvm.nd.array(indptr, device=tvm.cpu())\n""")
+    code.append(f"\tvec_arg = tvm.nd.array(x, device=tvm.cpu())\n")
+
     code.append(f"""
-    ex = relax.build(mod, target=target)
-    vm = relax.VirtualMachine(ex, tvm.cpu())
-    for i in range({bench+1}):
-        if i!=0:
-            out = vm["main"]({vm_arg_str})\n""")
+    target_sparse = tvm.target.Target("llvm -num-cores 1 -mtriple=x86_64-pc-linux-gnu")
+    mod_sparse = Module
+    ex_sparse = relax.build(mod_sparse, target=target_sparse)
+    vm_sparse = relax.VirtualMachine(ex_sparse, tvm.cpu())
 
-    code.append(f'\tprint("{filename} = ", end="")\n')
-    
-
-    code.append(f"""\t# Print all individual sparse times
+    for i in range({bench}):
+        out = vm_sparse["main"]({call_arg_str})
     print("Sparse: ", end="")
     for t in timer_log[0]:
         print(f"{{t}},", end="")
@@ -301,23 +282,24 @@ if __name__ == "__main__":
 
     # Print all total dense times (sum of all dense blocks)
     print("Dense: ", end="")
-    for i in range(len(timer_log[0])):
+    # Determine the number of iterations based on available data
+    num_iterations = max(len(timer_log[0]), max([len(timer_log[i]) for i in range(1, {count + 1})] if {count} > 0 else [0]))
+    for i in range(num_iterations):
         total_dense = 0
-        for dense_id in range(1, {num_dense_timers + 1}):
+        for dense_id in range(1, {count + 1}):
             if i < len(timer_log[dense_id]):
                 total_dense += timer_log[dense_id][i]
         print(f"{{total_dense}},", end="")
     print()
 
     # Print all individual dense block times
-    for dense_id in range(1, {num_dense_timers + 1}):
+    for dense_id in range(1, {count + 1}):
         print(f"Dense Block {{dense_id}}: ", end="")
         for t in timer_log[dense_id]:
             print(f"{{t}},", end="")
-        print()\n""")
+        print()
+    print()
 
-    code.append('\tprint()\n')
-    code.append("""
     for elem in out.numpy():
         print(elem)""")
 
@@ -355,14 +337,21 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
-    code.append(f"\tdouble y[{rpntr[-1]}] = {{0}};\n")
-    code.append(f"\tdouble x[{cpntr[-1]}] = {{0}};\n")
+    code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
+    code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
     if len(val) > 0:
-        code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
     else:
-        code.append(f"\tdouble val[1] = {{0}};\n")
+        code.append(f"\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
     if len(csr_val) > 0:
-        code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
+    
+    # Initialize arrays
+    code.append(f"\tmemset(y, 0, {rpntr[-1]} * sizeof(double));\n")
+    code.append(f"\tmemset(x, 0, {cpntr[-1]} * sizeof(double));\n")
+    code.append(f"\tmemset(val, 0, {len(val) if len(val) > 0 else 1} * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\tmemset(csr_val, 0, {len(csr_val)} * sizeof(double));\n")
     code.append("\tchar c;\n")
     code.append(f"\tint x_size=0, val_size=0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -400,10 +389,16 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     }
     if(fscanf(file1, "%c", &c));
     assert(c=='\\n');\n''')
-    if (len(indptr) > 0):
-        code.append(f"""\tint indptr[{len(indptr)}] = {{0}};
-    int indices[{len(indices)}] = {{0}};
-    val_size=0;
+        if (len(indptr) > 0):
+            code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+            code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
+            code.append(f"\tif (!indptr || !indices) {{\n")
+            code.append(f"\t\tprintf(\"Memory allocation failed for indptr/indices\\n\");\n")
+            code.append(f"\t\treturn 1;\n")
+            code.append(f"\t}}\n")
+            code.append(f"\tmemset(indptr, 0, {len(indptr)} * sizeof(int));\n")
+            code.append(f"\tmemset(indices, 0, {len(indices)} * sizeof(int));\n")
+            code.append(f"""\tval_size=0;
     assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
     val_size++;
     while (1) {{
@@ -483,6 +478,17 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
     code.append("\t}\n")
+    
+    # Free allocated memory
+    code.append(f"\tfree(y);\n")
+    code.append(f"\tfree(x);\n")
+    code.append(f"\tfree(val);\n")
+    if len(csr_val) > 0:
+        code.append(f"\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append(f"\tfree(indptr);\n")
+        code.append(f"\tfree(indices);\n")
+    
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)

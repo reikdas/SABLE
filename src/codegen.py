@@ -54,7 +54,7 @@ def vbr_spmv_codegen_for_all(density: int = 0):
     for filename in os.listdir(input_dir_name):
         assert(filename.endswith(".vbr"))
         core_name = filename[:-len(".vbr")]
-        run_time = vbr_spmv_codegen(core_name, density, dir_name=output_dir_name, vbr_dir=input_dir_name, threads=1)
+        run_time = vbr_spmv_codegen(core_name, output_dir_name, vbr_dir=input_dir_name, threads=1)
         runtimes[core_name] = run_time
     return runtimes
 
@@ -442,15 +442,42 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     struct matrix_descr descr;
     descr.type = SPARSE_MATRIX_TYPE_GENERAL;
     mkl_set_num_threads(1);\n""")
-    code.append("\tstruct timespec t1;\n")
-    code.append("\tstruct timespec t2;\n")
+    code.append("\tstruct timespec t1, t2;\n")
+    code.append(f"\tlong sparse_times[{bench}];\n")
+    prev_count = 0
+    prev_nnz_block = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if prev_nnz_block not in ublocks:
+                    prev_count += 1
+                prev_nnz_block += 1
+    code.append(f"\tlong dense_block_times[{prev_count}][{bench}];\n")
+        # Initialize arrays to zero
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tsparse_times[i] = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
+    code.append("\t\t\tdense_block_times[j][i] = 0;\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
     code.append("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
-    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+    if (len(ublocks) > 0):
+        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append("\t\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
+        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\t\tif (i!=0)\n")
+        code.append("\t\t\tsparse_times[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+    else:
+        code.append("\t\tif (i!=0) {\n")
+        code.append("\t\t\tsparse_times[i-1] = 0;\n")
+        code.append("\t\t}\n")
+
     count = 0
     nnz_block = 0
-    if (len(ublocks) > 0):
-        code.append("\t\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
             continue
@@ -458,22 +485,51 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 if nnz_block not in ublocks:
+                    # Start timing for this dense block
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
                     if (rpntr[a+1] - rpntr[a]) == 1:
                         code.append(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     elif (cpntr[b+1] - cpntr[b]) == 1:
                         code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
                     else:
                         code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    # End timing for this dense block
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+                    code.append("\t\tif (i!=0) {\n")
+                    code.append(f"\t\t\tdense_block_times[{count}][i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+                    code.append("\t\t}\n")
                     count+=1
                 nnz_block += 1
-    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
-    code.append("\t\tif (i!=0)\n")
-    code.append("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
     code.append("\t}\n")
-    code.append('\tprintf("{0} = ");\n'.format(filename))
-    code.append("\tfor (int i=0; i<{0}; i++) {{\n".format(bench))
-    code.append("\t\tprintf(\"%lu,\", times[i]);\n")
+    
+    # Print sparse timings
+    code.append('\tprintf("Sparse: ");\n')
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tprintf(\"%lu,\", sparse_times[i]);\n")
     code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+    
+    # Print dense timings
+    code.append('\tprintf("Dense: ");\n')
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tlong total_dense = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{count}; j++) {{\n")
+    code.append("\t\t\ttotal_dense += dense_block_times[j][i];\n")
+    code.append("\t\t}\n")
+    code.append("\t\tprintf(\"%lu,\", total_dense);\n")
+    code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+    
+    # Print individual dense block timings
+    code.append(f"\tfor (int j=0; j<{count}; j++) {{\n")
+    code.append('\t\tprintf("Dense Block %d: ", j+1);\n')
+    code.append(f"\t\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\t\tprintf(\"%lu,\", dense_block_times[j][i]);\n")
+    code.append("\t\t}\n")
+    code.append("\t\tprintf(\"\\n\");\n")
+    code.append("\t}\n")
+    
+    # Print original filename output
     code.append("\tprintf(\"\\n\");\n")
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
@@ -509,14 +565,29 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write("#include <mkl.h>\n")
         f.write("#include <mkl_spblas.h>\n")
         f.write("#include <omp.h>\n\n")
-        f.write(f"double y[{rpntr[-1]}] = {{0}};\n")
-        f.write(f"double x[{cpntr[-1]}] = {{0}};\n")
+        # Allocate memory dynamically instead of on stack
+        f.write(f"double *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
+        f.write(f"double *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
         if len(val) > 0:
-            f.write(f"double val[{len(val)}] = {{0}};\n")
+            f.write(f"double *val = (double*)malloc({len(val)} * sizeof(double));\n")
         else:
-            f.write(f"double val[1] = {{0}};\n")
+            f.write(f"double *val = (double*)malloc(1 * sizeof(double));\n")
         if len(ublocks) > 0:
-            f.write(f"double csr_val[{len(csr_val)}] = {{0}};\n\n")
+            f.write(f"double *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
+        
+        # Check if allocation succeeded
+        f.write(f"if (!y || !x || !val || (csr_val && !csr_val)) {{\n")
+        f.write(f"\tprintf(\"Memory allocation failed\\n\");\n")
+        f.write(f"\treturn 1;\n")
+        f.write(f"}}\n")
+        
+        # Initialize arrays
+        f.write(f"memset(y, 0, {rpntr[-1]} * sizeof(double));\n")
+        f.write(f"memset(x, 0, {cpntr[-1]} * sizeof(double));\n")
+        f.write(f"memset(val, 0, {len(val) if len(val) > 0 else 1} * sizeof(double));\n")
+        if len(ublocks) > 0:
+            f.write(f"memset(csr_val, 0, {len(csr_val)} * sizeof(double));\n")
+        f.write("\n")
         f.write(spmv_kernel())
         f.write(spmv_kernel_2())
         f.write(spmv_kernel_3())
@@ -684,13 +755,23 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         f.write(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
         f.write("\t\tprintf(\"%.2f\\n\", y[i]);\n")
         f.write("\t}\n")
+        
+        # Free allocated memory
+        f.write(f"\tfree(y);\n")
+        f.write(f"\tfree(x);\n")
+        f.write(f"\tfree(val);\n")
+        if len(ublocks) > 0:
+            f.write(f"\tfree(csr_val);\n")
+        
         f.write("}\n")
 
-def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, bench: int = 5)->int:
+def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, bench: int = 5, mkl: bool = False)->int:
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbr_path)
     time1 = time.time_ns() // 1_000_000
-    if threads == 1:
+    if mkl:
+        gen_single_threaded_spmv_dgemv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+    elif threads == 1:
         gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
     else:
         gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)

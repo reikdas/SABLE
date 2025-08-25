@@ -88,6 +88,20 @@ def spmv_kernel_3():
     code.append("}\n\n")
     return "".join(code)
 
+def spmv_sparse():
+    # Write the C code for sparse SpMV CSR
+    code = []
+    code.append("void spmv_sparse(double *restrict y, const double *restrict csr_val, const int *restrict indices, const int *restrict indptr, const double *restrict x, const int rpntr_size) {\n")
+    code.append("\tfor (int i = 0; i < rpntr_size; i++) {\n")
+    code.append("\t\tint row_start = indptr[i];\n")
+    code.append("\t\tint row_end = indptr[i + 1];\n")
+    code.append("\t\tfor (int j = row_start; j < row_end; j++) {\n")
+    code.append("\t\t\ty[i] += csr_val[j] * x[indices[j]];\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    return "".join(code)
+
 def gen_loop(i_start: int, i_end: int,
              j_start: int, j_end: int,
              indx_offset: int) -> str:
@@ -364,9 +378,6 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
-    if (len(ublocks) > 0):
-        code.append("#include <mkl.h>\n")
-        code.append("#include <mkl_spblas.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append(spmv_kernel())
     code.append("\n")
@@ -374,12 +385,10 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\n")
     code.append(spmv_kernel_3())
     code.append("\n")
+    code.append(spmv_sparse())
+    code.append("\n")
     code.append("int main() {\n")
     code.append(f"\tlong times[{bench}];\n")
-    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
-    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
-    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
-    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
     code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
     code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
     if len(val) > 0:
@@ -388,50 +397,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         code.append(f"\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
     if len(csr_val) > 0:
         code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
-    
-    # Initialize arrays
-    code.append(f"\tmemset(y, 0, {rpntr[-1]} * sizeof(double));\n")
-    code.append(f"\tmemset(x, 0, {cpntr[-1]} * sizeof(double));\n")
-    code.append(f"\tmemset(val, 0, {len(val) if len(val) > 0 else 1} * sizeof(double));\n")
-    if len(csr_val) > 0:
-        code.append(f"\tmemset(csr_val, 0, {len(csr_val)} * sizeof(double));\n")
-    code.append("\tchar c;\n")
-    code.append(f"\tint x_size=0, val_size=0;\n")
-    code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
-    if (c != ']') {
-        ungetc(c, file1);
-        assert(fscanf(file1, "%lf", &val[val_size]) == 1);
-        val_size++;
-        while (1) {
-            assert(fscanf(file1, "%c", &c) == 1);
-            if (c == ',') {
-                assert(fscanf(file1, "%lf", &val[val_size]) == 1);
-                val_size++;
-            } else if (c == ']') {
-                break;
-            } else {
-                assert(0);
-            }
-        }
-    }
-    assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
-    if (len(ublocks) > 0):
-        code.append('''\tval_size=0;
-    assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
-    val_size++;
-    while (1) {
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {
-            assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
-            val_size++;
-        } else if (c == ']') {
-            break;
-        } else {
-            assert(0);
-        }
-    }
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');\n''')
+    if len(ublocks) > 0:
         if (len(indptr) > 0):
             code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
             code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
@@ -439,52 +405,6 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
             code.append(f"\t\tprintf(\"Memory allocation failed for indptr/indices\\n\");\n")
             code.append(f"\t\treturn 1;\n")
             code.append(f"\t}}\n")
-            code.append(f"\tmemset(indptr, 0, {len(indptr)} * sizeof(int));\n")
-            code.append(f"\tmemset(indices, 0, {len(indices)} * sizeof(int));\n")
-            code.append(f"""\tval_size=0;
-    assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
-    val_size++;
-    while (1) {{
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {{
-            assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
-            val_size++;
-        }} else if (c == ']') {{
-            break;
-        }} else {{
-            assert(0);
-        }}
-    }}
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');
-    val_size=0;
-    assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
-    val_size++;
-    while (1) {{
-        assert(fscanf(file1, "%c", &c) == 1);
-        if (c == ',') {{
-            assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
-            val_size++;
-        }} else if (c == ']') {{
-            break;
-        }} else {{
-            assert(0);
-        }}
-    }}
-    if(fscanf(file1, "%c", &c));
-    assert(c=='\\n');\n""")
-    code.append("\tfclose(file1);\n")
-    code.append('''
-    while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
-        x_size++;
-    }}
-    fclose(file2);\n'''.format(cpntr[-1]))
-    if len(ublocks) > 0:
-        code.append(f"""\tsparse_matrix_t A;
-    mkl_sparse_d_create_csr(&A, SPARSE_INDEX_BASE_ZERO, {rpntr[-1]}, {cpntr[-1]}, indptr, indptr+1, indices, csr_val);
-    struct matrix_descr descr;
-    descr.type = SPARSE_MATRIX_TYPE_GENERAL;
-    mkl_set_num_threads(1);\n""")
     code.append("\tstruct timespec t1, t2;\n")
     code.append(f"\tlong sparse_times[{bench}];\n")
     prev_count = 0
@@ -507,13 +427,98 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\t\t}\n")
     code.append("\t}\n")
     code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
+    code.append(f"\t\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\t\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\t\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\t\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
     code.append("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
+    code.append(f"\t\tmemset(x, 0, {cpntr[-1]} * sizeof(double));\n")
+    code.append(f"\t\tmemset(val, 0, {len(val) if len(val) > 0 else 1} * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\t\tmemset(csr_val, 0, {len(csr_val)} * sizeof(double));\n")
+        code.append(f"\t\tmemset(indptr, 0, {len(indptr)} * sizeof(int));\n")
+        code.append(f"\t\tmemset(indices, 0, {len(indices)} * sizeof(int));\n")
+    code.append("\t\tchar c;\n")
+    code.append(f"\t\tint x_size=0, val_size=0;\n")
+    code.append('''\t\tassert(fscanf(file1, "val=[%c", &c) == 1);
+        if (c != ']') {
+            ungetc(c, file1);
+            assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+            val_size++;
+            while (1) {
+                assert(fscanf(file1, "%c", &c) == 1);
+                if (c == ',') {
+                    assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+                    val_size++;
+                } else if (c == ']') {
+                    break;
+                } else {
+                    assert(0);
+                }
+            }
+        }
+        assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
+    if (len(ublocks) > 0):
+        code.append('''\t\tval_size=0;
+        assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
+        val_size++;
+        while (1) {
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {
+                assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+                val_size++;
+            } else if (c == ']') {
+                break;
+            } else {
+                assert(0);
+            }
+        }
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');\n''')
+        code.append(f"""\t\tval_size=0;
+        assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+        val_size++;
+        while (1) {{
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {{
+                assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+                val_size++;
+            }} else if (c == ']') {{
+                break;
+            }} else {{
+                assert(0);
+            }}
+        }}
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');
+        val_size=0;
+        assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+        val_size++;
+        while (1) {{
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {{
+                assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+                val_size++;
+            }} else if (c == ']') {{
+                break;
+            }} else {{
+                assert(0);
+            }}
+        }}
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');\n""")
+    code.append("\t\tfclose(file1);\n")
+    code.append('''\t\twhile (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
+            x_size++;
+        }}
+        fclose(file2);\n'''.format(cpntr[-1]))
     if (len(ublocks) > 0):
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-        code.append("\t\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
+        code.append("\t\tspmv_sparse(y, csr_val, indices, indptr, x, {0});\n".format(rpntr[-1]))
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
-        code.append("\t\tif (i!=0)\n")
+        code.append("\t\tif (i!=0) {\n")
         code.append("\t\t\tsparse_times[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+        code.append("\t\t}\n")
     else:
         code.append("\t\tif (i!=0) {\n")
         code.append("\t\t\tsparse_times[i-1] = 0;\n")

@@ -193,8 +193,8 @@ def test_spmv_unroll():
 #     run_spmv_unroll(8)
 #     run_spmv_unroll(16)
 
-def test_spmv_unroll_py():
-    run_spmv_unroll_py()
+def test_spmm():
+    run_spmm(1)
     
 @pytest.mark.skip(reason="Git cannot store Franz8_canon.vbr")
 def test_partition_vals_real():

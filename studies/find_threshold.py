@@ -8,7 +8,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
 from sklearn.model_selection import train_test_split
 
-def predict_speedup(block_sx: int, block_sy: int, calc_density: float) -> float:
+def predict_speedup(block_sx: int, block_sy: int, calc_density: float, op: str) -> float:
     """
     Predict the speedup for a block based on its dimensions and density.
     
@@ -21,8 +21,13 @@ def predict_speedup(block_sx: int, block_sy: int, calc_density: float) -> float:
         float: Predicted speedup value (CSR_time / sable_time)
     """
     # Load the model
-    model = joblib.load(os.path.join(BASEPATH, "models", "speedup_predictor_spmv.pkl"))
-    
+    if op.lower() == "spmv":
+        model = joblib.load(os.path.join(BASEPATH, "models", "speedup_predictor_spmv.pkl"))
+    elif op.lower() == "spmm":
+        model = joblib.load(os.path.join(BASEPATH, "models", "speedup_predictor_spmm.pkl"))
+    else:
+        raise Exception("Unknown operation")
+
     # Calculate nnz and logarithmic features for prediction
     nnz = (calc_density / 100) * block_sx * block_sy
     log_dim1 = np.log(block_sx)
@@ -40,7 +45,7 @@ def predict_speedup(block_sx: int, block_sy: int, calc_density: float) -> float:
     return model.predict([[block_sx, block_sy, calc_density, nnz, log_dim1, log_dim2, log_nnz, log_density, 
                           dim_product, log_dim_product, density_nnz_ratio, dim_ratio]])[0]
 
-def is_dense_block(block_sx: int, block_sy: int, calc_density: float) -> bool:
+def is_dense_block(block_sx: int, block_sy: int, calc_density: float, op: str) -> bool:
     """
     Determine if a block should be kept dense based on predicted speedup.
     
@@ -52,7 +57,7 @@ def is_dense_block(block_sx: int, block_sy: int, calc_density: float) -> bool:
     Returns:
         bool: True if block should be kept dense, False if it should be unrolled
     """
-    predicted_speedup = predict_speedup(block_sx, block_sy, calc_density)
+    predicted_speedup = predict_speedup(block_sx, block_sy, calc_density, op)
     return predicted_speedup >= SPEEDUP_THRESH
 
 # from src.consts import SPEEDUP_THRESH
@@ -61,12 +66,12 @@ SPEEDUP_THRESH=1.3
 FILEPATH=pathlib.Path(__file__).resolve().parent
 BASEPATH=os.path.join(FILEPATH.parent)
 
-if __name__ == "__main__":
+def analyze_thresholds(op: str):
     # Load data into a DataFrame
-    df = pd.read_csv(os.path.join(FILEPATH,"threshold_results.csv"))
+    df = pd.read_csv(os.path.join(FILEPATH, f"threshold_results_{op.lower()}.csv"))
 
     # Filter for rows where dim1=1, dim2=1, and nnz=0
-    filtered_df = df[(df['dim1'] == 1) & (df['dim2'] == 1) & (df['nnz'] == 0)]
+    df = df[(df['dim1'] == 1) & (df['dim2'] == 1) & (df['nnz'] == 0)]
 
     df['density'] = 100 - df['perc_zeros']
     
@@ -85,7 +90,7 @@ if __name__ == "__main__":
     # df['size'] = df['dim1'] * df['dim2']
 
     # Calculate the target variable as actual speedup:
-    df['target'] = df['CSR_time'] / df['sable_time']
+    df['target'] = df['sparse'] / df['dense']
 
     # Filter out invalid or extreme values
     df = df[df['target'] > 0]  # Remove negative or zero speedups
@@ -127,41 +132,44 @@ if __name__ == "__main__":
     print(f"R² Score: {r2}")
     print(f"Mean Absolute Error: {np.mean(np.abs(y_test - y_pred))}")
 
-    model_filename = os.path.join(BASEPATH, "models", "speedup_predictor_spmv.pkl")
+    model_filename = os.path.join(BASEPATH, "models", f"speedup_predictor_{op.lower()}.pkl")
     joblib.dump(model, model_filename)
 
     # Test the predict_speedup function
     print("Speedup predictions:")
-    print(f"Block (50, 50, 1%): {predict_speedup(50, 50, 1):.3f}")
-    print(f"Block (153, 9, 0.65%): {predict_speedup(153, 9, 0.65):.3f}")
-    print(f"Block (125, 8, 1%): {predict_speedup(125, 8, 1):.3f}")
-    print(f"Block (465, 2, 1%): {predict_speedup(465, 2, 1):.3f}")
-    print(f"Block (1000, 1, 100%): {predict_speedup(1000, 1, 100.0):.3f}")
-    print(f"Block (1139, 1, 100%): {predict_speedup(1139, 1, 100.0):.3f}")
-    print(f"Block (150, 150, 100%): {predict_speedup(150, 150, 100):.3f}")
-    print(f"Block (1, 9996, 100%): {predict_speedup(1, 9996, 100.0):.3f}")
-    print(f"Block (9996, 1, 100%): {predict_speedup(9996, 1, 100.0):.3f}")
-    print(f"Block (10000, 10000, 100%): {predict_speedup(10000, 10000, 100.0):.3f}")
-    print(f"Block (5000, 5000, 95%): {predict_speedup(5000, 5000, 95.0):.3f}")
-    print(f"Block (10000, 10000, 92%): {predict_speedup(10000, 10000, 92.0):.3f}")
-    print(f"Block (1000, 1000, 85%): {predict_speedup(1000, 1000, 85.0):.3f}")
+    print(f"Block (50, 50, 1%): {predict_speedup(50, 50, 1, op):.3f}")
+    print(f"Block (153, 9, 0.65%): {predict_speedup(153, 9, 0.65, op):.3f}")
+    print(f"Block (125, 8, 1%): {predict_speedup(125, 8, 1, op):.3f}")
+    print(f"Block (465, 2, 1%): {predict_speedup(465, 2, 1, op):.3f}")
+    print(f"Block (1000, 1, 100%): {predict_speedup(1000, 1, 100.0, op):.3f}")
+    print(f"Block (1139, 1, 100%): {predict_speedup(1139, 1, 100.0, op):.3f}")
+    print(f"Block (150, 150, 100%): {predict_speedup(150, 150, 100, op):.3f}")
+    print(f"Block (1, 9996, 100%): {predict_speedup(1, 9996, 100.0, op):.3f}")
+    print(f"Block (9996, 1, 100%): {predict_speedup(9996, 1, 100.0, op):.3f}")
+    print(f"Block (10000, 10000, 100%): {predict_speedup(10000, 10000, 100.0, op):.3f}")
+    print(f"Block (5000, 5000, 95%): {predict_speedup(5000, 5000, 95.0, op):.3f}")
+    print(f"Block (10000, 10000, 92%): {predict_speedup(10000, 10000, 92.0, op):.3f}")
+    print(f"Block (1000, 1000, 85%): {predict_speedup(1000, 1000, 85.0, op):.3f}")
 
     # Test the is_dense_block function
     print("\nDense block decisions:")
-    print(is_dense_block(50, 50, 1))  # Expect 0
-    print(is_dense_block(153, 9, 0.65))  # Expect 0
-    print(is_dense_block(125, 8, 1))  # Expect 0
-    print(is_dense_block(465, 2, 1))  # Expect 0
-    print(is_dense_block(1000, 1, 100.0))  # Expect 0
-    print(is_dense_block(1139, 1, 100.0))  # Expect 0
-    print(is_dense_block(150, 150, 100))  # Expect 1
-    print(is_dense_block(1, 9996, 100.0))  # Expect 1
-    print(is_dense_block(9996, 1, 100.0))  # Expect 1
-    print(is_dense_block(10000, 10000, 100.0))  # Expect 1
-    print(is_dense_block(5000, 5000, 95.0))  # Expect 1
-    print(is_dense_block(10000, 10000, 92.0))  # Expect 1
-    print(is_dense_block(1000, 1000, 85.0))  # Expect 1
+    print(is_dense_block(50, 50, 1, op))  # Expect 0
+    print(is_dense_block(153, 9, 0.65, op))  # Expect 0
+    print(is_dense_block(125, 8, 1, op))  # Expect 0
+    print(is_dense_block(465, 2, 1, op))  # Expect 0
+    print(is_dense_block(1000, 1, 100.0, op))  # Expect 0
+    print(is_dense_block(1139, 1, 100.0, op))  # Expect 0
+    print(is_dense_block(150, 150, 100, op))  # Expect 1
+    print(is_dense_block(1, 9996, 100.0, op))  # Expect 1
+    print(is_dense_block(9996, 1, 100.0, op))  # Expect 1
+    print(is_dense_block(10000, 10000, 100.0, op))  # Expect 1
+    print(is_dense_block(5000, 5000, 95.0, op))  # Expect 1
+    print(is_dense_block(10000, 10000, 92.0, op))  # Expect 1
+    print(is_dense_block(1000, 1000, 85.0, op))  # Expect 1
 
     # print(X_train)
     # print(y_train)
     # print(df['target'].value_counts())
+
+if __name__ == "__main__":
+    analyze_thresholds("spmm")

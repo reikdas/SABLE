@@ -89,7 +89,6 @@ def spmv_kernel_3():
     return "".join(code)
 
 def spmv_sparse():
-    # Write the C code for sparse SpMV CSR
     code = []
     code.append("void spmv_sparse(double *restrict y, const double *restrict csr_val, const int *restrict indices, const int *restrict indptr, const double *restrict x, const int rpntr_size) {\n")
     code.append("\tfor (int i = 0; i < rpntr_size; i++) {\n")
@@ -101,6 +100,60 @@ def spmv_sparse():
     code.append("\t}\n")
     code.append("}\n\n")
     return "".join(code)
+
+def spmm_kernel():
+    code = """
+void spmm_kernel(
+    double *restrict Y,
+    const double *restrict X,
+    const double *restrict val,
+    const int i_start, const int i_end,
+    const int j_start, const int j_end,
+    const int val_offset) 
+{
+    const int block_i = 16;
+    const int block_j = 16;
+
+    for (int ii = i_start; ii < i_end; ii += block_i) {
+        int i_max = (ii + block_i < i_end) ? (ii + block_i) : i_end;
+        for (int jj = j_start; jj < j_end; jj += block_j) {
+            int j_max = (jj + block_j < j_end) ? (jj + block_j) : j_end;
+
+            for (int i = ii; i < i_max; i++) {
+                for (int j = jj; j < j_max; j++) {
+                    double a = (&val[val_offset])[
+                        ((j - j_start) * (i_end - i_start)) + (i - i_start)
+                    ];
+
+                    double *y_row = &Y[i * 512];
+                    const double *x_row = &X[j * 512];
+
+                    for (int k = 0; k < 512; k++) {
+                        y_row[k] += a * x_row[k];
+                    }
+                }
+            }
+        }
+    }
+}
+"""
+    return code
+
+def spmm_sparse():
+    code = """
+void spmm_sparse(double *restrict y, const double *restrict csr_val, const int *restrict indices, const int *restrict indptr, const double *restrict x, const int sparse_rows) {
+    for (int i = 0; i < sparse_rows; i++) {
+        for (int p = indptr[i]; p < indptr[i+1]; p++) {
+            int col = indices[p];
+            double val = csr_val[p];
+            for (int j = 0; j < 512; ++j) {
+                y[i * 512 + j] += val * x[col * 512 + j];
+            }
+        }
+    }
+}
+"""
+    return code
 
 def gen_loop(i_start: int, i_end: int,
              j_start: int, j_end: int,
@@ -388,7 +441,6 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append(spmv_sparse())
     code.append("\n")
     code.append("int main() {\n")
-    code.append(f"\tlong times[{bench}];\n")
     code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
     code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
     if len(val) > 0:
@@ -406,27 +458,8 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
             code.append(f"\t\treturn 1;\n")
             code.append(f"\t}}\n")
     code.append("\tstruct timespec t1, t2;\n")
-    code.append(f"\tlong sparse_times[{bench}];\n")
-    prev_count = 0
-    prev_nnz_block = 0
-    for a in range(len(rpntr)-1):
-        if bpntrb[a] == -1:
-            continue
-        valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                if prev_nnz_block not in ublocks:
-                    prev_count += 1
-                prev_nnz_block += 1
-    code.append(f"\tlong dense_block_times[{prev_count}][{bench}];\n")
-        # Initialize arrays to zero
+    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
-    code.append("\t\tsparse_times[i] = 0;\n")
-    code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
-    code.append("\t\t\tdense_block_times[j][i] = 0;\n")
-    code.append("\t\t}\n")
-    code.append("\t}\n")
-    code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
     code.append(f"\t\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\t\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
     code.append(f"\t\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
@@ -512,17 +545,9 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
             x_size++;
         }}
         fclose(file2);\n'''.format(cpntr[-1]))
+    
     if (len(ublocks) > 0):
-        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
         code.append("\t\tspmv_sparse(y, csr_val, indices, indptr, x, {0});\n".format(rpntr[-1]))
-        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
-        code.append("\t\tif (i!=0) {\n")
-        code.append("\t\t\tsparse_times[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
-        code.append("\t\t}\n")
-    else:
-        code.append("\t\tif (i!=0) {\n")
-        code.append("\t\t\tsparse_times[i-1] = 0;\n")
-        code.append("\t\t}\n")
 
     count = 0
     nnz_block = 0
@@ -533,30 +558,210 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 if nnz_block not in ublocks:
-                    # Start timing for this dense block
-                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
                     if (rpntr[a+1] - rpntr[a]) == 1:
                         code.append(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     elif (cpntr[b+1] - cpntr[b]) == 1:
                         code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
                     else:
                         code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    # End timing for this dense block
-                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
-                    code.append("\t\tif (i!=0) {\n")
-                    code.append(f"\t\t\tdense_block_times[{count}][i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
-                    code.append("\t\t}\n")
                     count+=1
                 nnz_block += 1
     code.append("\t}\n")
+    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append(f"\tprintf(\"Time: %lu\\n\", ((t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec))/{bench});\n")
+
     
+    # Print original filename output
+    code.append("\tprintf(\"\\n\");\n")
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
+    code.append("\t}\n")
+    
+    # Free allocated memory
+    code.append(f"\tfree(y);\n")
+    code.append(f"\tfree(x);\n")
+    code.append(f"\tfree(val);\n")
+    if len(csr_val) > 0:
+        code.append(f"\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append(f"\tfree(indptr);\n")
+        code.append(f"\tfree(indices);\n")
+    
+    code.append("}\n")
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
+
+def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append(spmm_kernel())
+    code.append("\n")
+    code.append(spmm_sparse())
+    code.append("\n")
+    code.append("int main() {\n")
+    code.append(f"\tdouble *y = (double*)malloc({rpntr[-1] * 512} * sizeof(double));\n")
+    code.append(f"\tdouble *x = (double*)malloc({cpntr[-1] * 512} * sizeof(double));\n")
+    if len(val) > 0:
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
+    else:
+        code.append(f"\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
+    if len(ublocks) > 0:
+        if (len(indptr) > 0):
+            code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+            code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
+            code.append(f"\tif (!indptr || !indices) {{\n")
+            code.append(f"\t\tprintf(\"Memory allocation failed for indptr/indices\\n\");\n")
+            code.append(f"\t\treturn 1;\n")
+            code.append(f"\t}}\n")
+    code.append("\tstruct timespec t1, t2;\n")
+    code.append(f"\tlong sparse_times[{bench}];\n")
+    prev_count = 0
+    prev_nnz_block = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if prev_nnz_block not in ublocks:
+                    prev_count += 1
+                prev_nnz_block += 1
+    code.append(f"\tlong dense_block_times[{prev_count}][{bench}];\n")
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tsparse_times[i] = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
+    code.append("\t\t\tdense_block_times[j][i] = 0;\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append(f"\t\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\t\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\t\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\t\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1] * 512))
+    code.append(f"\t\tmemset(x, 0, {cpntr[-1] * 512} * sizeof(double));\n")
+    code.append(f"\t\tmemset(val, 0, {len(val) if len(val) > 0 else 1} * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\t\tmemset(csr_val, 0, {len(csr_val)} * sizeof(double));\n")
+        code.append(f"\t\tmemset(indptr, 0, {len(indptr)} * sizeof(int));\n")
+        code.append(f"\t\tmemset(indices, 0, {len(indices)} * sizeof(int));\n")
+    code.append("\t\tchar c;\n")
+    code.append(f"\t\tint x_size=0, val_size=0;\n")
+    code.append('''\t\tassert(fscanf(file1, "val=[%c", &c) == 1);
+        if (c != ']') {
+            ungetc(c, file1);
+            assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+            val_size++;
+            while (1) {
+                assert(fscanf(file1, "%c", &c) == 1);
+                if (c == ',') {
+                    assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+                    val_size++;
+                } else if (c == ']') {
+                    break;
+                } else {
+                    assert(0);
+                }
+            }
+        }
+        assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
+    if (len(ublocks) > 0):
+        code.append('''\t\tval_size=0;
+        assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
+        val_size++;
+        while (1) {
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {
+                assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+                val_size++;
+            } else if (c == ']') {
+                break;
+            } else {
+                assert(0);
+            }
+        }
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');\n''')
+        code.append(f"""\t\tval_size=0;
+        assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+        val_size++;
+        while (1) {{
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {{
+                assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+                val_size++;
+            }} else if (c == ']') {{
+                break;
+            }} else {{
+                assert(0);
+            }}
+        }}
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');
+        val_size=0;
+        assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+        val_size++;
+        while (1) {{
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {{
+                assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+                val_size++;
+            }} else if (c == ']') {{
+                break;
+            }} else {{
+                assert(0);
+            }}
+        }}
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');\n""")
+    code.append("\t\tfclose(file1);\n")
+    code.append('''\t\twhile (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
+            x_size++;
+        }}
+        fclose(file2);\n'''.format(cpntr[-1] * 512))
+    
+    if (len(ublocks) > 0):
+        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append("\t\tspmm_sparse(y, csr_val, indices, indptr, x, {0});\n".format(rpntr[-1]))
+        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+    count = 0
+    nnz_block = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+                    code.append(f"\t\tspmm_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+                    code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+                    count+=1
+                nnz_block += 1
+    code.append("\t}\n")
+
     # Print sparse timings
     code.append('\tprintf("Sparse: ");\n')
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
     code.append("\t\tprintf(\"%lu,\", sparse_times[i]);\n")
     code.append("\t}\n")
     code.append("\tprintf(\"\\n\");\n")
-    
+
     # Print dense timings
     code.append('\tprintf("Dense: ");\n')
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
@@ -567,7 +772,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\t\tprintf(\"%lu,\", total_dense);\n")
     code.append("\t}\n")
     code.append("\tprintf(\"\\n\");\n")
-    
+
     # Print individual dense block timings
     code.append(f"\tfor (int j=0; j<{count}; j++) {{\n")
     code.append('\t\tprintf("Dense Block %d: ", j+1);\n')
@@ -579,7 +784,7 @@ def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     
     # Print original filename output
     code.append("\tprintf(\"\\n\");\n")
-    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]*512}; i++) {{\n")
     code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
     code.append("\t}\n")
     
@@ -831,5 +1036,16 @@ def vbr_spmv_codegen_python(filename: str, dir_name: str, vbr_dir: str, bench: i
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbr_path)
     time1 = time.time_ns() // 1_000_000
     gen_single_threaded_spmv_python(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
+
+def vbr_spmm_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, bench: int = 5, mkl: bool = False)->int:
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbr_path)
+    time1 = time.time_ns() // 1_000_000
+    if threads == 1:
+        gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+    else:
+        gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
     time2 = time.time_ns() // 1_000_000
     return time2-time1

@@ -804,6 +804,163 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 
+def gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    if (len(ublocks) > 0):
+        code.append('#include "utility.h"\n')
+    code.append("#include <assert.h>\n\n")
+    code.append(spmv_kernel())
+    code.append("\n")
+    code.append(spmv_kernel_2())
+    code.append("\n")
+    code.append(spmv_kernel_3())
+    code.append("\n")
+    code.append("int main() {\n")
+    code.append(f"\tlong times[{bench}];\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append(f"\tdouble y[{rpntr[-1]}] = {{0}};\n")
+    code.append(f"\tdouble x[{cpntr[-1]}] = {{0}};\n")
+    if len(val) > 0:
+        code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
+    else:
+        code.append(f"\tdouble val[1] = {{0}};\n")
+    if len(csr_val) > 0:
+        code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint x_size=0, val_size=0;\n")
+    code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
+    if (c != ']') {
+        ungetc(c, file1);
+        assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+        val_size++;
+        while (1) {
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {
+                assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+                val_size++;
+            } else if (c == ']') {
+                break;
+            } else {
+                assert(0);
+            }
+        }
+    }
+    assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
+    if (len(ublocks) > 0):
+        code.append('''\tval_size=0;
+    assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');\n''')
+    if (len(indptr) > 0):
+        code.append(f"""\tint indptr[{len(indptr)}] = {{0}};
+    int indices[{len(indices)}] = {{0}};
+    val_size=0;
+    assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    val_size=0;
+    assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');\n""")
+    code.append("\tfclose(file1);\n")
+    code.append('''
+    while (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
+        x_size++;
+    }}
+    fclose(file2);\n'''.format(cpntr[-1]))
+    if len(ublocks) > 0:
+        code.append(f"\tstruct csr_matrix mat = input_matrix({len(csr_val)}, {rpntr[-1]}, {cpntr[-1]}, csr_val, indices, indptr);\n")
+        code.append("\tstruct tr_matrix tr = process(&mat);\n")
+    code.append("\tstruct timespec t1;\n")
+    code.append("\tstruct timespec t2;\n")
+    code.append(f"\tfor (int i=0; i<{bench+1}; i++) {{\n")
+    code.append("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
+    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+    count = 0
+    nnz_block = 0
+    if (len(ublocks) > 0):
+        code.append("\t\tspmv_tr_spvv8_kernel(&tr, x, y);\n")
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    if (rpntr[a+1] - rpntr[a]) == 1:
+                        code.append(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    elif (cpntr[b+1] - cpntr[b]) == 1:
+                        code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
+                    else:
+                        code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    count+=1
+                nnz_block += 1
+    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\t\tif (i!=0)\n")
+    code.append("\t\t\ttimes[i-1] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+    code.append("\t}\n")
+    code.append('\tprintf("{0} = ");\n'.format(filename))
+    code.append("\tfor (int i=0; i<{0}; i++) {{\n".format(bench))
+    code.append("\t\tprintf(\"%lu,\", times[i]);\n")
+    code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("}\n")
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
+
 def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name: str, filename: str, vbr_dir: str, bench:int=5) -> None:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)

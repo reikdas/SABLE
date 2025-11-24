@@ -68,5 +68,5 @@ def calculate_threshold(op):
                     os.remove(os.path.join(sparse_vbr_dir, fname2+".vbrc"))
 
 if __name__ == "__main__":
-    # calculate_threshold("spmv")
-    calculate_threshold("spmm")
+    calculate_threshold("spmv")
+    # calculate_threshold("spmm")

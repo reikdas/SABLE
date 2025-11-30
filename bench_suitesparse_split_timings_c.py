@@ -175,7 +175,7 @@ def eval_single_file_split_timings(fname, codegen_dir, bench_freq: int, extract_
     
     return avg_sparse_time, avg_dense_time, avg_individual_block_times
 
-def analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks):
+def analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, op: str)->List[Dict[str, Any]]:
     """Analyze dense blocks in a matrix using VBR data structure"""
     dense_blocks = []
     
@@ -194,12 +194,17 @@ def analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks
                     i_extent = rpntr[a+1] - rpntr[a]
                     j_extent = cpntr[b+1] - cpntr[b]
                     
-                    # Calculate density based on the block size and nnz
+                    # Calculate density based on the block size and actual non-zero count
                     block_size = i_extent * j_extent
-                    block_nnz = indx[count+1] - indx[count] if count+1 < len(indx) else len(val) - indx[count]
-                    calc_density = (block_nnz / block_size) * 100
+                    # Determine slice of `val` for this dense block (indx is ordered by dense blocks)
+                    start = indx[count]
+                    end = indx[count+1] if (count+1) < len(indx) else len(val)
+                    block_vals = val[start:end]
+                    # `val` contains explicit zeros for dense blocks; count real non-zeros
+                    block_nnz = int(np.count_nonzero(block_vals))
+                    calc_density = (block_nnz / block_size) * 100 if block_size > 0 else 0
                     
-                    predicted_speedup = predict_speedup(i_extent, j_extent, calc_density)
+                    predicted_speedup = predict_speedup(i_extent, j_extent, calc_density, op)
                     dense_blocks.append({
                         "rows": i_extent,
                         "cols": j_extent,
@@ -281,7 +286,7 @@ if __name__ == "__main__":
             val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir,f"{fname}/{fname}.vbrc"))
 
             # Analyze dense blocks after reading VBR data
-            dense_blocks = analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks)
+            dense_blocks = analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, "spmv")
 
             write_dense_vector(1.0, cpntr[-1])
             if len(val) == 0:

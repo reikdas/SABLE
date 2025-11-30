@@ -4,7 +4,9 @@ import pathlib
 import re
 import statistics
 import subprocess
+from typing import Any, Dict, List
 
+import numpy as np
 import scipy
 
 from src.autopartition import cut_indices2_fast, similarity2_numba
@@ -239,8 +241,6 @@ eval = [
     "case9",
     "c-30",
     "c-32",
-    "freeFlyingRobot_10",
-    "freeFlyingRobot_11",
     "freeFlyingRobot_12",
     "lowThrust_10",
     "lowThrust_13",
@@ -270,20 +270,27 @@ if __name__ == "__main__":
             except:
                 print("Error reading file:", file_path)
                 continue
+            # Ensure the matrix supports indexing — convert read matrix (often COO) to CSC
+            A = scipy.sparse.csc_matrix(A, copy=False)
             print(f"Processing {fname}")
             
             # Get matrix dimensions and non-zeros
             matrix_rows = A.shape[0]
             matrix_cols = A.shape[1]
-            matrix_nnz = A.nnz
-            
+
+            # Iterate over matrix to count nnz and assert matrix_nnz correctness
+            matrix_nnz = 0
+            for i in range(matrix_rows):
+                for j in range(matrix_cols):
+                    if A[i, j] != 0:
+                        matrix_nnz += 1
+
             relative_path = file_path.relative_to(mtx_dir)
             dest_path = vbr_dir / relative_path.with_suffix(".vbr")
             dest_path.parent.mkdir(parents=True, exist_ok=True)
-            A = scipy.sparse.csc_matrix(A, copy=False)
             cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
-            # val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname))
-            val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir,f"{fname}/{fname}.vbrc"))
+            val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname), op="spmv")
+            # val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir,f"{fname}/{fname}.vbrc"))
 
             # Analyze dense blocks after reading VBR data
             dense_blocks = analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, "spmv")
@@ -293,7 +300,7 @@ if __name__ == "__main__":
                 continue
             
             # Use C backend instead of Python backend
-            # gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir, fname, os.path.join(vbr_dir, fname), bench=100)
+            gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir, fname, os.path.join(vbr_dir, fname), bench=100)
 
             print(f"Done {fname}")
             
@@ -309,14 +316,14 @@ if __name__ == "__main__":
             # Create sparse variant
             sparse_dest_path = sparse_vbr_dir / relative_path.with_suffix(".vbr")
             sparse_dest_path.parent.mkdir(parents=True, exist_ok=True)
-            # val_sparse, indx_sparse, bindx_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(sparse_vbr_dir,fname), density=100)
+            # val_sparse, indx_sparse, bindx_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(sparse_vbr_dir,fname), op="spmv", density=100)
             val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = read_vbrc(os.path.join(sparse_vbr_dir,f"{fname}/{fname}.vbrc"))
 
             # Assert that the sparse variant has no dense blocks
             assert len(val_sparse) == 0, f"Expected fully sparse variant for {fname}, but found {len(val_sparse)} dense blocks"
             
             # Use C backend for sparse variant too
-            # gen_single_threaded_spmv(val_sparse, indx_sparse, bindx_sparse, rpntr, cpntr, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse, sparse_codegen_dir, fname, os.path.join(sparse_vbr_dir, fname), bench=100)
+            gen_single_threaded_spmv(val_sparse, indx_sparse, bindx_sparse, rpntr, cpntr, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse, sparse_codegen_dir, fname, os.path.join(sparse_vbr_dir, fname), bench=100)
             
             sparse_avg_sparse_time, _, _ = eval_single_file_split_timings(fname, sparse_codegen_dir, 100)
             

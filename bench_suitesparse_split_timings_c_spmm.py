@@ -276,7 +276,7 @@ if __name__ == "__main__":
             dest_path = vbr_dir / relative_path.with_suffix(".vbr")
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
-            val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname))
+            val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname), op="spmm")
             # val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir,f"{fname}/{fname}.vbrc"))
 
             # Analyze dense blocks after reading VBR data
@@ -301,7 +301,7 @@ if __name__ == "__main__":
             # Create sparse variant
             sparse_dest_path = sparse_vbr_dir / relative_path.with_suffix(".vbr")
             sparse_dest_path.parent.mkdir(parents=True, exist_ok=True)
-            # val_sparse, indx_sparse, bindx_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(sparse_vbr_dir,fname), density=100)
+            # val_sparse, indx_sparse, bindx_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(sparse_vbr_dir,fname), op="spmm", density=100)
             val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = read_vbrc(os.path.join(sparse_vbr_dir,f"{fname}/{fname}.vbrc"))
 
             # Assert that the sparse variant has no dense blocks

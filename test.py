@@ -85,7 +85,7 @@ def test_compression():
     sparse = scipy.sparse.csc_matrix(dense)
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
-    val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(sparse, rpntr, cpntr, "example2", "tests", 80)
+    val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(sparse, rpntr, cpntr, "example2", "tests", op="spmv", density=80)
     assert(numpy.array_equal(val2,[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0]))
     assert(numpy.array_equal(indx2,[0, 4, 6, 15, 17, 20, 21, 24, 33, 37]))
     assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
@@ -126,7 +126,7 @@ def test_partition():
     sparse = scipy.sparse.csc_matrix(dense)
     rpntr = [0, 2, 5, 6, 9, 11]
     cpntr = [0, 2, 5, 6, 9, 11]
-    val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(sparse, rpntr, cpntr, "example2", "tests", density=0)
+    val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(sparse, rpntr, cpntr, "example2", "tests", op="spmv", density=0)
     assert(numpy.array_equal(val,[4.0, 1.0, 2.0, 5.0, 1.0, 2.0, 0, 0.0, 1.0, -1.0, 6.0, 2.0, -1.0, 1.0, 7.0, 2.0, 2.0, 1.0, 9.0, 2.0, 0.0, 3.0, 2.0, 1.0, 3.0, 4.0, 5.0, 10.0, 4.0, 3.0, 2.0, 4.0, 3.0, 0.0, 13.0, 3.0, 2.0, 4.0, 11.0, 0.0, 2.0, 3.0, 7.0, 8.0, -2.0, 4.0, 3.0, 0, 0, 3.0, 12.0]))
     assert(numpy.array_equal(indx,[0, 4, 6, 10, 19, 22, 24, 27, 28, 31, 34, 43, 47, 51]))
     assert(numpy.array_equal(bindx,[0, 2, 4, 1, 2, 0, 1, 2, 3, 2, 3, 0, 4]))
@@ -147,14 +147,6 @@ def run_spmv(threads):
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
 
-def run_spmv_py():
-    test_setup_file()
-    vbr_spmv_codegen_python(filename="example", dir_name="tests", vbr_dir="tests")
-    output = subprocess.check_output(["python3", "example.py"], cwd="tests").decode("utf-8").split("\n")[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
-
 def run_spmv_unroll(threads):
     test_compression()
     vbr_spmv_codegen("example2", "tests", "tests", threads)
@@ -164,14 +156,6 @@ def run_spmv_unroll(threads):
         output = output[2:]
     else:
         output = output[1:]
-    with open(os.path.join("tests", "output.txt"), "w") as f:
-        f.write("\n".join(output))
-    assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
-
-def run_spmv_unroll_py():
-    test_compression()
-    vbr_spmv_codegen_python(filename="example2", dir_name="tests", vbr_dir="tests")
-    output = subprocess.check_output(["python3", "example2.py"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))

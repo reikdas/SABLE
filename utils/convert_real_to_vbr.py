@@ -42,8 +42,9 @@ BASE_PATH = os.path.join(FILEPATH, "..")
 def _generate_vbrc_data(
     rpntr: List[int], 
     cpntr: List[int], 
+    op: str,
     density: Optional[float] = None,
-    block_processor=None
+    block_processor=None,
 ) -> Tuple[List[float], List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[float]]:
     """
     Shared helper function to generate VBRC data structures.
@@ -92,7 +93,7 @@ def _generate_vbrc_data(
             if density is not None:
                 unroll = calc_density <= density
             else:
-                unroll = not is_dense_block(block_sx, block_sy, calc_density)
+                unroll = not is_dense_block(block_sx, block_sy, calc_density, op)
             
             if not unroll:
                 # Keep as dense block
@@ -178,6 +179,7 @@ def convert_sparse_to_vbrc(
     cpntr: List[int], 
     fname: str, 
     dst_dir: str, 
+    op: str,
     density: Optional[float] = None
 ) -> Tuple[List[float], List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[float]]:
     """Convert sparse matrix to VBRC format."""
@@ -212,7 +214,7 @@ def convert_sparse_to_vbrc(
     
     # Generate VBRC data
     val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = _generate_vbrc_data(
-        rpntr, cpntr, density, block_processor
+        rpntr, cpntr, op, density, block_processor
     )
     
     # Write to file

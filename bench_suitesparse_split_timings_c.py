@@ -12,6 +12,7 @@ import scipy
 from src.autopartition import cut_indices2_fast, similarity2_numba
 from src.codegen import gen_single_threaded_spmv
 from src.consts import CFLAGS as CFLAGS
+from src.consts import MKL_FLAGS as MKL_FLAGS
 from studies.find_threshold import predict_speedup
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc
 from utils.fileio import read_vbrc, write_dense_vector
@@ -81,7 +82,7 @@ def compile_c_program(c_file_path, output_dir):
     output_path = os.path.join(output_dir, output_name)
     
     # Compile with gcc, including MKL flags if needed
-    compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS
+    compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS + MKL_FLAGS
 
     try:
         result = subprocess.run(compile_cmd, cwd=output_dir, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)

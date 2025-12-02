@@ -25,8 +25,6 @@ BASE_PATH = os.path.join(FILEPATH)
 COMPILE_TIMEOUT = 60 * 60 * 4
 
 mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
-codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_C_split")
-vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR_split"))
 
 cut_indices = cut_indices2_fast
 similarity = similarity2_numba
@@ -286,6 +284,8 @@ if __name__ == "__main__":
                     if A[i, j] != 0:
                         matrix_nnz += 1
 
+            codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_C_split")
+            vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR_split"))
             relative_path = file_path.relative_to(mtx_dir)
             dest_path = vbr_dir / relative_path.with_suffix(".vbr")
             dest_path.parent.mkdir(parents=True, exist_ok=True)
@@ -317,8 +317,8 @@ if __name__ == "__main__":
             # Create sparse variant
             sparse_dest_path = sparse_vbr_dir / relative_path.with_suffix(".vbr")
             sparse_dest_path.parent.mkdir(parents=True, exist_ok=True)
-            # val_sparse, indx_sparse, bindx_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(sparse_vbr_dir,fname), op="spmv", density=100)
-            val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = read_vbrc(os.path.join(sparse_vbr_dir,f"{fname}/{fname}.vbrc"))
+            val_sparse, indx_sparse, bindx_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(sparse_vbr_dir,fname), op="spmv", density=100)
+            # val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = read_vbrc(os.path.join(sparse_vbr_dir,f"{fname}/{fname}.vbrc"))
 
             # Assert that the sparse variant has no dense blocks
             assert len(val_sparse) == 0, f"Expected fully sparse variant for {fname}, but found {len(val_sparse)} dense blocks"

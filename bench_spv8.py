@@ -6,7 +6,7 @@ import scipy
 
 from bench_suitesparse import eval, eval_single_file
 from src.autopartition import cut_indices2_fast, similarity2_numba
-from src.codegen import gen_single_threaded_spmv
+from src.codegen import gen_single_threaded_spmv_spv8
 from src.consts import CFLAGS as CFLAGS
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc
 from utils.utils import check_file_matches_parent_dir
@@ -44,7 +44,7 @@ if __name__ == "__main__":
                 A = scipy.sparse.csc_matrix(A, copy=False)
                 cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
                 val, indx, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc(A, rpntr, cpntr, fname, os.path.join(vbr_dir,fname), op="spmv", density=100)
-                gen_single_threaded_spmv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir, fname, os.path.join(vbr_dir, fname), bench=100)
+                gen_single_threaded_spmv_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir, fname, os.path.join(vbr_dir, fname), bench=100)
                 subprocess.run(["taskset", "-a", "-c", "0", "gcc", f"{fname}.c", "-o", fname] + CFLAGS, cwd=codegen_dir, check=True, timeout=COMPILE_TIMEOUT)
                 # Evaluate the generated program immediately
                 print(f"Evaluating {fname}...")

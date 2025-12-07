@@ -999,12 +999,13 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         
         f.write("}\n")
 
-def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, bench: int = 5, mkl: bool = False)->int:
+def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, mkl: bool, bench: int = 5)->int:
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbr_path)
     time1 = time.time_ns() // 1_000_000
     if mkl:
-        gen_single_threaded_spmv_dgemv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+        # gen_single_threaded_spmv_dgemv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+        gen_single_threaded_spmv_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
     elif threads == 1:
         gen_single_threaded_spmv_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
     else:

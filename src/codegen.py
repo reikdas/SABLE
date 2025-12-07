@@ -202,7 +202,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
                 if prev_nnz_block not in ublocks:
                     prev_count += 1
                 prev_nnz_block += 1
-    code.append(f"\tlong dense_block_times[{prev_count}][{bench}];\n")
+    code.append(f"\tlong (*dense_block_times)[{bench}] = (long(*)[{bench}])malloc({prev_count} * {bench} * sizeof(long));\n")
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
     code.append("\t\tsparse_times[i] = 0;\n")
     code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
@@ -352,6 +352,7 @@ def gen_single_threaded_spmm(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ubl
     code.append("\t}\n")
     
     # Free allocated memory
+    code.append(f"\tfree(dense_block_times);\n")
     code.append(f"\tfree(y);\n")
     code.append(f"\tfree(x);\n")
     code.append(f"\tfree(val);\n")
@@ -388,18 +389,18 @@ def gen_single_threaded_spmv_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
     code.append(spmv_kernel_3())
     code.append("\n")
     code.append("int main() {\n")
-    code.append(f"\tdouble y[{rpntr[-1]}] = {{0}};\n")
-    code.append(f"\tdouble x[{cpntr[-1]}] = {{0}};\n")
+    code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
+    code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
     if len(val) > 0:
-        code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
     else:
-        code.append(f"\tdouble val[1] = {{0}};\n")
+        code.append(f"\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
     if len(csr_val) > 0:
-        code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
     if (len(ublocks) > 0):
         if (len(indptr) > 0):
-            code.append(f"\tint indptr[{len(indptr)}] = {{0}};\n")
-            code.append(f"\tint indices[{len(indices)}] = {{0}};\n")
+            code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+            code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
     code.append("\tstruct timespec t1, t2;\n")
     code.append(f"\tlong sparse_times[{bench}];\n")
     prev_count = 0
@@ -413,7 +414,7 @@ def gen_single_threaded_spmv_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
                 if prev_nnz_block not in ublocks:
                     prev_count += 1
                 prev_nnz_block += 1
-    code.append(f"\tlong dense_block_times[{prev_count}][{bench}];\n")
+    code.append(f"\tlong (*dense_block_times)[{bench}] = (long(*)[{bench}])malloc({prev_count} * {bench} * sizeof(long));\n")
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
     code.append("\t\tsparse_times[i] = 0;\n")
     code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
@@ -568,6 +569,17 @@ def gen_single_threaded_spmv_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
     code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
     code.append("\t}\n")    
 
+    # Free allocated memory
+    code.append(f"\tfree(dense_block_times);\n")
+    code.append(f"\tfree(y);\n")
+    code.append(f"\tfree(x);\n")
+    code.append(f"\tfree(val);\n")
+    if len(csr_val) > 0:
+        code.append(f"\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append(f"\tfree(indptr);\n")
+        code.append(f"\tfree(indices);\n")
+
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
@@ -596,18 +608,18 @@ def gen_single_threaded_spmv_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
     code.append(spmv_kernel_3())
     code.append("\n")
     code.append("int main() {\n")
-    code.append(f"\tdouble y[{rpntr[-1]}] = {{0}};\n")
-    code.append(f"\tdouble x[{cpntr[-1]}] = {{0}};\n")
+    code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
+    code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
     if len(val) > 0:
-        code.append(f"\tdouble val[{len(val)}] = {{0}};\n")
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
     else:
-        code.append(f"\tdouble val[1] = {{0}};\n")
+        code.append(f"\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
     if len(csr_val) > 0:
-        code.append(f"\tdouble csr_val[{len(csr_val)}] = {{0}};\n")
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
     if (len(ublocks) > 0):
         if (len(indptr) > 0):
-            code.append(f"\tint indptr[{len(indptr)}] = {{0}};\n")
-            code.append(f"\tint indices[{len(indices)}] = {{0}};\n")
+            code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+            code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
     code.append("\tstruct timespec t1, t2;\n")
     code.append(f"\tlong sparse_times[{bench}];\n")
     prev_count = 0
@@ -621,7 +633,7 @@ def gen_single_threaded_spmv_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
                 if prev_nnz_block not in ublocks:
                     prev_count += 1
                 prev_nnz_block += 1
-    code.append(f"\tlong dense_block_times[{prev_count}][{bench}];\n")
+    code.append(f"\tlong (*dense_block_times)[{bench}] = (long(*)[{bench}])malloc({prev_count} * {bench} * sizeof(long));\n")
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
     code.append("\t\tsparse_times[i] = 0;\n")
     code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
@@ -778,6 +790,17 @@ def gen_single_threaded_spmv_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
     code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
     code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
     code.append("\t}\n")    
+
+    # Free allocated memory
+    code.append(f"\tfree(dense_block_times);\n")
+    code.append(f"\tfree(y);\n")
+    code.append(f"\tfree(x);\n")
+    code.append(f"\tfree(val);\n")
+    if len(csr_val) > 0:
+        code.append(f"\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append(f"\tfree(indptr);\n")
+        code.append(f"\tfree(indices);\n")
 
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:

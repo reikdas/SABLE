@@ -138,18 +138,18 @@ def test_partition():
     assert(len(indices) == 0)
     assert(len(csr_val) == 0)
 
-def run_spmv(threads):
+def run_spmv(threads, mkl):
     test_setup_file()
-    vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests")
+    vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests", mkl=mkl)
     subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS + MKL_FLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon.txt"))
 
-def run_spmv_unroll(threads):
+def run_spmv_unroll(threads, mkl):
     test_compression()
-    vbr_spmv_codegen("example2", "tests", "tests", threads)
+    vbr_spmv_codegen("example2", "tests", "tests", threads, mkl=mkl)
     subprocess.check_call(["gcc", "-o", "example2", "example2.c"] + CFLAGS+MKL_FLAGS, cwd="tests")
     output = subprocess.check_output(["./example2"], cwd="tests").decode("utf-8").split("\n")
     if "warning" in output[0].lower():
@@ -161,24 +161,30 @@ def run_spmv_unroll(threads):
     assert(cmp_file("tests/output.txt", "tests/output_spmv_canon_sparse.txt"))
 
 def test_spmv():
-    run_spmv(1)
+    run_spmv(1, mkl=False)
 #     run_spmv(2)
 #     run_spmv(4)
 #     run_spmv(8)
 #     run_spmv(16)
 
-def test_spmv_py():
-    run_spmv_py()
+def test_spmv_mkl():
+    run_spmv(1, mkl=True)
+
+# def test_spmv_py():
+#     run_spmv_py()
 
 def test_spmv_unroll():
-    run_spmv_unroll(1)
+    run_spmv_unroll(1, mkl=False)
 #     run_spmv_unroll(2)
 #     run_spmv_unroll(4)
 #     run_spmv_unroll(8)
 #     run_spmv_unroll(16)
 
-def test_spmm():
-    run_spmm(1)
+def test_spmv_unroll_mkl():
+    run_spmv_unroll(1, mkl=True)
+
+# def test_spmm():
+#     run_spmm(1)
     
 @pytest.mark.skip(reason="Git cannot store Franz8_canon.vbr")
 def test_partition_vals_real():

@@ -65,6 +65,8 @@ struct csr_matrix input_matrix(int m, int rows, int cols, double *nnz_arr, int *
   mat.col = (int *)malloc(mat.m * sizeof(int));
   mat.rowb = (int *)malloc(mat.rows * sizeof(int));
   mat.rowe = (int *)malloc(mat.rows * sizeof(int));
+  mat.tstart = NULL;
+  mat.tend = NULL;
 
   /* copy nnz and indices */
   for (int i = 0; i < mat.m; i++) mat.nnz[i] = nnz_arr[i];
@@ -86,6 +88,8 @@ void destroy_matrix(struct csr_matrix *mat) {
   if (mat->col) free(mat->col);
   if (mat->rowb) free(mat->rowb);
   if (mat->rowe) free(mat->rowe);
+  if (mat->tstart) free(mat->tstart);
+  if (mat->tend) free(mat->tend);
   /* ans removed; nothing to free here */
 }
 
@@ -201,6 +205,7 @@ struct tr_matrix process(struct csr_matrix *mat) {
   int count = 0;
   for (i = 0; i < limit; i += 8) {
     for (int j = 0; j < 8; j++) {
+      if (i+j >= mat->rows) break;
       int rowlen = mat->rowe[i + j] - mat->rowb[i + j];
       if (rowlen > 0) {
         if (task_sizes[pos] + 1 > task_caps[pos]) {

@@ -29,3 +29,4 @@ studies/stats_dist*.csv
 MKL_VBRC/
 artifact_codegen_*/
 artifact_partition/
+**/spmv_spv8

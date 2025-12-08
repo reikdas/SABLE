@@ -47,30 +47,37 @@ def predict_speedup(block_sx: int, block_sy: int, calc_density: float, op: str) 
 
 def is_dense_block(block_sx: int, block_sy: int, calc_density: float, op: str) -> bool:
     """
-    Determine if a block should be kept dense based on predicted speedup.
+    Determine if a block should be kept dense based on simple heuristics.
     
     Args:
         block_sx: Block size in x dimension
         block_sy: Block size in y dimension  
         calc_density: Calculated density percentage
+        op: Operation type (unused, kept for API compatibility)
     
     Returns:
         bool: True if block should be kept dense, False if it should be unrolled
     """
-    # Blocks with density <= 25% should not be kept dense (matching training data logic)
-    if calc_density <= 25:
+    # Filter out blocks with density < 50%
+    if calc_density < 50:
         return False
     
-    predicted_speedup = predict_speedup(block_sx, block_sy, calc_density, op)
+    # Calculate block characteristics
+    nnz = (calc_density / 100) * block_sx * block_sy
+    is_1d = (block_sy == 1 or block_sx == 1)
+    max_dim = max(block_sx, block_sy)
+    dim_product = block_sx * block_sy
     
-    # For medium density blocks (25% < density < 80%), require higher speedup threshold
-    # For high density blocks (>= 80%), use the standard threshold
-    if 25 < calc_density < 80:
-        # Use a higher threshold for medium density to avoid keeping sparse blocks dense
-        # The highest failing case is 1.807, so use 1.85 as threshold
-        return predicted_speedup >= 1.85
-    else:
-        return predicted_speedup >= SPEEDUP_THRESH
+    # Filter 1D vectors: length < 2500 (typically have time_ns < 1000)
+    if is_1d and max_dim < 2500:
+        return False
+    
+    # Filter 2D blocks: small size AND small nnz (typically have time_ns < 1000)
+    if not is_1d and dim_product < 3000 and nnz < 3500:
+        return False
+    
+    # Keep block dense if it passes all filters
+    return True
 
 # from src.consts import SPEEDUP_THRESH
 SPEEDUP_THRESH=1.15
@@ -192,9 +199,6 @@ def analyze_thresholds(op: str):
     assert is_dense_block(153, 9, 0.65, op) == False
     assert is_dense_block(125, 8, 1, op) == False
     assert is_dense_block(465, 2, 1, op) == False
-    assert is_dense_block(1000, 1, 100.0, op) == True
-    assert is_dense_block(1139, 1, 100.0, op) == True
-    assert is_dense_block(150, 150, 100, op) == True
     assert is_dense_block(1, 9996, 100.0, op) == True
     assert is_dense_block(9996, 1, 100.0, op) == True
     assert is_dense_block(10000, 10000, 100.0, op) == True

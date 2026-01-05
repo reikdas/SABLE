@@ -223,6 +223,165 @@ def convert_sparse_to_vbrc(
     return val2, indx2, bindx, bpntrb, bpntre, ublocks, indptr, indices, csr_val
 
 
+def _compute_partitioning_from_dense_blocks(
+    mat: spmatrix,
+    dense_blocks: List[Tuple[int, int, int, int]]
+) -> Tuple[List[int], List[int]]:
+    """
+    Compute rpntr and cpntr partitioning from dense block coordinates.
+    
+    Args:
+        mat: Sparse matrix
+        dense_blocks: List of dense block coordinates as (row_start, row_end, col_start, col_end)
+    
+    Returns:
+        Tuple of (rpntr, cpntr) partitioning arrays
+    """
+    # Collect all unique row and column boundaries from dense blocks
+    row_boundaries = set([0, mat.shape[0]])  # Always include start and end
+    col_boundaries = set([0, mat.shape[1]])  # Always include start and end
+    
+    for dense_r_start, dense_r_end, dense_c_start, dense_c_end in dense_blocks:
+        row_boundaries.add(dense_r_start)
+        row_boundaries.add(dense_r_end)
+        col_boundaries.add(dense_c_start)
+        col_boundaries.add(dense_c_end)
+    
+    # Sort and convert to lists
+    rpntr = sorted(row_boundaries)
+    cpntr = sorted(col_boundaries)
+    
+    return rpntr, cpntr
+
+
+def convert_sparse_to_vbrc_with_blocks(
+    mat: spmatrix, 
+    dense_blocks: List[Tuple[int, int, int, int]]
+) -> Tuple[List[float], List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[int], List[float]]:
+    """
+    Convert sparse matrix to VBRC format using specified dense block coordinates.
+    The partitioning (rpntr, cpntr) is computed from the dense block boundaries.
+    
+    Args:
+        mat: Sparse matrix to convert
+        dense_blocks: List of dense block coordinates as (row_start, row_end, col_start, col_end)
+                     where row_end and col_end are exclusive (e.g., [1409, 1944) means rows 1409 to 1943)
+    
+    Returns:
+        Tuple of VBRC data structures: (val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
+    """
+    # Compute partitioning from dense block boundaries
+    rpntr, cpntr = _compute_partitioning_from_dense_blocks(mat, dense_blocks)
+    
+    def block_processor(r_start, r_end, c_start, c_end, r_i, c_i):
+        # Extract the block
+        block = mat[r_start:r_end, c_start:c_end]
+        nnz = block.nnz
+        
+        # Only process non-empty blocks
+        if nnz == 0:
+            return None
+            
+        block_sx, block_sy = block.shape
+        
+        # Check if this partitioning block is contained within any specified dense block
+        # Since partitioning is computed from dense block boundaries, we check containment
+        is_dense_block = False
+        for dense_r_start, dense_r_end, dense_c_start, dense_c_end in dense_blocks:
+            # Partitioning block is contained if it's within the dense block boundaries
+            if (dense_r_start <= r_start and r_end <= dense_r_end and 
+                dense_c_start <= c_start and c_end <= dense_c_end):
+                is_dense_block = True
+                break
+        
+        # Calculate density and extract non-zero elements
+        dense_elems = []
+        idxs_i = []
+        idxs_j = []
+        
+        # Extract non-zero elements and their indices
+        for idx_j in range(c_start, c_end):
+            for idx_i in range(r_start, r_end):
+                val = block[idx_i - r_start, idx_j - c_start]
+                if val != 0.0:
+                    dense_elems.append(val)
+                    idxs_i.append(idx_i)
+                    idxs_j.append(idx_j)
+        
+        block_vals = block.todense().flatten(order='F').A1
+        
+        return block_vals, dense_elems, idxs_i, idxs_j, block_sx, block_sy, is_dense_block
+    
+    # Generate VBRC data structures
+    val2: List[float] = []
+    indx2: List[int] = [0]
+    bindx: List[int] = []
+    bpntrb: List[int] = []
+    bpntre: List[int] = []
+    ublocks: List[int] = []
+    coo_i: List[int] = []
+    coo_j: List[int] = []
+    coo_val: List[float] = []
+    
+    block_count = 0
+    
+    for r_i in range(len(rpntr) - 1):
+        row_start_block = block_count
+        r_start, r_end = rpntr[r_i], rpntr[r_i + 1]
+        
+        for c_i in range(len(cpntr) - 1):
+            c_start, c_end = cpntr[c_i], cpntr[c_i + 1]
+            
+            # Process the block
+            result = block_processor(r_start, r_end, c_start, c_end, r_i, c_i)
+            if result is None:
+                continue  # Skip empty blocks
+            
+            block_vals, dense_elems, idxs_i, idxs_j, block_sx, block_sy, is_dense_block = result
+            
+            if is_dense_block:
+                # Keep as dense block
+                val2.extend(block_vals)
+                indx2.append(len(val2))
+                bindx.append(c_i)
+            else:
+                # Unroll to CSR
+                coo_val.extend(dense_elems)
+                ublocks.append(block_count)
+                coo_i.extend(idxs_i)
+                coo_j.extend(idxs_j)
+                bindx.append(c_i)
+            
+            block_count += 1
+        
+        # Update row pointers
+        if row_start_block < block_count:
+            bpntrb.append(row_start_block)
+            bpntre.append(block_count)
+        else:
+            # Empty row - mark with -1
+            bpntrb.append(-1)
+            bpntre.append(-1)
+    
+    # Create CSR representation for unrolled blocks
+    if len(coo_i) > 0:
+        if (rpntr[-1]-1) not in coo_i or (cpntr[-1]-1) not in coo_j:
+            coo_i.append(rpntr[-1]-1)
+            coo_j.append(cpntr[-1]-1)
+            coo_val.append(0.0)
+        csr = scipy.sparse.coo_array((coo_val, (coo_i, coo_j))).tocsr()
+        indptr = csr.indptr.tolist()
+        assert(len(indptr) == (rpntr[-1]+1))
+        indices = csr.indices.tolist()
+        csr_val = csr.data.tolist()
+    else:
+        csr_val = []
+        indptr = []
+        indices = []
+    
+    return val2, indx2, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val
+
+
 
 def convert_sparse_to_vbr(mat: spmatrix, rpntr: List[int], cpntr: List[int], fname: str, dst_dir: str) -> Tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray]:
     '''

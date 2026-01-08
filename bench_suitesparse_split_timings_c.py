@@ -1,93 +1,88 @@
+#!/usr/bin/env python3
+"""
+Benchmark script for SABLE sparse matrix-vector multiplication.
+
+This script:
+1. Reads YAML files from find-submatrices/results/ to get dense block information
+2. Downloads matrices from SuiteSparse
+3. Converts to VBRC format
+4. Generates C code for SpV8 and MKL versions
+5. Compiles and runs the generated code
+6. Collects timing information and writes to JSON files
+7. Cleans up downloaded matrix files after processing
+"""
+
+import argparse
 import json
 import os
 import pathlib
 import re
 import statistics
 import subprocess
-from typing import Any, Dict, List
+import sys
+from typing import Any, Dict, List, Optional, Tuple
 
-import numpy as np
 import scipy
+from scipy.io import mmread
+from scipy.sparse import csc_matrix
 
-from src.autopartition import cut_indices2_fast, similarity2_numba
-from src.codegen import gen_single_threaded_spmv_spv8
-from src.consts import CFLAGS as CFLAGS
-from src.consts import MKL_FLAGS as MKL_FLAGS
-from studies.find_threshold import predict_speedup
-from utils.convert_real_to_vbr import convert_sparse_to_vbrc, convert_sparse_to_vbrc_with_blocks, _write_vbrc_file
-from utils.fileio import read_vbrc, write_dense_vector
-from utils.utils import (check_file_matches_parent_dir,
-                         remove_outliers_deciles, set_ulimit)
+# Add find-submatrices to path for importing
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "find-submatrices"))
+from find_matrices import get_matrix_paths, cleanup_matrix_files, get_matrix_info
+from ssgetpy import fetch
+
+from src.codegen import gen_single_threaded_spmv_spv8, gen_single_threaded_spmv_mkl
+from src.consts import CFLAGS, MKL_FLAGS
+from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file, analyze_dense_blocks
+from utils.fileio import parse_yaml_blocks, write_dense_vector
+from utils.utils import remove_outliers_deciles, set_ulimit
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
 
+# Configuration
 COMPILE_TIMEOUT = 60 * 60 * 4
+DEFAULT_BENCH_ITERATIONS = 100
 
-mtx_dir = pathlib.Path(os.path.join(BASE_PATH, "Suitesparse"))
-
-cut_indices = cut_indices2_fast
-similarity = similarity2_numba
-cut_threshold = 0.2
-
-def _calculate_weighted_speedup_stats(individual_dense_block_timings):
-    """Helper function to calculate weighted speedup statistics from dense block timings"""
-    total_weighted_speedup = 0.0
-    total_dense_nnz_percentage = 0.0
-    
-    for block_id, block_data in individual_dense_block_timings.items():
-        nnz_percentage = block_data.get("percentage_of_total_nnz", 0)
-        predicted_speedup = block_data.get("predicted_speedup", 0)
-        
-        # Weight the predicted speedup by the percentage of nnz it handles
-        weighted_speedup = predicted_speedup * (nnz_percentage / 100.0)
-        total_weighted_speedup += weighted_speedup
-        total_dense_nnz_percentage += nnz_percentage
-    
-    return total_weighted_speedup, total_dense_nnz_percentage
+# Directories
+SUITESPARSE_DIR = FILEPATH / "Suitesparse"
+RESULTS_DIR = FILEPATH / "find-submatrices" / "results"
+GENERATED_VBR_SPLIT_DIR = FILEPATH / "Generated_VBR_split"
+GENERATED_VBR_SPARSE_DIR = FILEPATH / "Generated_VBR_Sparse"
+GENERATED_SPMV_SPV8_DIR = FILEPATH / "Generated_SpMV_C_split"
+GENERATED_SPMV_MKL_DIR = FILEPATH / "Generated_SpMV_C_mkl"
+GENERATED_SPMV_SPARSE_SPV8_DIR = FILEPATH / "Generated_SpMV_C_sparse"
+GENERATED_SPMV_SPARSE_MKL_DIR = FILEPATH / "Generated_SpMV_C_sparse_mkl"
 
 
-def estimate_total_speedup(individual_dense_block_timings):
-    """Estimate total speedup across the entire matrix based on individual block characteristics"""
-    total_weighted_speedup, total_dense_nnz_percentage = _calculate_weighted_speedup_stats(individual_dense_block_timings)
-    
-    # If no dense blocks, speedup is 1.0 (no improvement)
-    if total_dense_nnz_percentage == 0:
-        return 1.0
-    
-    estimated_speedup = 1.0 + (total_weighted_speedup - (total_dense_nnz_percentage / 100.0))
-    
-    return estimated_speedup
+def compile_c_program(c_file_path: str, output_dir: str, use_mkl: bool = False) -> Optional[Tuple[str, float]]:
+    """
+    Compile the C program using gcc and return the executable path and compilation time.
 
-
-def estimate_dense_speedup(individual_dense_block_timings):
-    """Estimate speedup specifically for dense regions only"""
-    total_weighted_speedup, total_dense_nnz_percentage = _calculate_weighted_speedup_stats(individual_dense_block_timings)
-    
-    # If no dense blocks, speedup is 1.0 (no improvement)
-    if total_dense_nnz_percentage == 0:
-        return 1.0
-
-    estimated_dense_speedup = total_weighted_speedup / (total_dense_nnz_percentage / 100.0)
-    
-    return estimated_dense_speedup
-
-
-def compile_c_program(c_file_path, output_dir):
-    """Compile the C program using gcc"""
+    Returns:
+        Tuple of (executable_path, compile_time_ns) or None if compilation fails
+    """
+    import time
     c_file = os.path.basename(c_file_path)
     output_name = os.path.splitext(c_file)[0]
     output_path = os.path.join(output_dir, output_name)
     
     # Compile with gcc, including MKL flags if needed
-    compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS + MKL_FLAGS
+    print(f"  Compiling generated C code: {c_file} (output: {output_path})")
+    if use_mkl:
+        compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS + MKL_FLAGS
+    else:
+        compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS
 
     try:
+        start_time = time.time_ns()
         result = subprocess.run(compile_cmd, cwd=output_dir, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)
+        compile_time_ns = time.time_ns() - start_time
         if result.returncode != 0:
             print(f"Compilation failed for {c_file}: {result.stderr}")
             return None
-        return output_path
+        print(f"  Finished compiling {c_file}. Starting benchmark runs...")
+        return output_path, compile_time_ns
     except subprocess.TimeoutExpired:
         print(f"Compilation timeout for {c_file}")
         return None
@@ -96,7 +91,18 @@ def compile_c_program(c_file_path, output_dir):
         return None
 
 
-def eval_single_file_split_timings(fname, codegen_dir, bench_freq: int, extract_indiv_blocks: bool = True):
+def eval_single_file_split_timings(
+    fname: str,
+    codegen_dir: str,
+    bench_freq: int,
+    extract_indiv_blocks: bool = True
+) -> Tuple[float, float, Dict[int, float], float]:
+    """
+    Run the compiled benchmark and parse timing results.
+
+    Returns:
+        Tuple of (avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_ns)
+    """
     pid = os.getpid()
     cpu_affinity = os.sched_getaffinity(pid)
 
@@ -106,15 +112,25 @@ def eval_single_file_split_timings(fname, codegen_dir, bench_freq: int, extract_
     
     # First, compile the C program
     c_file_path = os.path.join(codegen_dir, f"{fname}.c")
-    executable_path = compile_c_program(c_file_path, codegen_dir)
     
-    if executable_path is None:
+    # Determine if this is MKL based on directory name
+    use_mkl = "mkl" in codegen_dir.lower()
+    compile_result = compile_c_program(c_file_path, codegen_dir, use_mkl=use_mkl)
+
+    if compile_result is None:
         print(f"Failed to compile {fname}, skipping evaluation")
-        return 0, 0, {}
+        return 0, 0, {}, 0.0
+
+    executable_path, compile_time_ns = compile_result
     
+    print(f"  Executing benchmark binary: {executable_path}")
     for _ in range(bench_freq):
         try:
-            output = subprocess.check_output(["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), executable_path], cwd=codegen_dir, preexec_fn=set_ulimit).decode("utf-8").split("\n")
+            output = subprocess.check_output(
+                ["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), executable_path],
+                cwd=codegen_dir,
+                preexec_fn=set_ulimit
+            ).decode("utf-8").split("\n")
         except subprocess.CalledProcessError as e:
             print(f"Error running {fname}: {e}")
             continue
@@ -134,13 +150,15 @@ def eval_single_file_split_timings(fname, codegen_dir, bench_freq: int, extract_
             if sparse_line.startswith('Sparse: '):
                 sparse_content = sparse_line[8:].strip()  # Remove 'Sparse: ' prefix
                 if sparse_content:  # Only parse if there's content
-                    sparse_values = [float(x.strip()) for x in sparse_content.rstrip(',').split(',')]
+                    sparse_values = [float(x.strip()) for x in sparse_content.rstrip(',').split(',') if x.strip()]
             
             # Handle dense times
             dense_values = []
             dense_match = re.search(r'Dense: (.+)', dense_line)
             if dense_match:
-                dense_values = [float(x.strip()) for x in dense_match.group(1).rstrip(',').split(',')]
+                dense_content = dense_match.group(1).strip().rstrip(',')
+                if dense_content:
+                    dense_values = [float(x.strip()) for x in dense_content.split(',') if x.strip()]
             
             # Add times if we found any
             if sparse_values or dense_values:
@@ -153,12 +171,13 @@ def eval_single_file_split_timings(fname, codegen_dir, bench_freq: int, extract_
                     dense_block_match = re.search(r'Dense Block (\d+): (.+)', line)
                     if dense_block_match:
                         block_id = int(dense_block_match.group(1))
-                        block_times_str = dense_block_match.group(2)
-                        block_times = [float(x.strip()) for x in block_times_str.rstrip(',').split(',')]
-                        
-                        if block_id not in individual_dense_block_times:
-                            individual_dense_block_times[block_id] = []
-                        individual_dense_block_times[block_id].extend(block_times)
+                        block_times_str = dense_block_match.group(2).strip().rstrip(',')
+                        if block_times_str:
+                            block_times = [float(x.strip()) for x in block_times_str.split(',') if x.strip()]
+                            
+                            if block_id not in individual_dense_block_times:
+                                individual_dense_block_times[block_id] = []
+                            individual_dense_block_times[block_id].extend(block_times)
     
     # Remove outliers and calculate averages
     sparse_times = remove_outliers_deciles(sparse_times)
@@ -173,422 +192,483 @@ def eval_single_file_split_timings(fname, codegen_dir, bench_freq: int, extract_
         for block_id, times in individual_dense_block_times.items():
             times_clean = remove_outliers_deciles(times)
             avg_individual_block_times[block_id] = statistics.mean(times_clean) if times_clean else 0
+
+    return avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_ns
+
+
+def download_matrix_from_suitesparse(matrix_name: str) -> Optional[Tuple[str, Any, Optional[str], Optional[str]]]:
+    """
+    Download a matrix from SuiteSparse and return the path to the .mtx file, matrix_info, and cleanup paths.
+    Returns None if the download fails.
     
-    return avg_sparse_time, avg_dense_time, avg_individual_block_times
-
-def analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, op: str)->List[Dict[str, Any]]:
-    """Analyze dense blocks in a matrix using VBR data structure"""
-    dense_blocks = []
+    Returns:
+        Tuple of (matrix_path, matrix_info, tar_path, matrix_subdir) for cleanup
+    """
+    # Ensure Suitesparse directory exists
+    SUITESPARSE_DIR.mkdir(exist_ok=True)
     
-    # Count dense blocks using same logic as code generation
-    nnz_block = 0
-    count = 0
+    # Set environment variable to control download location
+    original_ssgetpy_dir = os.environ.get('SSGETPY_DIR')
+    try:
+        os.environ['SSGETPY_DIR'] = str(SUITESPARSE_DIR)
+        matrix_info = get_matrix_info(matrix_name)
+        if matrix_info is None:
+            return None
+        
+        # Download the matrix
+        fetch(matrix_name)
+        
+        # Get paths - but check if file exists in our target directory first
+        tar_path, tar_dir, matrix_subdir, matrix_path = get_matrix_paths(matrix_info)
+        
+        # If the file doesn't exist at the expected location, try to find it in SUITESPARSE_DIR
+        if not os.path.exists(matrix_path):
+            # Try to find it in SUITESPARSE_DIR
+            expected_path = SUITESPARSE_DIR / matrix_info.name / f"{matrix_info.name}.mtx"
+            if expected_path.exists():
+                matrix_path = str(expected_path)
+                matrix_subdir = str(expected_path.parent)
+                tar_dir = str(SUITESPARSE_DIR)
+                # Look for tar file in SUITESPARSE_DIR
+                tar_candidates = list(SUITESPARSE_DIR.glob(f"{matrix_info.name}*.tar.gz"))
+                tar_path = str(tar_candidates[0]) if tar_candidates else None
+            else:
+                print(f"Error: Matrix file not found at {matrix_path} or {expected_path}")
+                return None
+        
+        return matrix_path, matrix_info, tar_path, matrix_subdir
+    finally:
+        # Restore original environment variable
+        if original_ssgetpy_dir is not None:
+            os.environ['SSGETPY_DIR'] = original_ssgetpy_dir
+        elif 'SSGETPY_DIR' in os.environ:
+            del os.environ['SSGETPY_DIR']
+
+
+def get_available_matrices() -> List[str]:
+    """Get list of matrices with YAML files in find-submatrices/results/."""
+    yaml_files = list(RESULTS_DIR.glob("*.yaml"))
+    return [f.stem for f in yaml_files]
+
+
+def convert_and_prepare_vbrc(
+    matrix_name: str,
+    dense_block_coords: List[Tuple[int, int, int, int]],
+    mat: scipy.sparse.spmatrix,
+    matrix_nnz: int
+) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """
+    Convert matrix to VBRC format (both split and sparse versions).
+    This is done once and shared between SpV8 and MKL benchmarks.
     
-    for a in range(len(rpntr)-1):
-        if bpntrb[a] == -1: 
-            continue
-        valid_cols = bindx[bpntrb[a]:bpntre[a]]
-        for b in range(len(cpntr)-1):
-            if b in valid_cols:
-                if nnz_block not in ublocks:
-                    # This is a dense block
-                    i_extent = rpntr[a+1] - rpntr[a]
-                    j_extent = cpntr[b+1] - cpntr[b]
-                    
-                    # Calculate density based on the block size and actual non-zero count
-                    block_size = i_extent * j_extent
-                    # Determine slice of `val` for this dense block (indx is ordered by dense blocks)
-                    start = indx[count]
-                    end = indx[count+1] if (count+1) < len(indx) else len(val)
-                    block_vals = val[start:end]
-                    # `val` contains explicit zeros for dense blocks; count real non-zeros
-                    block_nnz = int(np.count_nonzero(block_vals))
-                    calc_density = (block_nnz / block_size) * 100 if block_size > 0 else 0
-                    
-                    predicted_speedup = predict_speedup(i_extent, j_extent, calc_density, op)
-                    dense_blocks.append({
-                        "rows": i_extent,
-                        "cols": j_extent,
-                        "density_percent": calc_density,
-                        "nnz": block_nnz,
-                        "predicted_speedup": predicted_speedup
-                    })
-                    count += 1
-                nnz_block += 1
+    Returns:
+        Tuple of (split_vbrc_data, sparse_vbrc_data) dictionaries containing VBRC data
+    """
+    vbr_dir = str(GENERATED_VBR_SPLIT_DIR / matrix_name)
+    sparse_vbr_dir = str(GENERATED_VBR_SPARSE_DIR / matrix_name)
     
-    return dense_blocks
-
-eval = {
-    "TSOPF_FS_b9_c6": [
-        (24, 3630, 24, 27),  # Block 1: Rows: [24, 3630), Cols: [24, 27)
-    ],
-    "bloweybl": [
-        (10001, 20002, 20002, 20003),  # Block 1: Rows: [10001, 20002), Cols: [20002, 20003)
-        (20002, 20003, 10001, 20002),  # Block 2: Rows: [20002, 20003), Cols: [10001, 20002)
-    ],
-    "brainpc2": [
-        (13808, 20707, 13803, 13807),  # Block 1: Rows: [13808, 20707), Cols: [13803, 13807)
-        (13803, 13807, 13808, 20707),  # Block 2: Rows: [13803, 13807), Cols: [13808, 20707)
-    ],
-    "c-30": [
-        (4280, 5319, 0, 14),  # Block 1: Rows: [4280, 5319), Cols: [0, 14)
-        (0, 14, 4280, 5319),  # Block 2: Rows: [0, 14), Cols: [4280, 5319)
-    ],
-    "case9": [
-        (24, 3630, 24, 27),  # Block 1: Rows: [24, 3630), Cols: [24, 27)
-    ],
-    "eris1176": [
-        (1025, 1116, 1025, 1116),  # Block 1: Rows: [1025, 1116), Cols: [1025, 1116)
-        (782, 844, 782, 855),  # Block 2: Rows: [782, 844), Cols: [782, 855)
-        (2, 53, 2, 53),  # Block 3: Rows: [2, 53), Cols: [2, 53)
-    ],
-    "hangGlider_3": [
-        (2279, 10260, 5697, 5698),  # Block 1: Rows: [2279, 10260), Cols: [5697, 5698)
-    ],
-    "hangGlider_4": [
-        (3457, 15561, 8642, 8643),  # Block 1: Rows: [3457, 15561), Cols: [8642, 8643)
-    ],
-    "hangGlider_5": [
-        (3557, 16011, 8892, 8893),  # Block 1: Rows: [3557, 16011), Cols: [8892, 8893)
-    ],
-    "heart1": [
-        (1433, 1657, 1433, 1657),  # Block 1: Rows: [1433, 1657), Cols: [1433, 1657)
-        (149, 436, 149, 436),  # Block 2: Rows: [149, 436), Cols: [149, 436)
-        (538, 709, 538, 709),  # Block 3: Rows: [538, 709), Cols: [538, 709)
-        (436, 488, 1101, 1153),  # Block 4: Rows: [436, 488), Cols: [1101, 1153)
-        (2044, 2194, 2044, 2194),  # Block 5: Rows: [2044, 2194), Cols: [2044, 2194)
-        (2575, 2860, 2575, 2860),  # Block 6: Rows: [2575, 2860), Cols: [2575, 2860)
-        (3009, 3109, 3009, 3109),  # Block 7: Rows: [3009, 3109), Cols: [3009, 3109)
-        (2860, 2931, 2860, 2931),  # Block 8: Rows: [2860, 2931), Cols: [2860, 2931)
-        (2933, 3008, 2933, 3008),  # Block 9: Rows: [2933, 3008), Cols: [2933, 3008)
-        (3143, 3318, 3489, 3514),  # Block 10: Rows: [3143, 3318), Cols: [3489, 3514)
-        (3318, 3368, 3318, 3368),  # Block 11: Rows: [3318, 3368), Cols: [3318, 3368)
-        (3371, 3396, 3168, 3293),  # Block 12: Rows: [3371, 3396), Cols: [3168, 3293)
-    ],
-    "jendrec1": [
-        (30, 2107, 0, 68),  # Block 1: Rows: [30, 2107), Cols: [0, 68)
-    ],
-    "lowThrust_10": [
-        (10143, 17241, 10139, 10141),  # Block 1: Rows: [10143, 17241), Cols: [10139, 10141)
-        (10139, 10141, 10143, 17241),  # Block 2: Rows: [10139, 10141), Cols: [10143, 17241)
-    ],
-    "lowThrust_11": [
-        (10203, 17343, 10199, 10201),  # Block 1: Rows: [10203, 17343), Cols: [10199, 10201)
-        (10199, 10201, 10203, 17343),  # Block 2: Rows: [10199, 10201), Cols: [10203, 17343)
-    ],
-    "lowThrust_12": [
-        (10253, 17428, 10249, 10251),  # Block 1: Rows: [10253, 17428), Cols: [10249, 10251)
-        (10249, 10251, 10253, 17428),  # Block 2: Rows: [10249, 10251), Cols: [10253, 17428)
-    ],
-    "lowThrust_13": [
-        (10263, 17445, 10259, 10261),  # Block 1: Rows: [10263, 17445), Cols: [10259, 10261)
-        (10259, 10261, 10263, 17445),  # Block 2: Rows: [10259, 10261), Cols: [10263, 17445)
-    ],
-    "lowThrust_3": [
-        (3923, 6667, 3919, 3921),  # Block 1: Rows: [3923, 6667), Cols: [3919, 3921)
-        (3919, 3921, 3923, 6667),  # Block 2: Rows: [3919, 3921), Cols: [3923, 6667)
-    ],
-    "lowThrust_4": [
-        (7533, 12804, 7529, 7531),  # Block 1: Rows: [7533, 12804), Cols: [7529, 7531)
-        (7529, 7531, 7533, 12804),  # Block 2: Rows: [7529, 7531), Cols: [7533, 12804)
-    ],
-    "lowThrust_5": [
-        (9033, 15354, 9029, 9031),  # Block 1: Rows: [9033, 15354), Cols: [9029, 9031)
-        (9029, 9031, 9033, 15354),  # Block 2: Rows: [9029, 9031), Cols: [9033, 15354)
-    ],
-    "lowThrust_6": [
-        (9403, 15983, 9399, 9401),  # Block 1: Rows: [9403, 15983), Cols: [9399, 9401)
-        (9399, 9401, 9403, 15983),  # Block 2: Rows: [9399, 9401), Cols: [9403, 15983)
-    ],
-    "lowThrust_7": [
-        (9653, 16408, 9649, 9651),  # Block 1: Rows: [9653, 16408), Cols: [9649, 9651)
-        (9649, 9651, 9653, 16408),  # Block 2: Rows: [9649, 9651), Cols: [9653, 16408)
-    ],
-    "lowThrust_8": [
-        (9833, 16714, 9829, 9831),  # Block 1: Rows: [9833, 16714), Cols: [9829, 9831)
-        (9829, 9831, 9833, 16714),  # Block 2: Rows: [9829, 9831), Cols: [9833, 16714)
-    ],
-    "lowThrust_9": [
-        (10023, 17037, 10019, 10021),  # Block 1: Rows: [10023, 17037), Cols: [10019, 10021)
-        (10019, 10021, 10023, 17037),  # Block 2: Rows: [10019, 10021), Cols: [10023, 17037)
-    ],
-    "lp_fit2p": [
-        (0, 3000, 0, 1),  # Block 1: Rows: [0, 3000), Cols: [0, 1)
-    ],
-    "lp_wood1p": [
-        (242, 243, 2, 2585),  # Block 1: Rows: [242, 243), Cols: [2, 2585)
-    ],
-    "nd12k": [
-        (672, 861, 672, 861),  # Block 1: Rows: [672, 861), Cols: [672, 861)
-        (35109, 35306, 35109, 35306),  # Block 2: Rows: [35109, 35306), Cols: [35109, 35306)
-        (30996, 31104, 30996, 31104),  # Block 3: Rows: [30996, 31104), Cols: [30996, 31104)
-        (12375, 12507, 12375, 12507),  # Block 4: Rows: [12375, 12507), Cols: [12375, 12507)
-        (4918, 5049, 4918, 5049),  # Block 5: Rows: [4918, 5049), Cols: [4918, 5049)
-        (3648, 3780, 3648, 3780),  # Block 6: Rows: [3648, 3780), Cols: [3648, 3780)
-        (6676, 6807, 6676, 6807),  # Block 7: Rows: [6676, 6807), Cols: [6676, 6807)
-        (6109, 6159, 6109, 6159),  # Block 8: Rows: [6109, 6159), Cols: [6109, 6159)
-        (6457, 6510, 6457, 6510),  # Block 9: Rows: [6457, 6510), Cols: [6457, 6510)
-        (14256, 14346, 14256, 14346),  # Block 10: Rows: [14256, 14346), Cols: [14256, 14346)
-        (13032, 13148, 13032, 13148),  # Block 11: Rows: [13032, 13148), Cols: [13032, 13148)
-        (13637, 13690, 13637, 13690),  # Block 12: Rows: [13637, 13690), Cols: [13637, 13690)
-        (34044, 34157, 34044, 34157),  # Block 13: Rows: [34044, 34157), Cols: [34044, 34157)
-    ],
-    "std1_Jac2": [
-        (12875, 12921, 15406, 15660),  # Block 1: Rows: [12875, 12921), Cols: [15406, 15660)
-        (3389, 3439, 4094, 4344),  # Block 2: Rows: [3389, 3439), Cols: [4094, 4344)
-        (2480, 2530, 3179, 3429),  # Block 3: Rows: [2480, 2530), Cols: [3179, 3429)
-        (1571, 1617, 2264, 2504),  # Block 4: Rows: [1571, 1617), Cols: [2264, 2504)
-        (1873, 1923, 2569, 2827),  # Block 5: Rows: [1873, 1923), Cols: [2569, 2827)
-        (2782, 2812, 3484, 3742),  # Block 6: Rows: [2782, 2812), Cols: [3484, 3742)
-        (10467, 10517, 11452, 11710),  # Block 7: Rows: [10467, 10517), Cols: [11452, 11710)
-        (5207, 5257, 5924, 6174),  # Block 8: Rows: [5207, 5257), Cols: [5924, 6174)
-        (4298, 4328, 5009, 5303),  # Block 9: Rows: [4298, 4328), Cols: [5009, 5303)
-        (3691, 3721, 4399, 4693),  # Block 10: Rows: [3691, 3721), Cols: [4399, 4693)
-        (4600, 4630, 5314, 5608),  # Block 11: Rows: [4600, 4630), Cols: [5314, 5608)
-        (8347, 8397, 9317, 9567),  # Block 12: Rows: [8347, 8397), Cols: [9317, 9567)
-        (7438, 7488, 8402, 8652),  # Block 13: Rows: [7438, 7488), Cols: [8402, 8652)
-        (5509, 5539, 6229, 6523),  # Block 14: Rows: [5509, 5539), Cols: [6229, 6523)
-        (7740, 7770, 8707, 9001),  # Block 15: Rows: [7740, 7770), Cols: [8707, 9001)
-        (9256, 9306, 10232, 10488),  # Block 16: Rows: [9256, 9306), Cols: [10232, 10488)
-        (8649, 8679, 9622, 9880),  # Block 17: Rows: [8649, 8679), Cols: [9622, 9880)
-        (10165, 10215, 11147, 11397),  # Block 18: Rows: [10165, 10215), Cols: [11147, 11397)
-        (9558, 9588, 10537, 10831),  # Block 19: Rows: [9558, 9588), Cols: [10537, 10831)
-        (11376, 11406, 12367, 12661),  # Block 20: Rows: [11376, 11406), Cols: [12367, 12661)
-        (11074, 11120, 12062, 12302),  # Block 21: Rows: [11074, 11120), Cols: [12062, 12302)
-        (11983, 12029, 12977, 13217),  # Block 22: Rows: [11983, 12029), Cols: [12977, 13217)
-        (12285, 12315, 13282, 13576),  # Block 23: Rows: [12285, 12315), Cols: [13282, 13576)
-        (14411, 14457, 16941, 17196),  # Block 24: Rows: [14411, 14457), Cols: [16941, 17196)
-        (13643, 13689, 16173, 16428),  # Block 25: Rows: [13643, 13689), Cols: [16173, 16428)
-        (13131, 13177, 15663, 15901),  # Block 26: Rows: [13131, 13177), Cols: [15663, 15901)
-        (13899, 13945, 16431, 16669),  # Block 27: Rows: [13899, 13945), Cols: [16431, 16669)
-        (14667, 14713, 17199, 17437),  # Block 28: Rows: [14667, 14713), Cols: [17199, 17437)
-    ],
-    "std1_Jac3": [
-        (7438, 7468, 8402, 8641),  # Block 1: Rows: [7438, 7468), Cols: [8402, 8641)
-        (2480, 2510, 3179, 3418),  # Block 2: Rows: [2480, 2510), Cols: [3179, 3418)
-        (1873, 1903, 2569, 2809),  # Block 3: Rows: [1873, 1903), Cols: [2569, 2809)
-        (1571, 1601, 2264, 2503),  # Block 4: Rows: [1571, 1601), Cols: [2264, 2503)
-        (3389, 3419, 4094, 4333),  # Block 5: Rows: [3389, 3419), Cols: [4094, 4333)
-        (2782, 2812, 3484, 3724),  # Block 6: Rows: [2782, 2812), Cols: [3484, 3724)
-        (3691, 3721, 4399, 4639),  # Block 7: Rows: [3691, 3721), Cols: [4399, 4639)
-        (4600, 4630, 5314, 5554),  # Block 8: Rows: [4600, 4630), Cols: [5314, 5554)
-        (4298, 4328, 5009, 5248),  # Block 9: Rows: [4298, 4328), Cols: [5009, 5248)
-        (5207, 5237, 5924, 6164),  # Block 10: Rows: [5207, 5237), Cols: [5924, 6164)
-        (5509, 5539, 6229, 6469),  # Block 11: Rows: [5509, 5539), Cols: [6229, 6469)
-        (8347, 8377, 9317, 9556),  # Block 12: Rows: [8347, 8377), Cols: [9317, 9556)
-        (7740, 7770, 8707, 8947),  # Block 13: Rows: [7740, 7770), Cols: [8707, 8947)
-        (14411, 14441, 16941, 17180),  # Block 14: Rows: [14411, 14441), Cols: [16941, 17180)
-        (9256, 9286, 10232, 10471),  # Block 15: Rows: [9256, 9286), Cols: [10232, 10471)
-        (8649, 8679, 9622, 9862),  # Block 16: Rows: [8649, 8679), Cols: [9622, 9862)
-        (10165, 10195, 11147, 11386),  # Block 17: Rows: [10165, 10195), Cols: [11147, 11386)
-        (9558, 9588, 10537, 10777),  # Block 18: Rows: [9558, 9588), Cols: [10537, 10777)
-        (11074, 11104, 12062, 12301),  # Block 19: Rows: [11074, 11104), Cols: [12062, 12301)
-        (10467, 10497, 11452, 11692),  # Block 20: Rows: [10467, 10497), Cols: [11452, 11692)
-        (12875, 12905, 15405, 15644),  # Block 21: Rows: [12875, 12905), Cols: [15405, 15644)
-        (12285, 12315, 13282, 13522),  # Block 22: Rows: [12285, 12315), Cols: [13282, 13522)
-        (11983, 12013, 12977, 13216),  # Block 23: Rows: [11983, 12013), Cols: [12977, 13216)
-        (11376, 11406, 12367, 12607),  # Block 24: Rows: [11376, 11406), Cols: [12367, 12607)
-        (13643, 13673, 16173, 16412),  # Block 25: Rows: [13643, 13673), Cols: [16173, 16412)
-        (13131, 13161, 15661, 15901),  # Block 26: Rows: [13131, 13161), Cols: [15661, 15901)
-        (13899, 13929, 16429, 16669),  # Block 27: Rows: [13899, 13929), Cols: [16429, 16669)
-    ],
-    "vsp_c-30_data_data": [
-        (4280, 5319, 0, 14),  # Block 1: Rows: [4280, 5319), Cols: [0, 14)
-        (0, 14, 4280, 5319),  # Block 2: Rows: [0, 14), Cols: [4280, 5319)
-    ],
-}
-
-if __name__ == "__main__":
-    output_file = os.path.join(BASE_PATH, "results", "new_new_partitioner_sable_spv8_std1_Jac3.json")
-    os.makedirs(os.path.dirname(output_file), exist_ok=True)
+    # Ensure directories exist
+    os.makedirs(vbr_dir, exist_ok=True)
+    os.makedirs(sparse_vbr_dir, exist_ok=True)
     
-    # Start with empty results (don't load existing results)
-    all_results = []
+    # Convert to VBRC format with dense blocks
+    print(f"  Converting to VBRC format (split)...")
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = \
+        convert_sparse_to_vbrc_with_blocks(mat, dense_block_coords)
     
-    # Process matrices in the order specified by eval
-    for fname in eval.keys():
-        # Find the corresponding .mtx file for this matrix name
-        file_path = None
-        for candidate_path in mtx_dir.rglob(f"{fname}.mtx"):
-            if candidate_path.is_file() and check_file_matches_parent_dir(candidate_path):
-                file_path = candidate_path
-                break
-        
-        if file_path is None:
-            print(f"Warning: Could not find file for matrix {fname}, skipping")
-            continue
-        try:
-            A = scipy.io.mmread(file_path)
-        except:
-            print("Error reading file:", file_path)
-            continue
-        # Ensure the matrix supports indexing — convert read matrix (often COO) to CSC
-        A = scipy.sparse.csc_matrix(A, copy=False)
-        print(f"Processing {fname}")
-        
-        # Get matrix dimensions and non-zeros
-        matrix_rows = A.shape[0]
-        matrix_cols = A.shape[1]
+    # Write VBRC file
+    _write_vbrc_file(matrix_name, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
+    
+    # Analyze dense blocks
+    dense_blocks = analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks)
+    
+    # Write dense vector
+    write_dense_vector(1.0, cpntr[-1])
+    
+    if len(val) == 0 and len(dense_block_coords) > 0:
+        print(f"  Warning: No dense blocks found after conversion")
+    
+    split_data = {
+        "val": val, "indx": indx, "bindx": bindx, "rpntr": rpntr, "cpntr": cpntr,
+        "bpntrb": bpntrb, "bpntre": bpntre, "ublocks": ublocks,
+        "indptr": indptr, "indices": indices, "csr_val": csr_val,
+        "dense_blocks": dense_blocks, "vbr_dir": vbr_dir
+    }
+    
+    # Convert to fully sparse VBRC format (no dense blocks)
+    print(f"  Converting to VBRC format (fully sparse)...")
+    val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, \
+        bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, \
+        indices_sparse, csr_val_sparse = convert_sparse_to_vbrc_with_blocks(mat, [])
+    
+    # Write sparse VBRC file
+    _write_vbrc_file(matrix_name, sparse_vbr_dir, val_sparse, indx_sparse, bindx_sparse, 
+                     rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, 
+                     ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse)
+    
+    # Assert that the sparse variant has no dense blocks
+    assert len(val_sparse) == 0, f"Expected fully sparse variant for {matrix_name}, but found {len(val_sparse)} dense blocks"
+    
+    sparse_data = {
+        "val": val_sparse, "indx": indx_sparse, "bindx": bindx_sparse, 
+        "rpntr": rpntr_sparse, "cpntr": cpntr_sparse,
+        "bpntrb": bpntrb_sparse, "bpntre": bpntre_sparse, "ublocks": ublocks_sparse,
+        "indptr": indptr_sparse, "indices": indices_sparse, "csr_val": csr_val_sparse,
+        "vbr_dir": sparse_vbr_dir
+    }
+    
+    return split_data, sparse_data
 
-        # Iterate over matrix to count nnz and assert matrix_nnz correctness
-        matrix_nnz = 0
-        for i in range(matrix_rows):
-            for j in range(matrix_cols):
-                if A[i, j] != 0:
-                    matrix_nnz += 1
 
-        codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_C_split")
-        vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR_split"))
-        relative_path = file_path.relative_to(mtx_dir)
-        dest_path = vbr_dir / relative_path.with_suffix(".vbr")
-        dest_path.parent.mkdir(parents=True, exist_ok=True)
-        # cpntr, rpntr = cut_indices(A, cut_threshold, similarity)
-        dense_block_coords = eval.get(fname, [])
-        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = convert_sparse_to_vbrc_with_blocks(A, dense_block_coords)
-        # Write the VBRC file so the C code can read it
-        _write_vbrc_file(fname, os.path.join(vbr_dir, fname), val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
-        # val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(os.path.join(vbr_dir,f"{fname}/{fname}.vbrc"))
-
-        # Analyze dense blocks after reading VBR data
-        dense_blocks = analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, "spmv")
-
-        write_dense_vector(1.0, cpntr[-1])
-        if len(val) == 0:
-            continue
+def process_and_benchmark_matrix(
+    matrix_name: str,
+    split_vbrc_data: Dict[str, Any],
+    sparse_vbrc_data: Dict[str, Any],
+    matrix_rows: int,
+    matrix_cols: int,
+    matrix_nnz: int,
+    bench_iterations: int,
+    use_mkl: bool = False
+) -> Optional[Dict[str, Any]]:
+    """
+    Run benchmarks for either SpV8 or MKL using pre-converted VBRC data.
+    
+    Args:
+        matrix_name: Name of the matrix
+        split_vbrc_data: Pre-converted VBRC data with dense blocks
+        sparse_vbrc_data: Pre-converted VBRC data without dense blocks
+        matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
+        bench_iterations: Number of benchmark iterations
+        use_mkl: Whether to use MKL (True) or SpV8 (False)
+    
+    Returns:
+        Dictionary with benchmark results
+    """
+    variant_name = "mkl" if use_mkl else "spv8"
+    
+    # Select directories and functions based on variant
+    if use_mkl:
+        codegen_dir = str(GENERATED_SPMV_MKL_DIR)
+        sparse_codegen_dir = str(GENERATED_SPMV_SPARSE_MKL_DIR)
+        gen_function = gen_single_threaded_spmv_mkl
+    else:
+        codegen_dir = str(GENERATED_SPMV_SPV8_DIR)
+        sparse_codegen_dir = str(GENERATED_SPMV_SPARSE_SPV8_DIR)
+        gen_function = gen_single_threaded_spmv_spv8
+    
+    # Ensure directories exist
+    os.makedirs(codegen_dir, exist_ok=True)
+    os.makedirs(sparse_codegen_dir, exist_ok=True)
+    
+    # Extract VBRC data
+    val = split_vbrc_data["val"]
+    indx = split_vbrc_data["indx"]
+    bindx = split_vbrc_data["bindx"]
+    rpntr = split_vbrc_data["rpntr"]
+    cpntr = split_vbrc_data["cpntr"]
+    bpntrb = split_vbrc_data["bpntrb"]
+    bpntre = split_vbrc_data["bpntre"]
+    ublocks = split_vbrc_data["ublocks"]
+    indptr = split_vbrc_data["indptr"]
+    indices = split_vbrc_data["indices"]
+    csr_val = split_vbrc_data["csr_val"]
+    dense_blocks = split_vbrc_data["dense_blocks"]
+    vbr_dir = split_vbrc_data["vbr_dir"]
+    
+    val_sparse = sparse_vbrc_data["val"]
+    indx_sparse = sparse_vbrc_data["indx"]
+    bindx_sparse = sparse_vbrc_data["bindx"]
+    rpntr_sparse = sparse_vbrc_data["rpntr"]
+    cpntr_sparse = sparse_vbrc_data["cpntr"]
+    bpntrb_sparse = sparse_vbrc_data["bpntrb"]
+    bpntre_sparse = sparse_vbrc_data["bpntre"]
+    ublocks_sparse = sparse_vbrc_data["ublocks"]
+    indptr_sparse = sparse_vbrc_data["indptr"]
+    indices_sparse = sparse_vbrc_data["indices"]
+    csr_val_sparse = sparse_vbrc_data["csr_val"]
+    sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
+    
+    # Generate C code for split version (codegen time)
+    print(f"  [{variant_name}] Generating C code (split)...")
+    codegen_time_split_ns = gen_function(
+        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
+        ublocks, indptr, indices, csr_val,
+        codegen_dir, matrix_name, vbr_dir, bench=bench_iterations
+    )
+    
+    # Evaluate split version (compile + run)
+    print(f"  [{variant_name}] Evaluating split version...")
+    avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
+        eval_single_file_split_timings(matrix_name, codegen_dir, bench_iterations)
+    
+    # Generate C code for sparse version (codegen time)
+    print(f"  [{variant_name}] Generating C code (fully sparse)...")
+    codegen_time_sparse_ns = gen_function(
+        val_sparse, indx_sparse, bindx_sparse,
+        rpntr_sparse, cpntr_sparse,
+        bpntrb_sparse, bpntre_sparse,
+        ublocks_sparse, indptr_sparse,
+        indices_sparse, csr_val_sparse,
+        sparse_codegen_dir, matrix_name,
+        sparse_vbr_dir, bench=bench_iterations
+    )
+    
+    # Evaluate fully sparse version (compile + run)
+    print(f"  [{variant_name}] Evaluating fully sparse version...")
+    sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
+        matrix_name, sparse_codegen_dir, bench_iterations
+    )
+    
+    # Calculate percentages
+    total_time = avg_sparse_time + avg_dense_time
+    sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
+    dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
+    speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+    
+    # Calculate nnz statistics
+    dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
+    dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
+    sparse_nnz = matrix_nnz - dense_nnz
+    extra_zeros = dense_all - dense_nnz
+    dense_nnz_perc = (dense_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+    sparse_nnz_perc = (sparse_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+    
+    density_calculation = matrix_nnz / (matrix_rows * matrix_cols) if matrix_rows * matrix_cols > 0 else 0
+    
+    # Build result
+    matrix_result = {
+        "matrix_name": matrix_name,
+        "matrix_dimensions": {
+            "rows": matrix_rows,
+            "cols": matrix_cols,
+            "nnz": matrix_nnz,
+            # Rounded to 3 decimal places
+            "density": round(density_calculation, 3),
+        },
+        "timing": {
+            # Rounded to 2 decimal places
+            "sparse_time_ns": round(avg_sparse_time, 2),
+            "dense_time_ns": round(avg_dense_time, 2),
+            "total_time_ns": round(total_time, 2),
+            "sparse_percentage": round(sparse_percentage, 3),
+            "dense_percentage": round(dense_percentage, 3),
+            "fully_sparse_time": sparse_avg_sparse_time,
+            "speedup": speedup,
+            # Compilation times (calling gcc) - stored in seconds
+            "compile_time_split_s": compile_time_split_ns / 1e9 if compile_time_split_ns else 0.0,
+            "compile_time_sparse_s": compile_time_sparse_ns / 1e9 if compile_time_sparse_ns else 0.0,
+        },
+        "nnz": {
+            "sparse_nnz": sparse_nnz,
+            "dense_all": dense_all,
+            "dense_nnz": dense_nnz,
+            "extra_zeros": extra_zeros,
+            # Rounded to 2 decimal places
+            "dense_nnz_perc": round(dense_nnz_perc, 2),
+            "sparse_nnz_perc": round(sparse_nnz_perc, 2),
+        },
+        "individual_dense_block_timings": {}
+    }
+    
+    # Add individual dense block timings and merge with dense block analysis
+    for block_id, block_time in avg_individual_block_times.items():
+        # Find corresponding dense block info (block_id is 1-indexed, dense_blocks is 0-indexed)
+        block_info = dense_blocks[block_id - 1] if block_id - 1 < len(dense_blocks) else {}
         
-        # Use C backend instead of Python backend
-        gen_single_threaded_spmv_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, codegen_dir, fname, os.path.join(vbr_dir, fname), bench=100)
-
-        print(f"Done {fname}")
-        
-        # Evaluate the generated program immediately
-        print(f"Evaluating {fname}...")
-        avg_sparse_time, avg_dense_time, avg_individual_block_times = eval_single_file_split_timings(fname, codegen_dir, 100)
-        
-        # Benchmark fully sparse variant
-        print(f"Benchmarking fully sparse variant for {fname}...")
-        sparse_codegen_dir = os.path.join(BASE_PATH, "Generated_SpMV_C_sparse")
-        sparse_vbr_dir = pathlib.Path(os.path.join(BASE_PATH, "Generated_VBR_Sparse"))
-        
-        # Create sparse variant (no dense blocks - all converted to CSR)
-        sparse_dest_path = sparse_vbr_dir / relative_path.with_suffix(".vbr")
-        sparse_dest_path.parent.mkdir(parents=True, exist_ok=True)
-        val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = convert_sparse_to_vbrc_with_blocks(A, [])
-        # val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse = read_vbrc(os.path.join(sparse_vbr_dir,f"{fname}/{fname}.vbrc"))
-
-        # Write the sparse VBRC file so the C code can read it
-        _write_vbrc_file(fname, os.path.join(sparse_vbr_dir, fname), val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse)
-
-        # Assert that the sparse variant has no dense blocks
-        assert len(val_sparse) == 0, f"Expected fully sparse variant for {fname}, but found {len(val_sparse)} dense blocks"
-        
-        # Use C backend for sparse variant too
-        gen_single_threaded_spmv_spv8(val_sparse, indx_sparse, bindx_sparse, rpntr_sparse, cpntr_sparse, bpntrb_sparse, bpntre_sparse, ublocks_sparse, indptr_sparse, indices_sparse, csr_val_sparse, sparse_codegen_dir, fname, os.path.join(sparse_vbr_dir, fname), bench=100)
-        
-        sparse_avg_sparse_time, _, _ = eval_single_file_split_timings(fname, sparse_codegen_dir, 100)
-        # sparse_avg_sparse_time = 0
-        
-        # Calculate percentages
-        total_time = avg_sparse_time + avg_dense_time
-        sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
-        dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
-        speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
-        
-        # Calculate nnz statistics
-        dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
-        dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
-        sparse_nnz = matrix_nnz - dense_nnz
-        extra_zeros = dense_all - dense_nnz
-        dense_nnz_perc = (dense_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
-        sparse_nnz_perc = (sparse_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
-        
-        density_calculation = matrix_nnz / (matrix_rows * matrix_cols)
-        
-        # Store results in memory
-        matrix_result = {
-            "matrix_name": fname,
-            "matrix_dimensions": {
-                "rows": matrix_rows,
-                "cols": matrix_cols,
-                "nnz": matrix_nnz,
-                "density": density_calculation
-            },
-            "timing": {
-                "sparse_time_ns": avg_sparse_time,
-                "dense_time_ns": avg_dense_time,
-                "total_time_ns": total_time,
-                "sparse_percentage": sparse_percentage,
-                "dense_percentage": dense_percentage,
-                "fully_sparse_time": sparse_avg_sparse_time,
-                "speedup": speedup,
-                "expected_sparse_time_ns": ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
-                "dense_if_sparse_time_ns": sparse_avg_sparse_time - ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time
-            },
-            "nnz": {
-                "sparse_nnz": sparse_nnz,
-                "dense_all": dense_all,
-                "dense_nnz": dense_nnz,
-                "extra_zeros": extra_zeros,
-                "dense_nnz_perc": dense_nnz_perc,
-                "sparse_nnz_perc": sparse_nnz_perc
-            },
-            "individual_dense_block_timings": {}
+        block_nnz = block_info.get("nnz", 0)
+        dense_nnz_sum = sum(block.get("nnz", 0) for block in dense_blocks)
+        matrix_result["individual_dense_block_timings"][f"block_{block_id}"] = {
+            # Rounded to 2 decimal places
+            "time_ns": round(block_time, 2),
+            "percentage_of_total_time": round((block_time / total_time * 100), 2) if total_time > 0 else 0,
+            "percentage_of_dense_time": round((block_time / avg_dense_time * 100), 2) if avg_dense_time > 0 else 0,
+            # Rounded to 3 decimal places
+            "percentage_of_total_nnz": round((block_nnz / matrix_nnz * 100), 3) if matrix_nnz > 0 else 0,
+            "percentage_of_dense_nnz": round((block_nnz / dense_nnz_sum * 100), 3) if dense_nnz_sum > 0 else 0,
+            "rows": block_info.get("rows", 0),
+            "cols": block_info.get("cols", 0),
+            # Rounded to 3 decimal places
+            "density_percent": round(block_info.get("density_percent", 0), 3),
+            "nnz": block_nnz,
         }
-        
-        # Add individual dense block timings and merge with dense block analysis
-        for block_id, block_time in avg_individual_block_times.items():
-            # Find corresponding dense block info (block_id is 1-indexed, dense_blocks is 0-indexed)
-            block_info = dense_blocks[block_id - 1] if block_id - 1 < len(dense_blocks) else {}
-            
-            matrix_result["individual_dense_block_timings"][f"block_{block_id}"] = {
-                "time_ns": block_time,
-                "percentage_of_total_time": (block_time / total_time * 100) if total_time > 0 else 0,
-                "percentage_of_dense_time": (block_time / avg_dense_time * 100) if avg_dense_time > 0 else 0,
-                "percentage_of_total_nnz": (block_info.get("nnz", 0) / matrix_nnz * 100) if matrix_nnz > 0 else 0,
-                "percentage_of_dense_nnz": (block_info.get("nnz", 0) / sum(block.get("nnz", 0) for block in dense_blocks) * 100) if sum(block.get("nnz", 0) for block in dense_blocks) > 0 else 0,
-                "rows": block_info.get("rows", 0),
-                "cols": block_info.get("cols", 0),
-                "density_percent": block_info.get("density_percent", 0),
-                "nnz": block_info.get("nnz", 0),
-                "predicted_speedup": block_info.get("predicted_speedup", 0)
-            }
-        
-        # Calculate estimated speedup based on individual block characteristics
-        estimated_speedup = estimate_total_speedup(matrix_result["individual_dense_block_timings"])
-        estimated_dense_speedup = estimate_dense_speedup(matrix_result["individual_dense_block_timings"])
-        
-        # Add the estimated speedup to the timing section
-        matrix_result["timing"]["expected_speedup"] = estimated_speedup
-        matrix_result["timing"]["expected_dense_speedup"] = estimated_dense_speedup
-        
-        # Check if this matrix result already exists and replace it, otherwise append
-        existing_index = None
-        for i, existing_result in enumerate(all_results):
-            if existing_result["matrix_name"] == fname:
-                existing_index = i
-                break
-        
-        if existing_index is not None:
-            all_results[existing_index] = matrix_result
-            print(f"Updated existing result for {fname}")
-        else:
-            all_results.append(matrix_result)
-            print(f"Added new result for {fname}")
-        
-        # Write results to file after each matrix is processed
-        with open(output_file, 'w') as f:
-            json.dump(all_results, f, indent=2)
-        
-        print(f"Evaluation complete for {fname}: {len(dense_blocks)} dense blocks")
-        print(f"Results written to {output_file} ({len(all_results)} matrices total)")
     
-    print(f"All processing complete. Final results in {output_file}")
+    return matrix_result
+
+
+def main():
+    """Main benchmarking function."""
+    parser = argparse.ArgumentParser(
+        description="Benchmark SABLE sparse matrix-vector multiplication",
+        epilog="Examples:\n"
+               "  %(prog)s eris1176 bloweybl heart1\n"
+               "  %(prog)s --matrices eris1176 bloweybl\n"
+               "  %(prog)s  # processes all available matrices",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument(
+        "matrices",
+        nargs="*",
+        help="Matrix names to benchmark (positional arguments). If not provided, all available matrices are processed."
+    )
+    parser.add_argument("--matrices", dest="matrices_flag", nargs="*", metavar="MATRIX",
+                        help="Matrix names to benchmark (alternative to positional arguments)")
+    parser.add_argument("--bench", type=int, default=DEFAULT_BENCH_ITERATIONS, 
+                        help=f"Number of benchmark iterations (default: {DEFAULT_BENCH_ITERATIONS})")
+    parser.add_argument("--output-dir", type=str, default="results",
+                        help="Output directory for results (default: results)")
+    parser.add_argument("--skip-spv8", action="store_true", help="Skip SpV8 benchmarks")
+    parser.add_argument("--skip-mkl", action="store_true", help="Skip MKL benchmarks")
+    
+    args = parser.parse_args()
+    
+    # Get matrices to process - merge positional arguments and --matrices flag, or use all
+    matrices = args.matrices or args.matrices_flag
+    if not matrices:
+        matrices = get_available_matrices()
+    
+    print(f"Will process {len(matrices)} matrices")
+    
+    # Create output directory
+    output_dir = pathlib.Path(args.output_dir)
+    output_dir.mkdir(exist_ok=True)
+    
+    # Ensure required directories exist
+    SUITESPARSE_DIR.mkdir(exist_ok=True)
+    GENERATED_VBR_SPLIT_DIR.mkdir(exist_ok=True)
+    GENERATED_VBR_SPARSE_DIR.mkdir(exist_ok=True)
+    
+    spv8_results = []
+    mkl_results = []
+    
+    for matrix_name in matrices:
+        yaml_path = RESULTS_DIR / f"{matrix_name}.yaml"
+        
+        if not yaml_path.exists():
+            print(f"Warning: YAML file not found for {matrix_name}, skipping")
+            continue
+        
+        print(f"\nProcessing {matrix_name}...")
+        
+        # Download matrix from SuiteSparse
+        print(f"  Downloading matrix from SuiteSparse...")
+        download_result = download_matrix_from_suitesparse(matrix_name)
+        if download_result is None:
+            print(f"  Failed to download {matrix_name}, skipping")
+            continue
+        
+        mtx_path, matrix_info, tar_path, matrix_subdir = download_result
+        
+        try:
+            # Load the matrix
+            print(f"  Loading matrix from {mtx_path}...")
+            A = mmread(mtx_path)
+            A = csc_matrix(A, copy=False)
+            
+            matrix_rows = A.shape[0]
+            matrix_cols = A.shape[1]
+            matrix_nnz = A.nnz
+            
+            print(f"  Matrix shape: {matrix_rows} x {matrix_cols}, NNZ: {matrix_nnz}")
+            
+            # Parse dense blocks from YAML
+            print(f"  Parsing dense blocks from {yaml_path}...")
+            dense_block_coords = parse_yaml_blocks(str(yaml_path))
+            print(f"  Found {len(dense_block_coords)} dense blocks")
+            
+            # Convert to VBRC format once (shared between SpV8 and MKL)
+            print(f"\n  === Converting to VBRC format ===")
+            split_vbrc_data, sparse_vbrc_data = convert_and_prepare_vbrc(
+                matrix_name, dense_block_coords, A, matrix_nnz
+            )
+            dense_blocks = split_vbrc_data["dense_blocks"]
+            
+            # Benchmark with SpV8
+            if not args.skip_spv8:
+                print(f"\n  === Running SpV8 benchmark ===")
+                spv8_result = process_and_benchmark_matrix(
+                    matrix_name, split_vbrc_data, sparse_vbrc_data,
+                    matrix_rows, matrix_cols, matrix_nnz,
+                    args.bench, use_mkl=False
+                )
+                if spv8_result:
+                    # Update or append result
+                    existing_idx = next((i for i, r in enumerate(spv8_results) if r["matrix_name"] == matrix_name), None)
+                    if existing_idx is not None:
+                        spv8_results[existing_idx] = spv8_result
+                        print(f"  [spv8] Updated existing result for {matrix_name}")
+                    else:
+                        spv8_results.append(spv8_result)
+                        print(f"  [spv8] Added new result for {matrix_name}")
+                    
+                    # Write intermediate results
+                    spv8_output = output_dir / "sable_spmv_spv8.json"
+                    with open(spv8_output, 'w') as f:
+                        json.dump(spv8_results, f, indent=2)
+                    print(f"  [spv8] Results written to {spv8_output}")
+            
+            # Benchmark with MKL
+            if not args.skip_mkl:
+                print(f"\n  === Running MKL benchmark ===")
+                mkl_result = process_and_benchmark_matrix(
+                    matrix_name, split_vbrc_data, sparse_vbrc_data,
+                    matrix_rows, matrix_cols, matrix_nnz,
+                    args.bench, use_mkl=True
+                )
+                if mkl_result:
+                    # Update or append result
+                    existing_idx = next((i for i, r in enumerate(mkl_results) if r["matrix_name"] == matrix_name), None)
+                    if existing_idx is not None:
+                        mkl_results[existing_idx] = mkl_result
+                        print(f"  [mkl] Updated existing result for {matrix_name}")
+                    else:
+                        mkl_results.append(mkl_result)
+                        print(f"  [mkl] Added new result for {matrix_name}")
+                    
+                    # Write intermediate results
+                    mkl_output = output_dir / "sable_spmv_mkl.json"
+                    with open(mkl_output, 'w') as f:
+                        json.dump(mkl_results, f, indent=2)
+                    print(f"  [mkl] Results written to {mkl_output}")
+            
+            print(f"\nCompleted processing {matrix_name}")
+            
+        except Exception as e:
+            print(f"  Error processing {matrix_name}: {e}")
+            import traceback
+            traceback.print_exc()
+        finally:
+            # Clean up downloaded matrix files
+            if 'matrix_info' in locals() and matrix_info is not None:
+                print(f"  Cleaning up downloaded files for {matrix_name}...")
+                if tar_path is not None or matrix_subdir is not None:
+                    cleanup_matrix_files(tar_path, matrix_subdir)
     
     # Print summary
-    for result in all_results:
-        num_dense_blocks = len(result['individual_dense_block_timings'])
-        print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
-              f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
-              f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
-              f"estimated_speedup: {result['timing']['expected_speedup']:.3f}, "
-              f"estimated_dense_speedup: {result['timing']['expected_dense_speedup']:.3f}")
+    print("\n" + "="*60)
+    print("Benchmark Summary")
+    print("="*60)
+    
+    if spv8_results:
+        print(f"\nSpV8 Results ({len(spv8_results)} matrices):")
+        for result in spv8_results:
+            num_dense_blocks = len(result['individual_dense_block_timings'])
+            print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
+                  f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
+                  f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
+                  f"speedup: {result['timing']['speedup']:.3f}x")
+    
+    if mkl_results:
+        print(f"\nMKL Results ({len(mkl_results)} matrices):")
+        for result in mkl_results:
+            num_dense_blocks = len(result['individual_dense_block_timings'])
+            print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
+                  f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
+                  f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
+                  f"speedup: {result['timing']['speedup']:.3f}x")
+    
+    print(f"\nResults written to {output_dir}/")
+    return 0
+
+
+if __name__ == "__main__":
+    exit(main())

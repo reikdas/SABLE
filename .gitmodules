@@ -2,3 +2,6 @@
 	path = spv8-public
 	url = git@github.com:reikdas/spv8-public.git
 	branch = reikdas/c
+[submodule "find-submatrices"]
+	path = find-submatrices
+	url = git@github.com:reikdas/find-submatrices.git

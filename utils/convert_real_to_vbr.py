@@ -8,8 +8,6 @@ from scipy.io import mmread
 from scipy.sparse import spmatrix
 from random import sample
 
-from studies.find_threshold import is_dense_block
-
 def cumsum_list(l):
     '''
     method to calculate cumulative sum list of a list
@@ -294,19 +292,11 @@ def convert_sparse_to_vbrc_with_blocks(
                 is_dense_block = True
                 break
         
-        # Calculate density and extract non-zero elements
-        dense_elems = []
-        idxs_i = []
-        idxs_j = []
-        
-        # Extract non-zero elements and their indices
-        for idx_j in range(c_start, c_end):
-            for idx_i in range(r_start, r_end):
-                val = block[idx_i - r_start, idx_j - c_start]
-                if val != 0.0:
-                    dense_elems.append(val)
-                    idxs_i.append(idx_i)
-                    idxs_j.append(idx_j)
+        # Extract non-zero elements and their indices using sparse operations
+        coo_block = block.tocoo()
+        dense_elems = coo_block.data.tolist()
+        idxs_i = (coo_block.row + r_start).tolist()
+        idxs_j = (coo_block.col + c_start).tolist()
         
         block_vals = block.todense().flatten(order='F').A1
         
@@ -381,6 +371,66 @@ def convert_sparse_to_vbrc_with_blocks(
     
     return val2, indx2, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val
 
+
+
+def analyze_dense_blocks(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks) -> List[dict]:
+    """
+    Analyze dense blocks in a matrix using VBR data structure.
+    
+    Args:
+        val: Dense block values array
+        indx: Index array for dense blocks
+        bindx: Block index array
+        rpntr: Row pointer array
+        cpntr: Column pointer array
+        bpntrb: Block pointer begin array
+        bpntre: Block pointer end array
+        ublocks: Unrolled (sparse) blocks list
+    
+    Returns:
+        List of dictionaries containing dense block information:
+        - rows: number of rows in block
+        - cols: number of columns in block
+        - density_percent: calculated density percentage
+        - nnz: number of non-zeros in block
+    """
+    dense_blocks = []
+    
+    # Count dense blocks using same logic as code generation
+    nnz_block = 0
+    count = 0
+    
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1: 
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    # This is a dense block
+                    i_extent = rpntr[a+1] - rpntr[a]
+                    j_extent = cpntr[b+1] - cpntr[b]
+                    
+                    # Calculate density based on the block size and actual non-zero count
+                    block_size = i_extent * j_extent
+                    # Determine slice of `val` for this dense block (indx is ordered by dense blocks)
+                    start = indx[count]
+                    end = indx[count+1] if (count+1) < len(indx) else len(val)
+                    block_vals = val[start:end]
+                    # `val` contains explicit zeros for dense blocks; count real non-zeros
+                    block_nnz = int(numpy.count_nonzero(block_vals))
+                    calc_density = (block_nnz / block_size) * 100 if block_size > 0 else 0
+
+                    dense_blocks.append({
+                        "rows": i_extent,
+                        "cols": j_extent,
+                        "density_percent": calc_density,
+                        "nnz": block_nnz,
+                    })
+                    count += 1
+                nnz_block += 1
+    
+    return dense_blocks
 
 
 def convert_sparse_to_vbr(mat: spmatrix, rpntr: List[int], cpntr: List[int], fname: str, dst_dir: str) -> Tuple[numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray, numpy.ndarray]:

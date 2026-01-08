@@ -1,8 +1,11 @@
 import os
 import pathlib
+import re
 from os import makedirs
 from os.path import exists, join
+from typing import List, Tuple
 
+import yaml
 from numpy import count_nonzero
 
 from src.vbr import VBR
@@ -114,3 +117,55 @@ def write_mm_file(filename, M):
 def cleanup(*args):
     for arg in args:
         os.rmdir(arg)
+
+def parse_yaml_blocks(yaml_path: str) -> List[Tuple[int, int, int, int]]:
+    """
+    Parse YAML file to extract dense block coordinates.
+    
+    Args:
+        yaml_path: Path to YAML file containing block information
+    
+    Returns:
+        List of dense block coordinates as (row_start, row_end, col_start, col_end)
+    """
+    with open(yaml_path, 'r') as f:
+        data = yaml.safe_load(f)
+    
+    blocks = []
+    for block in data.get('blocks', []):
+        # Parse rows: [start, end] format (end is exclusive in code, but written as inclusive in YAML)
+        rows_data = block['rows']
+        cols_data = block['cols']
+        
+        # Handle string format "[30, 2107]" (quoted in YAML)
+        if isinstance(rows_data, str):
+            # Match both [start, end] and [start, end) for backward compatibility
+            rows_match = re.match(r'\[(\d+),\s*(\d+)[\])]', rows_data)
+            if rows_match:
+                row_start = int(rows_match.group(1))
+                row_end = int(rows_match.group(2))
+            else:
+                continue
+        elif isinstance(rows_data, list) and len(rows_data) == 2:
+            row_start = int(rows_data[0])
+            row_end = int(rows_data[1])
+        else:
+            continue
+        
+        if isinstance(cols_data, str):
+            # Match both [start, end] and [start, end) for backward compatibility
+            cols_match = re.match(r'\[(\d+),\s*(\d+)[\])]', cols_data)
+            if cols_match:
+                col_start = int(cols_match.group(1))
+                col_end = int(cols_match.group(2))
+            else:
+                continue
+        elif isinstance(cols_data, list) and len(cols_data) == 2:
+            col_start = int(cols_data[0])
+            col_end = int(cols_data[1])
+        else:
+            continue
+        
+        blocks.append((row_start, row_end, col_start, col_end))
+    
+    return blocks

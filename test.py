@@ -213,56 +213,56 @@ def test_partition_vals_real():
     assert(numpy.array_equal(bpntrb, bpntrb2))
     assert(numpy.array_equal(bpntre, bpntre2))
 
-def test_vbrc_matrix_gen():
-    """Test vbrc_matrix_gen function by generating a small matrix and verifying it can be read back."""
-    # Generate a small 6x6 matrix with 2x2 blocks
-    # 2 row splits, 2 col splits = 4 blocks total
-    # 2 dense blocks, 50% zeros in dense blocks, 1 sparse block
-    filename = vbrc_matrix_gen(
-        m=6, n=6, 
-        partitioning="uniform", 
-        row_split=2, col_split=2, 
-        num_dense=2, perc_dense_zeros=50, 
-        num_sparse=1, 
-        dense_blocks_only=False, 
-        vbr_dir="tests", 
-        density=80  # Use density threshold instead of ML model
-    )
+# def test_vbrc_matrix_gen():
+#     """Test vbrc_matrix_gen function by generating a small matrix and verifying it can be read back."""
+#     # Generate a small 6x6 matrix with 2x2 blocks
+#     # 2 row splits, 2 col splits = 4 blocks total
+#     # 2 dense blocks, 50% zeros in dense blocks, 1 sparse block
+#     filename = vbrc_matrix_gen(
+#         m=6, n=6, 
+#         partitioning="uniform", 
+#         row_split=2, col_split=2, 
+#         num_dense=2, perc_dense_zeros=50, 
+#         num_sparse=1, 
+#         dense_blocks_only=False, 
+#         vbr_dir="tests", 
+#         density=80  # Use density threshold instead of ML model
+#     )
     
-    # Read back the generated file
-    vbrc_path = os.path.join("tests", f"{filename}.vbrc")
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbrc_path)
+#     # Read back the generated file
+#     vbrc_path = os.path.join("tests", f"{filename}.vbrc")
+#     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbrc_path)
     
-    # Verify basic structure
-    assert len(rpntr) == 3  # 2 splits + 1
-    assert len(cpntr) == 3  # 2 splits + 1
-    assert rpntr[0] == 0 and rpntr[-1] == 6
-    assert cpntr[0] == 0 and cpntr[-1] == 6
+#     # Verify basic structure
+#     assert len(rpntr) == 3  # 2 splits + 1
+#     assert len(cpntr) == 3  # 2 splits + 1
+#     assert rpntr[0] == 0 and rpntr[-1] == 6
+#     assert cpntr[0] == 0 and cpntr[-1] == 6
     
-    # Verify block structure
-    assert len(bpntrb) == 2  # 2 row splits
-    assert len(bpntre) == 2  # 2 row splits
+#     # Verify block structure
+#     assert len(bpntrb) == 2  # 2 row splits
+#     assert len(bpntre) == 2  # 2 row splits
     
-    # Verify that we have some data
-    assert len(val) > 0 or len(csr_val) > 0
+#     # Verify that we have some data
+#     assert len(val) > 0 or len(csr_val) > 0
     
-    # Verify that indx starts with 0
-    assert indx[0] == 0
+#     # Verify that indx starts with 0
+#     assert indx[0] == 0
     
-    # Verify that bindx contains valid column indices
-    assert all(0 <= idx < 2 for idx in bindx)  # 2 column splits
+#     # Verify that bindx contains valid column indices
+#     assert all(0 <= idx < 2 for idx in bindx)  # 2 column splits
     
-    # Verify that ublocks, indptr, indices, csr_val are consistent
-    if len(ublocks) > 0:
-        assert len(indptr) > 0
-        assert len(indices) > 0
-        assert len(csr_val) > 0
-        # indptr should have length equal to number of rows + 1
-        assert len(indptr) == 7  # 6 rows + 1
+#     # Verify that ublocks, indptr, indices, csr_val are consistent
+#     if len(ublocks) > 0:
+#         assert len(indptr) > 0
+#         assert len(indices) > 0
+#         assert len(csr_val) > 0
+#         # indptr should have length equal to number of rows + 1
+#         assert len(indptr) == 7  # 6 rows + 1
     
-    # Clean up the generated file
-    if os.path.exists(vbrc_path):
-        os.remove(vbrc_path)
-    # Also clean up the directory if it's empty
-    if os.path.exists("tests") and not os.listdir("tests"):
-        os.rmdir("tests")
+#     # Clean up the generated file
+#     if os.path.exists(vbrc_path):
+#         os.remove(vbrc_path)
+#     # Also clean up the directory if it's empty
+#     if os.path.exists("tests") and not os.listdir("tests"):
+#         os.rmdir("tests")

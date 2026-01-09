@@ -2,9 +2,7 @@ numpy
 scipy
 tqdm
 pytest
-joblib
-scikit-learn
 pandas
-mpi4py
 numba
 ssgetpy
+PyYAML

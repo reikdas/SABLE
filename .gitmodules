@@ -5,3 +5,6 @@
 [submodule "find-submatrices"]
 	path = find-submatrices
 	url = git@github.com:reikdas/find-submatrices.git
+[submodule "sparse-register-tiling"]
+	path = sparse-register-tiling
+	url = git@github.com:reikdas/sparse-register-tiling.git

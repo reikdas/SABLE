@@ -16,16 +16,34 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
+      with:
+        submodules: recursive
 
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: '3.10'
 
-    - name: Install dependencies
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake g++ libomp-dev
+
+    - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
         python3 -m pip install -r requirements.txt
 
+    - name: Build sparse-register-tiling
+      run: |
+        cd sparse-register-tiling
+        mkdir -p build
+        cd build
+        # Enable AVX2 for CI (AVX512 may not be available on GitHub runners)
+        # Enable AVX512 as well so executors for both architectures are built
+        cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_AVX2=ON -DENABLE_AVX512=ON
+        # Build only the required targets: SPMM_demo and tile_cov
+        make -j$(nproc) SPMM_demo tile_cov
+
     - name: Run tests
-      run: python3 -m pytest test.py
+      run: python3 -m pytest test.py -v

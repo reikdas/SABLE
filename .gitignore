@@ -19,6 +19,9 @@ tests/example2.vbr
 tests/example2.vbrc
 tests/example2
 tests/example2.c
+tests/example3
+tests/example3.c
+tests/example3.vbrc
 tests/Franz8.vbr
 dlmc/
 Suitesparse*/

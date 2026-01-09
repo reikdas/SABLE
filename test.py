@@ -1,17 +1,25 @@
 import os
 import subprocess
+import pathlib
 
 import numpy
 import pytest
 import scipy
+import scipy.io
+import scipy.sparse
 
 from src.autopartition import cut_indices2, similarity2
 from src.codegen import *
 from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
+
+FILEPATH = pathlib.Path(__file__).resolve().parent
+BASE_PATH = os.path.join(FILEPATH)
 from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
                                        convert_sparse_to_vbrc,
-                                       vbrc_matrix_gen)
+                                       convert_sparse_to_vbrc_with_blocks,
+                                       vbrc_matrix_gen,
+                                       _write_vbrc_file)
 from utils.fileio import read_vbr, read_vbrc, write_dense_matrix, write_dense_vector
 from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
@@ -183,8 +191,77 @@ def test_spmv_unroll():
 def test_spmv_unroll_mkl():
     run_spmv_unroll(1, mkl=True)
 
-# def test_spmm():
-#     run_spmm(1)
+
+def test_spmv_naive():
+    """Test gen_single_threaded_spmv_naive against scipy SpMV."""
+    # Load matrix from MTX file
+    mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
+    mtx = scipy.io.mmread(mtx_path)
+    
+    # Convert to CSC format
+    A = scipy.sparse.csc_matrix(mtx, copy=False)
+    rows, cols = A.shape
+    
+    # Convert to fully sparse VBRC format (no dense blocks)
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = \
+        convert_sparse_to_vbrc_with_blocks(A, [])
+    
+    # Verify it's fully sparse (no dense blocks)
+    assert len(val) == 0, "Expected fully sparse matrix (val should be empty)"
+    
+    # Write VBRC file (required by generated code)
+    vbr_dir = os.path.join("tests")
+    filename = "example3"
+    _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
+    
+    # Write dense vector file (required by generated code)
+    write_dense_vector(1.0, cols)
+    
+    # Generate code using naive kernel (generate directly in tests/ directory)
+    dir_name = os.path.join("tests")
+    gen_single_threaded_spmv_naive(
+        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
+        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
+    )
+    
+    # Compile the generated code
+    subprocess.check_call(
+        ["gcc", "-o", filename, f"{filename}.c"] + CFLAGS,
+        cwd="tests"
+    )
+    
+    # Run the executable and capture output
+    output = subprocess.check_output([f"./{filename}"], cwd="tests").decode("utf-8").split("\n")
+    
+    # Skip timing lines and extract result vector
+    # The output format is: timing lines, then blank line, then y values one per line
+    result_lines = []
+    skip_timing = True
+    for line in output:
+        line = line.strip()
+        if not line:
+            skip_timing = False  # Blank line marks end of timing, start of results
+            continue
+        if skip_timing:
+            continue
+        if line.startswith("Sparse:") or line.startswith("Dense:") or line.startswith("Dense Block"):
+            continue
+        try:
+            # Try to parse as float - if successful, it's a result value
+            float(line)
+            result_lines.append(line)
+        except ValueError:
+            pass
+    
+    # Convert result to numpy array
+    y_generated = numpy.array([float(x) for x in result_lines])
+    
+    # Compute expected result using scipy
+    x = numpy.ones(cols)  # Use all-ones vector (same as generated code)
+    y_expected = A.dot(x)
+    
+    # Compare results (allow small numerical differences)
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
     
 @pytest.mark.skip(reason="Git cannot store Franz8_canon.vbr")
 def test_partition_vals_real():

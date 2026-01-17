@@ -1357,6 +1357,645 @@ def gen_single_threaded_spmv_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 
+def gen_single_threaded_spmv_uzp_sparse_dispatch(
+    val,
+    indx,
+    bindx,
+    rpntr,
+    cpntr,
+    bpntrb,
+    bpntre,
+    ublocks,
+    indptr,
+    indices,
+    csr_val,
+    dir_name,
+    filename,
+    vbr_dir,
+    bench: int = 5,
+) -> int:
+    """Generate code using UZP for the sparse (CSR) part.
+
+    Key property: COO conversion + UZP pattern mining happen ONCE, outside the
+    benchmark timing loop. Only the UZP kernel execution is timed.
+
+    Notes:
+    - UZP pattern mining is performed by `z_polyhedrator search`.
+    - The generated code writes the sparse remainder to a lightweight COO text
+      format (1-based indices) and runs z_polyhedrator on it.
+    - Dense blocks (if any) are still executed/timed the same way as other backends.
+    """
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+
+    # UZP inputs (absolute paths for generated C code)
+    zpoly_bin = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator")
+    patterns_path = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "data", "patterns.txt")
+    zpoly_root = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator")
+    zpoly_root = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator")
+    zpoly_root = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator")
+    zpoly_root = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator")
+
+    code: list[str] = []
+    code.append("#include <assert.h>\n")
+    code.append("#include <stdio.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <unistd.h>\n\n")
+
+    # UZP headers (compile needs -I uzp-genex)
+    code.append("#include <spf_structure.h>\n")
+    code.append("#include <spf_executors.h>\n\n")
+
+    # Dense kernels (same as other backends)
+    code.append(spmv_kernel())
+    code.append("\n")
+    code.append(spmv_kernel_2())
+    code.append("\n")
+    code.append(spmv_kernel_3())
+    code.append("\n")
+
+    code.append("int main() {\n")
+    code.append(f"\tconst int nrows = {rpntr[-1]};\n")
+    code.append(f"\tconst int ncols = {cpntr[-1]};\n")
+    code.append(f"\tconst int bench = {bench};\n\n")
+
+    code.append("\t// Allocate vectors\n")
+    code.append("\tdouble *y = (double*)malloc((size_t)nrows * sizeof(double));\n")
+    code.append("\tdouble *x = (double*)malloc((size_t)ncols * sizeof(double));\n")
+    if len(val) > 0:
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
+    else:
+        code.append("\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
+
+    if len(csr_val) > 0:
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
+        code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+        code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
+    code.append("\tassert(y && x && val);\n")
+    if len(csr_val) > 0:
+        code.append("\tassert(csr_val && indptr && indices);\n")
+    code.append("\n")
+
+    code.append("\t// Read VBRC + dense vector ONCE (outside timing loop)\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening vbrc file\\n\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening vector file\\n\"); return 1; }\n")
+    code.append("\tmemset(x, 0, (size_t)ncols * sizeof(double));\n")
+    code.append("\tmemset(val, 0, (size_t)({0}) * sizeof(double));\n".format(len(val) if len(val) > 0 else 1))
+    if len(csr_val) > 0:
+        code.append(f"\tmemset(csr_val, 0, (size_t){len(csr_val)} * sizeof(double));\n")
+        code.append(f"\tmemset(indptr, 0, (size_t){len(indptr)} * sizeof(int));\n")
+        code.append(f"\tmemset(indices, 0, (size_t){len(indices)} * sizeof(int));\n")
+    code.append("\tchar c;\n")
+    code.append("\tint x_size = 0, val_size = 0;\n")
+    code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
+\tif (c != ']') {
+\t\tungetc(c, file1);
+\t\tassert(fscanf(file1, "%lf", &val[val_size]) == 1);
+\t\tval_size++;
+\t\twhile (1) {
+\t\t\tassert(fscanf(file1, "%c", &c) == 1);
+\t\t\tif (c == ',') {
+\t\t\t\tassert(fscanf(file1, "%lf", &val[val_size]) == 1);
+\t\t\t\tval_size++;
+\t\t\t} else if (c == ']') {
+\t\t\t\tbreak;
+\t\t\t} else {
+\t\t\t\tassert(0);
+\t\t\t}
+\t\t}
+\t}
+\tassert(fscanf(file1, "%c", &c) == 1 && c == '\\n');
+''')
+    if len(ublocks) > 0:
+        code.append('''\tval_size=0;
+\tassert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
+\tval_size++;
+\twhile (1) {
+\t\tassert(fscanf(file1, "%c", &c) == 1);
+\t\tif (c == ',') {
+\t\t\tassert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+\t\t\tval_size++;
+\t\t} else if (c == ']') {
+\t\t\tbreak;
+\t\t} else {
+\t\t\tassert(0);
+\t\t}
+\t}
+\tif(fscanf(file1, "%c", &c));
+\tassert(c=='\\n');
+''')
+    if len(indptr) > 0:
+        code.append(f"""\tval_size=0;
+\tassert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+\tval_size++;
+\twhile (1) {{
+\t\tassert(fscanf(file1, "%c", &c) == 1);
+\t\tif (c == ',') {{
+\t\t\tassert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+\t\t\tval_size++;
+\t\t}} else if (c == ']') {{
+\t\t\tbreak;
+\t\t}} else {{
+\t\t\tassert(0);
+\t\t}}
+\t}}
+\tif(fscanf(file1, "%c", &c));
+\tassert(c=='\\n');
+\tval_size=0;
+\tassert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+\tval_size++;
+\twhile (1) {{
+\t\tassert(fscanf(file1, "%c", &c) == 1);
+\t\tif (c == ',') {{
+\t\t\tassert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+\t\t\tval_size++;
+\t\t}} else if (c == ']') {{
+\t\t\tbreak;
+\t\t}} else {{
+\t\t\tassert(0);
+\t\t}}
+\t}}
+\tif(fscanf(file1, "%c", &c));
+\tassert(c=='\\n');
+""")
+    code.append("\tfclose(file1);\n")
+    code.append('''\twhile (x_size < ncols && fscanf(file2, "%lf,", &x[x_size]) == 1) {
+\t\tx_size++;
+\t}
+\tfclose(file2);
+''')
+    code.append("\n")
+
+    # Build COO + mine UZP ONCE (outside timing loop)
+    if len(ublocks) > 0:
+        code.append("\t// Convert CSR -> COO once (1-based indices, COO format)\n")
+        code.append(f"\tconst int nnz = {len(csr_val)};\n")
+        code.append("\tint *coo_r = (int*)malloc((size_t)nnz * sizeof(int));\n")
+        code.append("\tint *coo_c = (int*)malloc((size_t)nnz * sizeof(int));\n")
+        code.append("\tdouble *coo_v = (double*)malloc((size_t)nnz * sizeof(double));\n")
+        code.append("\tassert(coo_r && coo_c && coo_v);\n")
+        code.append("\tint k = 0;\n")
+        code.append("\tfor (int r = 0; r < nrows; r++) {\n")
+        code.append("\t\tfor (int p = indptr[r]; p < indptr[r+1]; p++) {\n")
+        code.append("\t\t\tcoo_r[k] = r + 1;\n")
+        code.append("\t\t\tcoo_c[k] = indices[p] + 1;\n")
+        code.append("\t\t\tcoo_v[k] = csr_val[p];\n")
+        code.append("\t\t\tk++;\n")
+        code.append("\t\t}\n")
+        code.append("\t}\n")
+        code.append("\tassert(k == nnz);\n\n")
+
+        code.append("\t// Write COO file for z_polyhedrator (outside timing loop)\n")
+        code.append("\tchar coo_path[512];\n")
+        code.append("\tchar uzp_base[512];\n")
+        code.append(f"\tsnprintf(coo_path, sizeof(coo_path), \"/tmp/{filename}_%d.coo\", (int)getpid());\n")
+        code.append(f"\tsnprintf(uzp_base, sizeof(uzp_base), \"/tmp/{filename}_%d\", (int)getpid());\n")
+        code.append("\tFILE *fcoo = fopen(coo_path, \"w\");\n")
+        code.append("\tassert(fcoo);\n")
+        code.append("\tfprintf(fcoo, \"COO %d %d %d\\n\", nrows, ncols, nnz);\n")
+        code.append("\tfor (int i = 0; i < nnz; i++) {\n")
+        code.append("\t\tfprintf(fcoo, \"%d %d %.17g\\n\", coo_r[i], coo_c[i], coo_v[i]);\n")
+        code.append("\t}\n")
+        code.append("\tfclose(fcoo);\n\n")
+
+        code.append("\t// Run UZP pattern mining once (outside timing loop)\n")
+        code.append("\tchar cmd[2048];\n")
+        # z_polyhedrator requires running from its project root (Cargo.toml discovery).
+        code.append(
+            f"\tsnprintf(cmd, sizeof(cmd), \"cd \\\"{os.path.abspath(zpoly_root)}\\\" && \\\"{os.path.abspath(zpoly_bin)}\\\" search \\\"{os.path.abspath(patterns_path)}\\\" \\\"%s\\\" -w \\\"%s\\\" > /dev/null 2>&1\", coo_path, uzp_base);\n"
+        )
+        code.append("\tint rc = system(cmd);\n")
+        code.append("\tassert(rc == 0);\n")
+        code.append("\tchar uzp_path[600];\n")
+        code.append("\tsnprintf(uzp_path, sizeof(uzp_path), \"%s.1d.uzp\", uzp_base);\n")
+        code.append("\ts_spf_structure_t* spf_mat = spf_matrix_read_from_file(uzp_path);\n")
+        code.append("\tassert(spf_mat);\n\n")
+
+    # Timing state
+    code.append("\tstruct timespec t1, t2;\n")
+    code.append(f"\tlong sparse_times[{bench}];\n")
+
+    prev_count = 0
+    prev_nnz_block = 0
+    for a in range(len(rpntr) - 1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr) - 1):
+            if b in valid_cols:
+                if prev_nnz_block not in ublocks:
+                    prev_count += 1
+                prev_nnz_block += 1
+    code.append(f"\tlong (*dense_block_times)[{bench}] = (long(*)[{bench}])malloc({prev_count} * {bench} * sizeof(long));\n")
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tsparse_times[i] = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
+    code.append("\t\t\tdense_block_times[j][i] = 0;\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n\n")
+
+    code.append("\t// Benchmark loop: only UZP kernel execution is timed for sparse part\n")
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tmemset(y, 0, (size_t)nrows * sizeof(double));\n")
+
+    if len(ublocks) > 0:
+        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append("\t\tspf_executors_spf_matrix_dense_vector_product(spf_mat, x, y, ncols, nrows, 0);\n")
+        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1000000000L + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    count = 0
+    nnz_block = 0
+    for a in range(len(rpntr) - 1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr) - 1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+                    if (rpntr[a + 1] - rpntr[a]) == 1:
+                        code.append(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    elif (cpntr[b + 1] - cpntr[b]) == 1:
+                        code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
+                    else:
+                        code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+                    code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1000000000L + (t2.tv_nsec - t1.tv_nsec);\n")
+                    count += 1
+                nnz_block += 1
+    code.append("\t}\n\n")
+
+    # Print sparse timings
+    code.append('\tprintf("Sparse: ");\n')
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tprintf(\"%lu,\", sparse_times[i]);\n")
+    code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+
+    # Print dense timings
+    code.append('\tprintf("Dense: ");\n')
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tlong total_dense = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{count}; j++) {{\n")
+    code.append("\t\t\ttotal_dense += dense_block_times[j][i];\n")
+    code.append("\t\t}\n")
+    code.append("\t\tprintf(\"%lu,\", total_dense);\n")
+    code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+
+    # Print individual dense block timings
+    code.append(f"\tfor (int j=0; j<{count}; j++) {{\n")
+    code.append('\t\tprintf("Dense Block %d: ", j+1);\n')
+    code.append(f"\t\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\t\tprintf(\"%lu,\", dense_block_times[j][i]);\n")
+    code.append("\t\t}\n")
+    code.append("\t\tprintf(\"\\n\");\n")
+    code.append("\t}\n")
+
+    # Print result vector
+    code.append("\tprintf(\"\\n\");\n")
+    code.append("\tfor (int i=0; i<nrows; i++) {\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
+    code.append("\t}\n")
+
+    # Cleanup
+    code.append("\tfree(dense_block_times);\n")
+    code.append("\tfree(y);\n")
+    code.append("\tfree(x);\n")
+    code.append("\tfree(val);\n")
+    if len(csr_val) > 0:
+        code.append("\tfree(csr_val);\n")
+        code.append("\tfree(indptr);\n")
+        code.append("\tfree(indices);\n")
+        code.append("\tfree(coo_r);\n")
+        code.append("\tfree(coo_c);\n")
+        code.append("\tfree(coo_v);\n")
+    code.append("\treturn 0;\n")
+    code.append("}\n")
+
+    with open(os.path.join(dir_name, filename + ".c"), "w") as f:
+        f.writelines(code)
+
+    time2 = time.time_ns() // 1_000_000
+    return time2 - time1
+
+def gen_single_threaded_spmv_uzp_sparse_dispatch_blas(
+    val,
+    indx,
+    bindx,
+    rpntr,
+    cpntr,
+    bpntrb,
+    bpntre,
+    ublocks,
+    indptr,
+    indices,
+    csr_val,
+    dir_name,
+    filename,
+    vbr_dir,
+    bench: int = 5,
+) -> int:
+    """UZP sparse dispatch + BLAS dense blocks (cblas_dgemv).
+
+    - COO conversion + UZP mining happen ONCE, outside the timing loop.
+    - Only UZP kernel execution is timed for the sparse part.
+    - Dense blocks use BLAS (`cblas_dgemv`) except Nx1 blocks which keep `spmv_kernel_3`.
+    """
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+
+    zpoly_bin = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator")
+    patterns_path = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "data", "patterns.txt")
+    zpoly_root = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator")
+
+    code: list[str] = []
+    code.append("#include <assert.h>\n")
+    code.append("#include <stdio.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <unistd.h>\n")
+    code.append("#include <mkl.h>\n\n")
+
+    code.append("#include <spf_structure.h>\n")
+    code.append("#include <spf_executors.h>\n\n")
+
+    code.append(spmv_kernel_3())
+    code.append("\n")
+    code.append(spmv_kernel_blas())
+    code.append("\n")
+
+    code.append("int main() {\n")
+    code.append(f"\tconst int nrows = {rpntr[-1]};\n")
+    code.append(f"\tconst int ncols = {cpntr[-1]};\n")
+    code.append(f"\tconst int bench = {bench};\n\n")
+
+    code.append("\t// Allocate vectors\n")
+    code.append("\tdouble *y = (double*)malloc((size_t)nrows * sizeof(double));\n")
+    code.append("\tdouble *x = (double*)malloc((size_t)ncols * sizeof(double));\n")
+    if len(val) > 0:
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
+    else:
+        code.append("\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
+
+    if len(csr_val) > 0:
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
+        code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+        code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
+    code.append("\tassert(y && x && val);\n")
+    if len(csr_val) > 0:
+        code.append("\tassert(csr_val && indptr && indices);\n")
+    code.append("\n")
+
+    code.append("\t// Read VBRC + dense vector ONCE (outside timing loop)\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening vbrc file\\n\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening vector file\\n\"); return 1; }\n")
+    code.append("\tmemset(x, 0, (size_t)ncols * sizeof(double));\n")
+    code.append("\tmemset(val, 0, (size_t)({0}) * sizeof(double));\n".format(len(val) if len(val) > 0 else 1))
+    if len(csr_val) > 0:
+        code.append(f"\tmemset(csr_val, 0, (size_t){len(csr_val)} * sizeof(double));\n")
+        code.append(f"\tmemset(indptr, 0, (size_t){len(indptr)} * sizeof(int));\n")
+        code.append(f"\tmemset(indices, 0, (size_t){len(indices)} * sizeof(int));\n")
+    code.append("\tchar c;\n")
+    code.append("\tint x_size = 0, val_size = 0;\n")
+    code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
+\tif (c != ']') {
+\t\tungetc(c, file1);
+\t\tassert(fscanf(file1, "%lf", &val[val_size]) == 1);
+\t\tval_size++;
+\t\twhile (1) {
+\t\t\tassert(fscanf(file1, "%c", &c) == 1);
+\t\t\tif (c == ',') {
+\t\t\t\tassert(fscanf(file1, "%lf", &val[val_size]) == 1);
+\t\t\t\tval_size++;
+\t\t\t} else if (c == ']') {
+\t\t\t\tbreak;
+\t\t\t} else {
+\t\t\t\tassert(0);
+\t\t\t}
+\t\t}
+\t}
+\tassert(fscanf(file1, "%c", &c) == 1 && c == '\\n');
+''')
+    if len(ublocks) > 0:
+        code.append('''\tval_size=0;
+\tassert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
+\tval_size++;
+\twhile (1) {
+\t\tassert(fscanf(file1, "%c", &c) == 1);
+\t\tif (c == ',') {
+\t\t\tassert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+\t\t\tval_size++;
+\t\t} else if (c == ']') {
+\t\t\tbreak;
+\t\t} else {
+\t\t\tassert(0);
+\t\t}
+\t}
+\tif(fscanf(file1, "%c", &c));
+\tassert(c=='\\n');
+''')
+    if len(indptr) > 0:
+        code.append(f"""\tval_size=0;
+\tassert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+\tval_size++;
+\twhile (1) {{
+\t\tassert(fscanf(file1, "%c", &c) == 1);
+\t\tif (c == ',') {{
+\t\t\tassert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+\t\t\tval_size++;
+\t\t}} else if (c == ']') {{
+\t\t\tbreak;
+\t\t}} else {{
+\t\t\tassert(0);
+\t\t}}
+\t}}
+\tif(fscanf(file1, "%c", &c));
+\tassert(c=='\\n');
+\tval_size=0;
+\tassert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+\tval_size++;
+\twhile (1) {{
+\t\tassert(fscanf(file1, "%c", &c) == 1);
+\t\tif (c == ',') {{
+\t\t\tassert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+\t\t\tval_size++;
+\t\t}} else if (c == ']') {{
+\t\t\tbreak;
+\t\t}} else {{
+\t\t\tassert(0);
+\t\t}}
+\t}}
+\tif(fscanf(file1, "%c", &c));
+\tassert(c=='\\n');
+""")
+    code.append("\tfclose(file1);\n")
+    code.append('''\twhile (x_size < ncols && fscanf(file2, "%lf,", &x[x_size]) == 1) {
+\t\tx_size++;
+\t}
+\tfclose(file2);
+''')
+    code.append("\n")
+
+    if len(ublocks) > 0:
+        code.append("\t// Convert CSR -> COO once (1-based indices)\n")
+        code.append(f"\tconst int nnz = {len(csr_val)};\n")
+        code.append("\tint *coo_r = (int*)malloc((size_t)nnz * sizeof(int));\n")
+        code.append("\tint *coo_c = (int*)malloc((size_t)nnz * sizeof(int));\n")
+        code.append("\tdouble *coo_v = (double*)malloc((size_t)nnz * sizeof(double));\n")
+        code.append("\tassert(coo_r && coo_c && coo_v);\n")
+        code.append("\tint k = 0;\n")
+        code.append("\tfor (int r = 0; r < nrows; r++) {\n")
+        code.append("\t\tfor (int p = indptr[r]; p < indptr[r+1]; p++) {\n")
+        code.append("\t\t\tcoo_r[k] = r + 1;\n")
+        code.append("\t\t\tcoo_c[k] = indices[p] + 1;\n")
+        code.append("\t\t\tcoo_v[k] = csr_val[p];\n")
+        code.append("\t\t\tk++;\n")
+        code.append("\t\t}\n")
+        code.append("\t}\n")
+        code.append("\tassert(k == nnz);\n\n")
+
+        code.append("\tchar coo_path[512];\n")
+        code.append("\tchar uzp_base[512];\n")
+        code.append(f"\tsnprintf(coo_path, sizeof(coo_path), \"/tmp/{filename}_%d.coo\", (int)getpid());\n")
+        code.append(f"\tsnprintf(uzp_base, sizeof(uzp_base), \"/tmp/{filename}_%d\", (int)getpid());\n")
+        code.append("\tFILE *fcoo = fopen(coo_path, \"w\");\n")
+        code.append("\tassert(fcoo);\n")
+        code.append("\tfprintf(fcoo, \"COO %d %d %d\\n\", nrows, ncols, nnz);\n")
+        code.append("\tfor (int i = 0; i < nnz; i++) {\n")
+        code.append("\t\tfprintf(fcoo, \"%d %d %.17g\\n\", coo_r[i], coo_c[i], coo_v[i]);\n")
+        code.append("\t}\n")
+        code.append("\tfclose(fcoo);\n\n")
+
+        code.append("\t// Run UZP mining once (outside timing)\n")
+        code.append("\tchar cmd[2048];\n")
+        # z_polyhedrator requires running from its project root (Cargo.toml discovery).
+        code.append(
+            f"\tsnprintf(cmd, sizeof(cmd), \"cd \\\"{os.path.abspath(zpoly_root)}\\\" && \\\"{os.path.abspath(zpoly_bin)}\\\" search \\\"{os.path.abspath(patterns_path)}\\\" \\\"%s\\\" -w \\\"%s\\\" > /dev/null 2>&1\", coo_path, uzp_base);\n"
+        )
+        code.append("\tint rc = system(cmd);\n")
+        code.append("\tassert(rc == 0);\n")
+        code.append("\tchar uzp_path[600];\n")
+        code.append("\tsnprintf(uzp_path, sizeof(uzp_path), \"%s.1d.uzp\", uzp_base);\n")
+        code.append("\ts_spf_structure_t* spf_mat = spf_matrix_read_from_file(uzp_path);\n")
+        code.append("\tassert(spf_mat);\n\n")
+
+    code.append("\tstruct timespec t1, t2;\n")
+    code.append(f"\tlong sparse_times[{bench}];\n")
+
+    prev_count = 0
+    prev_nnz_block = 0
+    for a in range(len(rpntr) - 1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr) - 1):
+            if b in valid_cols:
+                if prev_nnz_block not in ublocks:
+                    prev_count += 1
+                prev_nnz_block += 1
+    code.append(f"\tlong (*dense_block_times)[{bench}] = (long(*)[{bench}])malloc({prev_count} * {bench} * sizeof(long));\n")
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tsparse_times[i] = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
+    code.append("\t\t\tdense_block_times[j][i] = 0;\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n\n")
+
+    code.append("\tfor (int i=0; i<bench; i++) {\n")
+    code.append("\t\tmemset(y, 0, (size_t)nrows * sizeof(double));\n")
+
+    if len(ublocks) > 0:
+        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append("\t\tspf_executors_spf_matrix_dense_vector_product(spf_mat, x, y, ncols, nrows, 0);\n")
+        code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1000000000L + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    count = 0
+    nnz_block = 0
+    for a in range(len(rpntr) - 1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr) - 1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+                    if (cpntr[b + 1] - cpntr[b]) == 1:
+                        code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
+                    else:
+                        code.append(f"\t\tspmv_kernel_blas(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+                    code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1000000000L + (t2.tv_nsec - t1.tv_nsec);\n")
+                    count += 1
+                nnz_block += 1
+    code.append("\t}\n\n")
+
+    code.append('\tprintf("Sparse: ");\n')
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tprintf(\"%lu,\", sparse_times[i]);\n")
+    code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+
+    code.append('\tprintf("Dense: ");\n')
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tlong total_dense = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{count}; j++) {{\n")
+    code.append("\t\t\ttotal_dense += dense_block_times[j][i];\n")
+    code.append("\t\t}\n")
+    code.append("\t\tprintf(\"%lu,\", total_dense);\n")
+    code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+
+    code.append(f"\tfor (int j=0; j<{count}; j++) {{\n")
+    code.append('\t\tprintf("Dense Block %d: ", j+1);\n')
+    code.append(f"\t\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\t\tprintf(\"%lu,\", dense_block_times[j][i]);\n")
+    code.append("\t\t}\n")
+    code.append("\t\tprintf(\"\\n\");\n")
+    code.append("\t}\n")
+
+    code.append("\tprintf(\"\\n\");\n")
+    code.append("\tfor (int i=0; i<nrows; i++) {\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
+    code.append("\t}\n")
+
+    code.append("\tfree(dense_block_times);\n")
+    code.append("\tfree(y);\n")
+    code.append("\tfree(x);\n")
+    code.append("\tfree(val);\n")
+    if len(csr_val) > 0:
+        code.append("\tfree(csr_val);\n")
+        code.append("\tfree(indptr);\n")
+        code.append("\tfree(indices);\n")
+        code.append("\tfree(coo_r);\n")
+        code.append("\tfree(coo_c);\n")
+        code.append("\tfree(coo_v);\n")
+    code.append("\treturn 0;\n")
+    code.append("}\n")
+
+    with open(os.path.join(dir_name, filename + ".c"), "w") as f:
+        f.writelines(code)
+
+    time2 = time.time_ns() // 1_000_000
+    return time2 - time1
+
 def gen_single_threaded_spmv_spv8_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
     """Generate code using BLAS dense kernels + SpV8 sparse kernel."""
     if not os.path.exists(dir_name):

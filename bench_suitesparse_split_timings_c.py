@@ -31,7 +31,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "find-submatric
 from find_matrices import get_matrix_paths, cleanup_matrix_files, get_matrix_info
 from ssgetpy import fetch
 
-from src.codegen import gen_single_threaded_spmv_spv8, gen_single_threaded_spmv_mkl, gen_single_threaded_spmv_naive
+from src.codegen import (
+    gen_single_threaded_spmv_spv8, gen_single_threaded_spmv_mkl, gen_single_threaded_spmv_naive,
+    gen_single_threaded_spmv_spv8_blas, gen_single_threaded_spmv_mkl_blas, gen_single_threaded_spmv_naive_blas
+)
 from src.consts import CFLAGS, MKL_FLAGS
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file, analyze_dense_blocks
 from utils.fileio import parse_yaml_blocks, write_dense_vector
@@ -66,9 +69,18 @@ def compile_c_program(c_file_path: str, output_dir: str, use_mkl: bool = False) 
     output_name = os.path.splitext(c_file)[0]
     output_path = os.path.join(output_dir, output_name)
     
+    # Check if the C file uses MKL functions (for BLAS support)
+    needs_mkl = use_mkl
+    if not needs_mkl and os.path.exists(c_file_path):
+        with open(c_file_path, 'r') as f:
+            content = f.read()
+            # Check for MKL includes or BLAS function calls
+            if '#include <mkl.h>' in content or 'cblas_dgemv' in content or 'mkl_set_num_threads' in content:
+                needs_mkl = True
+    
     # Compile with gcc, including MKL flags if needed
     print(f"  Compiling generated C code: {c_file} (output: {output_path})")
-    if use_mkl:
+    if needs_mkl:
         compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS + MKL_FLAGS
     else:
         compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS
@@ -318,31 +330,40 @@ def process_and_benchmark_matrix(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
-    use_mkl: bool = False
+    use_mkl: bool = False,
+    dense_kernel: str = "naive"
 ) -> Optional[Dict[str, Any]]:
     """
     Run benchmarks for either SpV8 or MKL using pre-converted VBRC data.
-    
+
     Args:
         matrix_name: Name of the matrix
         split_vbrc_data: Pre-converted VBRC data with dense blocks
         sparse_vbrc_data: Pre-converted VBRC data without dense blocks
         matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
         bench_iterations: Number of benchmark iterations
-        use_mkl: Whether to use MKL (True) or SpV8 (False)
-    
+        use_mkl: Whether to use MKL (True) or SpV8 (False) for sparse kernel
+        dense_kernel: Which dense kernel to use: "naive" (handwritten) or "blas" (cblas_dgemv)
+
     Returns:
         Dictionary with benchmark results
     """
-    variant_name = "mkl" if use_mkl else "spv8"
-    
-    # Select directories and functions based on variant
+    sparse_variant = "mkl" if use_mkl else "spv8"
+    variant_name = f"{sparse_variant}_{dense_kernel}"
+
+    # Select directories and functions based on sparse variant and dense kernel
     if use_mkl:
         base_codegen_dir = GENERATED_SPMV_MKL_DIR
-        gen_function = gen_single_threaded_spmv_mkl
+        if dense_kernel == "blas":
+            gen_function = gen_single_threaded_spmv_mkl_blas
+        else:
+            gen_function = gen_single_threaded_spmv_mkl
     else:
         base_codegen_dir = GENERATED_SPMV_SPV8_DIR
-        gen_function = gen_single_threaded_spmv_spv8
+        if dense_kernel == "blas":
+            gen_function = gen_single_threaded_spmv_spv8_blas
+        else:
+            gen_function = gen_single_threaded_spmv_spv8
     
     codegen_dir_split = str(base_codegen_dir / "split")
     codegen_dir_sparse = str(base_codegen_dir / "sparse")
@@ -493,21 +514,29 @@ def process_and_benchmark_matrix_naive(
     matrix_rows: int,
     matrix_cols: int,
     matrix_nnz: int,
-    bench_iterations: int
+    bench_iterations: int,
+    dense_kernel: str = "naive"
 ) -> Optional[Dict[str, Any]]:
     """
     Run benchmarks for naive implementation using pre-converted VBRC data.
-    
+
     Args:
         matrix_name: Name of the matrix
         split_vbrc_data: Pre-converted VBRC data with dense blocks
         sparse_vbrc_data: Pre-converted VBRC data without dense blocks
         matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
         bench_iterations: Number of benchmark iterations
-    
+        dense_kernel: Which dense kernel to use: "naive" (handwritten) or "blas" (cblas_dgemv)
+
     Returns:
         Dictionary with benchmark results
     """
+    # Select codegen function based on dense kernel
+    if dense_kernel == "blas":
+        gen_function = gen_single_threaded_spmv_naive_blas
+    else:
+        gen_function = gen_single_threaded_spmv_naive
+
     codegen_dir_split = str(GENERATED_SPMV_NAIVE_DIR / "split")
     codegen_dir_sparse = str(GENERATED_SPMV_NAIVE_DIR / "sparse")
     
@@ -544,21 +573,21 @@ def process_and_benchmark_matrix_naive(
     sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
     
     # Generate C code for split version (codegen time)
-    print(f"  [naive] Generating C code (split)...")
-    codegen_time_split_ns = gen_single_threaded_spmv_naive(
+    print(f"  [naive_{dense_kernel}] Generating C code (split)...")
+    codegen_time_split_ns = gen_function(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
         codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
     )
-    
+
     # Evaluate split version (compile + run)
-    print(f"  [naive] Evaluating split version...")
+    print(f"  [naive_{dense_kernel}] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
         eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
-    
+
     # Generate C code for sparse version (codegen time)
-    print(f"  [naive] Generating C code (fully sparse)...")
-    codegen_time_sparse_ns = gen_single_threaded_spmv_naive(
+    print(f"  [naive_{dense_kernel}] Generating C code (fully sparse)...")
+    codegen_time_sparse_ns = gen_function(
         val_sparse, indx_sparse, bindx_sparse,
         rpntr_sparse, cpntr_sparse,
         bpntrb_sparse, bpntre_sparse,
@@ -671,10 +700,16 @@ def main():
                         help=f"Number of benchmark iterations (default: {DEFAULT_BENCH_ITERATIONS})")
     parser.add_argument("--output-dir", type=str, default="results",
                         help="Output directory for results (default: results)")
-    parser.add_argument("--skip-spv8", action="store_true", help="Skip SpV8 benchmarks")
-    parser.add_argument("--skip-mkl", action="store_true", help="Skip MKL benchmarks")
-    
+    parser.add_argument("--sparse", type=str, choices=["naive", "spv8", "mkl", "all"], default="all",
+                        help="Sparse kernel to use: naive (3-loop CSR), spv8 (SpV8), mkl (MKL sparse), or all (default: all)")
+    parser.add_argument("--dense", type=str, choices=["naive", "blas", "all"], default="naive",
+                        help="Dense kernel to use: naive (handwritten), blas (cblas_dgemv), or all (default: naive)")
+
     args = parser.parse_args()
+
+    # Determine which sparse and dense kernels to run
+    sparse_kernels = ["naive", "spv8", "mkl"] if args.sparse == "all" else [args.sparse]
+    dense_kernels = ["naive", "blas"] if args.dense == "all" else [args.dense]
     
     # Get matrices to process - merge positional arguments and --matrices flag, or use all
     matrices = args.matrices or args.matrices_flag
@@ -691,10 +726,9 @@ def main():
     SUITESPARSE_DIR.mkdir(exist_ok=True)
     GENERATED_VBR_SPLIT_DIR.mkdir(exist_ok=True)
     GENERATED_VBR_SPARSE_DIR.mkdir(exist_ok=True)
-    
-    spv8_results = []
-    mkl_results = []
-    naive_results = []
+
+    # Dictionary to store results for each combination of sparse kernel and dense kernel
+    all_results = {}
     
     for matrix_name in matrices:
         yaml_path = RESULTS_DIR / f"{matrix_name}.yaml"
@@ -738,76 +772,55 @@ def main():
             )
             dense_blocks = split_vbrc_data["dense_blocks"]
             
-            # Run naive version for both split and sparse
-            print(f"\n  === Running naive benchmark ===")
-            naive_result = process_and_benchmark_matrix_naive(
-                matrix_name, split_vbrc_data, sparse_vbrc_data,
-                matrix_rows, matrix_cols, matrix_nnz,
-                args.bench
-            )
-            if naive_result:
-                # Update or append result
-                existing_idx = next((i for i, r in enumerate(naive_results) if r["matrix_name"] == matrix_name), None)
-                if existing_idx is not None:
-                    naive_results[existing_idx] = naive_result
-                    print(f"  [naive] Updated existing result for {matrix_name}")
-                else:
-                    naive_results.append(naive_result)
-                    print(f"  [naive] Added new result for {matrix_name}")
-                
-                # Write intermediate results
-                naive_output = output_dir / "sable_spmv_naive.json"
-                with open(naive_output, 'w') as f:
-                    json.dump(naive_results, f, indent=2)
-                print(f"  [naive] Results written to {naive_output}")
-            
-            # Benchmark with SpV8
-            if not args.skip_spv8:
-                print(f"\n  === Running SpV8 benchmark ===")
-                spv8_result = process_and_benchmark_matrix(
-                    matrix_name, split_vbrc_data, sparse_vbrc_data,
-                    matrix_rows, matrix_cols, matrix_nnz,
-                    args.bench, use_mkl=False
-                )
-                if spv8_result:
-                    # Update or append result
-                    existing_idx = next((i for i, r in enumerate(spv8_results) if r["matrix_name"] == matrix_name), None)
-                    if existing_idx is not None:
-                        spv8_results[existing_idx] = spv8_result
-                        print(f"  [spv8] Updated existing result for {matrix_name}")
+            # Run benchmarks for each combination of sparse and dense kernel
+            for sparse_kernel in sparse_kernels:
+                for dense_kernel in dense_kernels:
+                    results_key = f"{dense_kernel}_{sparse_kernel}"
+                    print(f"\n  === Running {results_key} benchmark ===")
+
+                    # Select the appropriate benchmark function based on sparse kernel
+                    if sparse_kernel == "naive":
+                        result = process_and_benchmark_matrix_naive(
+                            matrix_name, split_vbrc_data, sparse_vbrc_data,
+                            matrix_rows, matrix_cols, matrix_nnz,
+                            args.bench, dense_kernel=dense_kernel
+                        )
+                    elif sparse_kernel == "spv8":
+                        result = process_and_benchmark_matrix(
+                            matrix_name, split_vbrc_data, sparse_vbrc_data,
+                            matrix_rows, matrix_cols, matrix_nnz,
+                            args.bench, use_mkl=False, dense_kernel=dense_kernel
+                        )
+                    elif sparse_kernel == "mkl":
+                        result = process_and_benchmark_matrix(
+                            matrix_name, split_vbrc_data, sparse_vbrc_data,
+                            matrix_rows, matrix_cols, matrix_nnz,
+                            args.bench, use_mkl=True, dense_kernel=dense_kernel
+                        )
                     else:
-                        spv8_results.append(spv8_result)
-                        print(f"  [spv8] Added new result for {matrix_name}")
-                    
-                    # Write intermediate results
-                    spv8_output = output_dir / "sable_spmv_spv8.json"
-                    with open(spv8_output, 'w') as f:
-                        json.dump(spv8_results, f, indent=2)
-                    print(f"  [spv8] Results written to {spv8_output}")
-            
-            # Benchmark with MKL
-            if not args.skip_mkl:
-                print(f"\n  === Running MKL benchmark ===")
-                mkl_result = process_and_benchmark_matrix(
-                    matrix_name, split_vbrc_data, sparse_vbrc_data,
-                    matrix_rows, matrix_cols, matrix_nnz,
-                    args.bench, use_mkl=True
-                )
-                if mkl_result:
-                    # Update or append result
-                    existing_idx = next((i for i, r in enumerate(mkl_results) if r["matrix_name"] == matrix_name), None)
-                    if existing_idx is not None:
-                        mkl_results[existing_idx] = mkl_result
-                        print(f"  [mkl] Updated existing result for {matrix_name}")
-                    else:
-                        mkl_results.append(mkl_result)
-                        print(f"  [mkl] Added new result for {matrix_name}")
-                    
-                    # Write intermediate results
-                    mkl_output = output_dir / "sable_spmv_mkl.json"
-                    with open(mkl_output, 'w') as f:
-                        json.dump(mkl_results, f, indent=2)
-                    print(f"  [mkl] Results written to {mkl_output}")
+                        print(f"  [{results_key}] Unknown sparse kernel: {sparse_kernel}")
+                        continue
+
+                    if result:
+                        # Get the results list for this combination
+                        if results_key not in all_results:
+                            all_results[results_key] = []
+                        results_list = all_results[results_key]
+
+                        # Update or append result
+                        existing_idx = next((i for i, r in enumerate(results_list) if r["matrix_name"] == matrix_name), None)
+                        if existing_idx is not None:
+                            results_list[existing_idx] = result
+                            print(f"  [{results_key}] Updated existing result for {matrix_name}")
+                        else:
+                            results_list.append(result)
+                            print(f"  [{results_key}] Added new result for {matrix_name}")
+
+                        # Write intermediate results
+                        output_file = output_dir / f"sable_spmv_{results_key}.json"
+                        with open(output_file, 'w') as f:
+                            json.dump(results_list, f, indent=2)
+                        print(f"  [{results_key}] Results written to {output_file}")
             
             print(f"\nCompleted processing {matrix_name}")
             
@@ -826,37 +839,18 @@ def main():
     print("\n" + "="*60)
     print("Benchmark Summary")
     print("="*60)
-    
-    if spv8_results:
-        print(f"\nSpV8 Results ({len(spv8_results)} matrices):")
-        for result in spv8_results:
-            num_dense_blocks = len(result['individual_dense_block_timings'])
-            speedup_dispatch = result['timing'].get('speedup', 0)
-            print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
-                  f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
-                  f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
-                  f"speedup: {speedup_dispatch:.3f}x")
-    
-    if mkl_results:
-        print(f"\nMKL Results ({len(mkl_results)} matrices):")
-        for result in mkl_results:
-            num_dense_blocks = len(result['individual_dense_block_timings'])
-            speedup_dispatch = result['timing'].get('speedup', 0)
-            print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
-                  f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
-                  f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
-                  f"speedup: {speedup_dispatch:.3f}x")
-    
-    if naive_results:
-        print(f"\nNaive Results ({len(naive_results)} matrices):")
-        for result in naive_results:
-            num_dense_blocks = len(result['individual_dense_block_timings'])
-            speedup_dispatch = result['timing'].get('speedup', 0)
-            print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
-                  f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
-                  f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
-                  f"speedup: {speedup_dispatch:.3f}x")
-    
+
+    for results_key, results_list in all_results.items():
+        if results_list:
+            print(f"\n{results_key} Results ({len(results_list)} matrices):")
+            for result in results_list:
+                num_dense_blocks = len(result['individual_dense_block_timings'])
+                speedup_dispatch = result['timing'].get('speedup', 0)
+                print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
+                      f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
+                      f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
+                      f"speedup: {speedup_dispatch:.3f}x")
+
     print(f"\nResults written to {output_dir}/")
     return 0
 

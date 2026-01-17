@@ -1,0 +1,24 @@
+[package]
+name = "z_polyhedrator"
+version = "1.0.0-beta.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+sprs = "0.11.0"
+text_io = "0.1.12"
+bitflags = "2.0.0"
+byteorder = "1.4.3"
+linked-hash-map = "0.5.6"
+stringreader = "0.1.1"
+num-traits = "0.2.15"
+colored = "3.0.0"
+xflags = "0.3.1"
+linked_hash_set = "0.1.4"
+itertools = "0.14.0"
+cute = "0.3.0"
+project-root = "0.2.2"
+
+[profile.release]
+opt-level = 3

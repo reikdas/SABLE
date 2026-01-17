@@ -33,7 +33,9 @@ from ssgetpy import fetch
 
 from src.codegen import (
     gen_single_threaded_spmv_spv8, gen_single_threaded_spmv_mkl, gen_single_threaded_spmv_naive,
-    gen_single_threaded_spmv_spv8_blas, gen_single_threaded_spmv_mkl_blas, gen_single_threaded_spmv_naive_blas
+    gen_single_threaded_spmv_spv8_blas, gen_single_threaded_spmv_mkl_blas, gen_single_threaded_spmv_naive_blas,
+    gen_single_threaded_spmv_uzp_sparse_dispatch,
+    gen_single_threaded_spmv_uzp_sparse_dispatch_blas,
 )
 from src.consts import CFLAGS, MKL_FLAGS
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file, analyze_dense_blocks
@@ -55,6 +57,7 @@ GENERATED_VBR_SPARSE_DIR = FILEPATH / "Generated_VBR_Sparse"
 GENERATED_SPMV_SPV8_DIR = FILEPATH / "Generated_SpMV_C_spv8"
 GENERATED_SPMV_MKL_DIR = FILEPATH / "Generated_SpMV_C_mkl"
 GENERATED_SPMV_NAIVE_DIR = FILEPATH / "Generated_SpMV_C_naive"
+GENERATED_SPMV_UZP_DIR = FILEPATH / "Generated_SpMV_C_uzp"
 
 
 def compile_c_program(c_file_path: str, output_dir: str, use_mkl: bool = False) -> Optional[Tuple[str, float]]:
@@ -69,21 +72,42 @@ def compile_c_program(c_file_path: str, output_dir: str, use_mkl: bool = False) 
     output_name = os.path.splitext(c_file)[0]
     output_path = os.path.join(output_dir, output_name)
     
-    # Check if the C file uses MKL functions (for BLAS support)
+    # Detect optional backend-specific dependencies from generated C
     needs_mkl = use_mkl
+    needs_uzp = False
     if not needs_mkl and os.path.exists(c_file_path):
         with open(c_file_path, 'r') as f:
             content = f.read()
             # Check for MKL includes or BLAS function calls
             if '#include <mkl.h>' in content or 'cblas_dgemv' in content or 'mkl_set_num_threads' in content:
                 needs_mkl = True
+            # Check for UZP / SPF executor usage
+            if '#include <spf_structure.h>' in content or 'spf_executors_spf_matrix_dense_vector_product' in content:
+                needs_uzp = True
     
     # Compile with gcc, including MKL flags if needed
     print(f"  Compiling generated C code: {c_file} (output: {output_path})")
+    # Optional UZP sources are compiled in along with the generated file.
+    uzp_genex_dir = FILEPATH / "uzp-artifact" / "spmv-executors" / "uzp-genex"
+    uzp_sources: List[str] = []
+    uzp_flags: List[str] = []
+    if needs_uzp:
+        uzp_sources = [
+            str(uzp_genex_dir / "polybench.c"),
+            str(uzp_genex_dir / "spf_structure.c"),
+            str(uzp_genex_dir / "spf_executors.c"),
+            str(uzp_genex_dir / "spf_executors_uninc.c"),
+        ]
+        uzp_flags = [
+            f"-I{uzp_genex_dir}",
+            "-DGEN_EXECUTOR_SPMV_ORIGINAL",
+            "-lm",
+        ]
+
     if needs_mkl:
-        compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS + MKL_FLAGS
+        compile_cmd = ["gcc", c_file_path] + uzp_sources + ["-o", output_path] + CFLAGS + MKL_FLAGS + uzp_flags
     else:
-        compile_cmd = ["gcc", c_file_path, "-o", output_path] + CFLAGS
+        compile_cmd = ["gcc", c_file_path] + uzp_sources + ["-o", output_path] + CFLAGS + uzp_flags
 
     try:
         start_time = time.time_ns()
@@ -679,6 +703,175 @@ def process_and_benchmark_matrix_naive(
     return matrix_result
 
 
+def process_and_benchmark_matrix_uzp(
+    matrix_name: str,
+    split_vbrc_data: Dict[str, Any],
+    sparse_vbrc_data: Dict[str, Any],
+    matrix_rows: int,
+    matrix_cols: int,
+    matrix_nnz: int,
+    bench_iterations: int,
+    dense_kernel: str = "naive",
+) -> Optional[Dict[str, Any]]:
+    """Run benchmarks using UZP sparse dispatch for the sparse kernel.
+
+    UZP performs pattern mining outside the timing loop; only the UZP kernel
+    execution is timed (see generated code).
+    """
+    if dense_kernel not in ("naive", "blas"):
+        print(f"  [uzp] Dense kernel '{dense_kernel}' not supported")
+        return None
+
+    variant_name = f"uzp_{dense_kernel}"
+
+    codegen_dir_split = str(GENERATED_SPMV_UZP_DIR / "split")
+    codegen_dir_sparse = str(GENERATED_SPMV_UZP_DIR / "sparse")
+    os.makedirs(codegen_dir_split, exist_ok=True)
+    os.makedirs(codegen_dir_sparse, exist_ok=True)
+
+    # Extract VBRC data
+    val = split_vbrc_data["val"]
+    indx = split_vbrc_data["indx"]
+    bindx = split_vbrc_data["bindx"]
+    rpntr = split_vbrc_data["rpntr"]
+    cpntr = split_vbrc_data["cpntr"]
+    bpntrb = split_vbrc_data["bpntrb"]
+    bpntre = split_vbrc_data["bpntre"]
+    ublocks = split_vbrc_data["ublocks"]
+    indptr = split_vbrc_data["indptr"]
+    indices = split_vbrc_data["indices"]
+    csr_val = split_vbrc_data["csr_val"]
+    dense_blocks = split_vbrc_data.get("dense_blocks", [])
+    vbr_dir = split_vbrc_data["vbr_dir"]
+
+    val_sparse = sparse_vbrc_data["val"]
+    indx_sparse = sparse_vbrc_data["indx"]
+    bindx_sparse = sparse_vbrc_data["bindx"]
+    rpntr_sparse = sparse_vbrc_data["rpntr"]
+    cpntr_sparse = sparse_vbrc_data["cpntr"]
+    bpntrb_sparse = sparse_vbrc_data["bpntrb"]
+    bpntre_sparse = sparse_vbrc_data["bpntre"]
+    ublocks_sparse = sparse_vbrc_data["ublocks"]
+    indptr_sparse = sparse_vbrc_data["indptr"]
+    indices_sparse = sparse_vbrc_data["indices"]
+    csr_val_sparse = sparse_vbrc_data["csr_val"]
+    sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
+
+    gen_uzp = gen_single_threaded_spmv_uzp_sparse_dispatch_blas if dense_kernel == "blas" else gen_single_threaded_spmv_uzp_sparse_dispatch
+
+    print(f"  [{variant_name}] Generating C code (split)...")
+    codegen_time_split_ns = gen_uzp(
+        val,
+        indx,
+        bindx,
+        rpntr,
+        cpntr,
+        bpntrb,
+        bpntre,
+        ublocks,
+        indptr,
+        indices,
+        csr_val,
+        codegen_dir_split,
+        matrix_name,
+        vbr_dir,
+        bench=bench_iterations,
+    )
+
+    print(f"  [{variant_name}] Evaluating split version...")
+    avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = eval_single_file_split_timings(
+        matrix_name, codegen_dir_split, bench_iterations
+    )
+
+    print(f"  [{variant_name}] Generating C code (fully sparse)...")
+    codegen_time_sparse_ns = gen_uzp(
+        val_sparse,
+        indx_sparse,
+        bindx_sparse,
+        rpntr_sparse,
+        cpntr_sparse,
+        bpntrb_sparse,
+        bpntre_sparse,
+        ublocks_sparse,
+        indptr_sparse,
+        indices_sparse,
+        csr_val_sparse,
+        codegen_dir_sparse,
+        matrix_name,
+        sparse_vbr_dir,
+        bench=bench_iterations,
+    )
+
+    print(f"  [{variant_name}] Evaluating fully sparse version...")
+    sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
+        matrix_name, codegen_dir_sparse, bench_iterations
+    )
+
+    total_time = avg_sparse_time + avg_dense_time
+    sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
+    dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
+    speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+
+    dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
+    dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
+    sparse_nnz = matrix_nnz - dense_nnz
+    extra_zeros = dense_all - dense_nnz
+    dense_nnz_perc = (dense_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+    sparse_nnz_perc = (sparse_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+
+    density_calculation = matrix_nnz / (matrix_rows * matrix_cols) if matrix_rows * matrix_cols > 0 else 0
+
+    matrix_result = {
+        "matrix_name": matrix_name,
+        "matrix_dimensions": {
+            "rows": matrix_rows,
+            "cols": matrix_cols,
+            "nnz": matrix_nnz,
+            "density": round(density_calculation, 3),
+        },
+        "timing": {
+            "sparse_time_ns": round(avg_sparse_time, 2),
+            "dense_time_ns": round(avg_dense_time, 2),
+            "total_time_ns": round(total_time, 2),
+            "sparse_percentage": round(sparse_percentage, 3),
+            "dense_percentage": round(dense_percentage, 3),
+            "fully_sparse_time": sparse_avg_sparse_time,
+            "speedup": round(speedup, 3),
+            "compile_time_split_s": compile_time_split_ns / 1e9 if compile_time_split_ns else 0.0,
+            "compile_time_sparse_s": compile_time_sparse_ns / 1e9 if compile_time_sparse_ns else 0.0,
+            "codegen_time_split_ms": codegen_time_split_ns,
+            "codegen_time_sparse_ms": codegen_time_sparse_ns,
+        },
+        "nnz": {
+            "sparse_nnz": sparse_nnz,
+            "dense_all": dense_all,
+            "dense_nnz": dense_nnz,
+            "extra_zeros": extra_zeros,
+            "dense_nnz_perc": round(dense_nnz_perc, 2),
+            "sparse_nnz_perc": round(sparse_nnz_perc, 2),
+        },
+        "individual_dense_block_timings": {},
+    }
+
+    for block_id, block_time in avg_individual_block_times.items():
+        block_info = dense_blocks[block_id - 1] if block_id - 1 < len(dense_blocks) else {}
+        block_nnz = block_info.get("nnz", 0)
+        dense_nnz_sum = sum(block.get("nnz", 0) for block in dense_blocks)
+        matrix_result["individual_dense_block_timings"][f"block_{block_id}"] = {
+            "time_ns": round(block_time, 2),
+            "percentage_of_total_time": round((block_time / total_time * 100), 2) if total_time > 0 else 0,
+            "percentage_of_dense_time": round((block_time / avg_dense_time * 100), 2) if avg_dense_time > 0 else 0,
+            "percentage_of_total_nnz": round((block_nnz / matrix_nnz * 100), 3) if matrix_nnz > 0 else 0,
+            "percentage_of_dense_nnz": round((block_nnz / dense_nnz_sum * 100), 3) if dense_nnz_sum > 0 else 0,
+            "rows": block_info.get("rows", 0),
+            "cols": block_info.get("cols", 0),
+            "density_percent": round(block_info.get("density_percent", 0), 3),
+            "nnz": block_nnz,
+        }
+
+    return matrix_result
+
+
 def main():
     """Main benchmarking function."""
     parser = argparse.ArgumentParser(
@@ -700,15 +893,15 @@ def main():
                         help=f"Number of benchmark iterations (default: {DEFAULT_BENCH_ITERATIONS})")
     parser.add_argument("--output-dir", type=str, default="results",
                         help="Output directory for results (default: results)")
-    parser.add_argument("--sparse", type=str, choices=["naive", "spv8", "mkl", "all"], default="all",
-                        help="Sparse kernel to use: naive (3-loop CSR), spv8 (SpV8), mkl (MKL sparse), or all (default: all)")
+    parser.add_argument("--sparse", type=str, choices=["naive", "spv8", "mkl", "uzp", "all"], default="all",
+                        help="Sparse kernel to use: naive (3-loop CSR), spv8 (SpV8), mkl (MKL sparse), uzp (UZP sparse dispatch), or all (default: all)")
     parser.add_argument("--dense", type=str, choices=["naive", "blas", "all"], default="naive",
                         help="Dense kernel to use: naive (handwritten), blas (cblas_dgemv), or all (default: naive)")
 
     args = parser.parse_args()
 
     # Determine which sparse and dense kernels to run
-    sparse_kernels = ["naive", "spv8", "mkl"] if args.sparse == "all" else [args.sparse]
+    sparse_kernels = ["naive", "spv8", "mkl", "uzp"] if args.sparse == "all" else [args.sparse]
     dense_kernels = ["naive", "blas"] if args.dense == "all" else [args.dense]
     
     # Get matrices to process - merge positional arguments and --matrices flag, or use all
@@ -796,6 +989,12 @@ def main():
                             matrix_name, split_vbrc_data, sparse_vbrc_data,
                             matrix_rows, matrix_cols, matrix_nnz,
                             args.bench, use_mkl=True, dense_kernel=dense_kernel
+                        )
+                    elif sparse_kernel == "uzp":
+                        result = process_and_benchmark_matrix_uzp(
+                            matrix_name, split_vbrc_data, sparse_vbrc_data,
+                            matrix_rows, matrix_cols, matrix_nnz,
+                            args.bench, dense_kernel=dense_kernel
                         )
                     else:
                         print(f"  [{results_key}] Unknown sparse kernel: {sparse_kernel}")

@@ -30,8 +30,33 @@ tests/example3_spmm_naive.vbrc
 tests/example3_spmm_spreg
 tests/example3_spmm_spreg.c
 tests/example3_spmm_spreg.vbrc
+tests/example3_uzp
+tests/example3_uzp.c
+tests/example3_uzp.vbrc
+tests/example3_uzp_blas
+tests/example3_uzp_blas.c
+tests/example3_uzp_blas.vbrc
 tests/Franz8.vbr
 Suitesparse*/
 mat_dist*.csv
 *.o
+*.openmp.o
 **/spmv_spv8
+# uzp-artifact build artifacts
+uzp-artifact/z_polyhedrator/target/
+uzp-artifact/z_polyhedrator/Cargo.lock
+uzp-artifact/spmv-executors/uzp-genex/spf_matvec
+uzp-artifact/spmv-executors/uzp-genex/spf_matvec_omp
+uzp-artifact/spmv-executors/uzp-genex/spf_aggregator
+uzp-artifact/spmv-executors/uzp-genex/spf_aggregator_omp
+uzp-artifact/spmv-executors/spmv-mkl/
+uzp-artifact/spmv-executors/spmv-csr/
+uzp-artifact/spmv-executors/spmv-csr5/
+uzp-artifact/uzp-tuners/spf_aggregator
+uzp-artifact/uzp-tuners/spf_aggregator_omp
+uzp-artifact/uzp-tuners/spf_tiling_tuner
+uzp-artifact/**/*.uzp
+uzp-artifact/**/__pycache__/
+# uzp-artifact binary dependencies (should be in container, not git)
+uzp-artifact/lib/oneapi/*.pkg.tar.zst
+*.pkg.tar.zst

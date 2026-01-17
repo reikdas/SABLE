@@ -11,10 +11,12 @@ import scipy.sparse
 
 from src.autopartition import cut_indices2, similarity2
 from src.codegen import (
-    gen_single_threaded_spmm_naive,
-    gen_single_threaded_spmm_spreg,
+    gen_single_threaded_spmm_naive_naive,
+    gen_single_threaded_spmm_naive_spreg,
     vbr_spmm_codegen,
     gen_single_threaded_spmv_naive,
+    gen_single_threaded_spmv_uzp_sparse_dispatch,
+    gen_single_threaded_spmv_uzp_sparse_dispatch_blas,
     vbr_spmv_codegen,
 )
 from src.consts import CFLAGS as CFLAGS
@@ -233,7 +235,7 @@ def test_spmm_unroll():
     run_spmm_unroll(1)
 
 def test_spmm_naive():
-    """Test gen_single_threaded_spmm_naive against scipy SpMM."""
+    """Test gen_single_threaded_spmm_naive_naive against scipy SpMM."""
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)
@@ -259,7 +261,7 @@ def test_spmm_naive():
     
     # Generate code using naive kernel (generate directly in tests/ directory)
     dir_name = os.path.join("tests")
-    gen_single_threaded_spmm_naive(
+    gen_single_threaded_spmm_naive_naive(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
         indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
     )
@@ -356,7 +358,7 @@ def _get_spreg_include_dirs():
 )
 @pytest.mark.skip(reason="Compilation too slow for regular testing - use benchmark script instead")
 def test_spmm_spreg():
-    """Test gen_single_threaded_spmm_spreg against scipy SpMM."""
+    """Test gen_single_threaded_spmm_naive_spreg against scipy SpMM."""
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)
@@ -382,7 +384,7 @@ def test_spmm_spreg():
     
     # Generate code using sparse-register-tiling kernel (generate directly in tests/ directory)
     dir_name = os.path.join("tests")
-    gen_single_threaded_spmm_spreg(
+    gen_single_threaded_spmm_naive_spreg(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
         indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
     )
@@ -514,6 +516,154 @@ def test_spmv_naive():
     
     # Compare results (allow small numerical differences)
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmv_uzp_sparse_dispatch():
+    """Test UZP sparse-dispatch backend against scipy SpMV.
+
+    This verifies that:
+    - SABLE-generated code can dispatch the sparse CSR remainder to UZP
+    - COO conversion + UZP mining happen outside the timed loop (in generated code)
+    - Only the UZP kernel execution is timed
+    """
+    # Require the prebuilt z_polyhedrator binary (UZP miner)
+    zpoly = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator")
+    if not os.path.exists(zpoly):
+        pytest.skip("z_polyhedrator binary not found; skipping UZP dispatch test")
+
+    # Load matrix from MTX file
+    mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
+    mtx = scipy.io.mmread(mtx_path)
+    A = scipy.sparse.csc_matrix(mtx, copy=False)
+    rows, cols = A.shape
+
+    # Convert to fully sparse VBRC format (no dense blocks)
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = \
+        convert_sparse_to_vbrc_with_blocks(A, [])
+    assert len(val) == 0, "Expected fully sparse matrix (val should be empty)"
+    assert len(ublocks) > 0, "Expected sparse remainder to exist (ublocks should be non-empty)"
+
+    # Write VBRC file (required by generated code)
+    vbr_dir = os.path.join("tests")
+    filename = "example3_uzp"
+    _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
+
+    # Write dense vector file (required by generated code)
+    write_dense_vector(1.0, cols)
+
+    # Generate UZP dispatch code (generate directly in tests/ directory)
+    dir_name = os.path.join("tests")
+    gen_single_threaded_spmv_uzp_sparse_dispatch(
+        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
+        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
+    )
+
+    # Compile the generated code, linking in UZP executor sources
+    uzp_genex_dir = os.path.join(BASE_PATH, "uzp-artifact", "spmv-executors", "uzp-genex")
+    uzp_sources = [
+        os.path.join(uzp_genex_dir, "polybench.c"),
+        os.path.join(uzp_genex_dir, "spf_structure.c"),
+        os.path.join(uzp_genex_dir, "spf_executors.c"),
+        os.path.join(uzp_genex_dir, "spf_executors_uninc.c"),
+    ]
+    subprocess.check_call(
+        ["gcc", "-o", filename, f"{filename}.c"] + uzp_sources + CFLAGS + [f"-I{uzp_genex_dir}", "-DGEN_EXECUTOR_SPMV_ORIGINAL", "-lm"],
+        cwd="tests"
+    )
+
+    # Run the executable and capture output
+    output = subprocess.check_output([f"./{filename}"], cwd="tests").decode("utf-8").split("\n")
+
+    # Skip timing lines and extract result vector
+    result_lines = []
+    skip_timing = True
+    for line in output:
+        line = line.strip()
+        if not line:
+            skip_timing = False
+            continue
+        if skip_timing:
+            continue
+        if line.startswith("Sparse:") or line.startswith("Dense:") or line.startswith("Dense Block"):
+            continue
+        try:
+            float(line)
+            result_lines.append(line)
+        except ValueError:
+            pass
+
+    y_generated = numpy.array([float(x) for x in result_lines])
+    x = numpy.ones(cols)
+    y_expected = A.dot(x)
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-8, atol=1e-8)
+
+
+def test_spmv_uzp_sparse_dispatch_blas():
+    """Test UZP sparse-dispatch + BLAS dense blocks backend against scipy SpMV."""
+    zpoly = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator")
+    if not os.path.exists(zpoly):
+        pytest.skip("z_polyhedrator binary not found; skipping UZP dispatch BLAS test")
+
+    # Best-effort MKL availability check (avoid noisy compile failures)
+    mkl_inc = next((f[2:] for f in MKL_FLAGS if f.startswith("-I")), None)
+    if not mkl_inc or not os.path.isdir(mkl_inc):
+        pytest.skip("MKL include directory not found; skipping BLAS dense test")
+
+    mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
+    mtx = scipy.io.mmread(mtx_path)
+    A = scipy.sparse.csc_matrix(mtx, copy=False)
+    rows, cols = A.shape
+
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = \
+        convert_sparse_to_vbrc_with_blocks(A, [])
+    assert len(val) == 0, "Expected fully sparse matrix (val should be empty)"
+    assert len(ublocks) > 0, "Expected sparse remainder to exist (ublocks should be non-empty)"
+
+    vbr_dir = os.path.join("tests")
+    filename = "example3_uzp_blas"
+    _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
+    write_dense_vector(1.0, cols)
+
+    dir_name = os.path.join("tests")
+    gen_single_threaded_spmv_uzp_sparse_dispatch_blas(
+        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
+        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
+    )
+
+    uzp_genex_dir = os.path.join(BASE_PATH, "uzp-artifact", "spmv-executors", "uzp-genex")
+    uzp_sources = [
+        os.path.join(uzp_genex_dir, "polybench.c"),
+        os.path.join(uzp_genex_dir, "spf_structure.c"),
+        os.path.join(uzp_genex_dir, "spf_executors.c"),
+        os.path.join(uzp_genex_dir, "spf_executors_uninc.c"),
+    ]
+    subprocess.check_call(
+        ["gcc", "-o", filename, f"{filename}.c"] + uzp_sources + CFLAGS + MKL_FLAGS + [f"-I{uzp_genex_dir}", "-DGEN_EXECUTOR_SPMV_ORIGINAL", "-lm"],
+        cwd="tests"
+    )
+
+    output = subprocess.check_output([f"./{filename}"], cwd="tests").decode("utf-8").split("\n")
+    result_lines = []
+    skip_timing = True
+    for line in output:
+        line = line.strip()
+        if not line:
+            skip_timing = False
+            continue
+        if skip_timing:
+            continue
+        if line.startswith("Sparse:") or line.startswith("Dense:") or line.startswith("Dense Block"):
+            continue
+        try:
+            float(line)
+            result_lines.append(line)
+        except ValueError:
+            pass
+
+    y_generated = numpy.array([float(x) for x in result_lines])
+    x = numpy.ones(cols)
+    y_expected = A.dot(x)
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-8, atol=1e-8)
     
 @pytest.mark.skip(reason="Git cannot store Franz8_canon.vbr")
 def test_partition_vals_real():

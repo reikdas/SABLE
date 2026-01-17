@@ -88,6 +88,34 @@ def spmv_kernel_3():
     code.append("}\n\n")
     return "".join(code)
 
+def spmv_kernel_blas():
+    """SpMV kernel using MKL's cblas_dgemv for dense blocks.
+
+    Dense block values are stored column-major: val[(j-j_start)*block_rows + (i-i_start)]
+    With CblasColMajor + CblasNoTrans, this matches our storage layout directly.
+
+    y[block_rows] += A[block_rows x block_cols] * x[block_cols]
+    """
+    code = """
+void spmv_kernel_blas(double *restrict y, const double *restrict x, const double *restrict val,
+                      const int i_start, const int i_end, const int j_start, const int j_end,
+                      const int val_offset) {
+    const int m = i_end - i_start;  // block_rows
+    const int n = j_end - j_start;  // block_cols
+
+    // A is stored column-major (m x n)
+    // y = alpha * A * x + beta * y
+    cblas_dgemv(CblasColMajor, CblasNoTrans, m, n,
+                1.0,                        // alpha
+                &val[val_offset], m,        // A, lda
+                &x[j_start], 1,             // x, incx
+                1.0,                        // beta
+                &y[i_start], 1);            // y, incy
+}
+
+"""
+    return code
+
 def spmv_sparse():
     code = []
     code.append("void spmv_sparse(double *restrict y, const double *restrict csr_val, const int *restrict indices, const int *restrict indptr, const double *restrict x, const int rpntr_size) {\n")
@@ -1031,11 +1059,235 @@ def _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     code.append("}\n")
     return code
 
+def _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_kernel_include, sparse_kernel_function, sparse_kernel_call):
+    """Common code generation for single-threaded SpMV functions with BLAS dense kernels.
+
+    Uses cblas_dgemv for dense blocks, but keeps spmv_kernel_3 for single-column (Nx1) blocks
+    since GCC-vectorized code is slightly faster for those.
+
+    Args:
+        sparse_kernel_include: String with additional includes (e.g., '#include "utility.h"\\n' or '#include <mkl.h>\\n')
+        sparse_kernel_function: String with additional kernel function definitions (e.g., spmv_sparse_naive function)
+        sparse_kernel_call: Function that generates the sparse kernel call code, takes (code, ublocks, csr_val, rpntr, cpntr, indptr, indices) as args
+    """
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <mkl.h>\n")  # Always include MKL for cblas_dgemv
+    if sparse_kernel_include:
+        code.append(sparse_kernel_include)
+    code.append("#include <assert.h>\n\n")
+
+    # Only include spmv_kernel_3 for Nx1 vectors (GCC is faster for these)
+    code.append(spmv_kernel_3())
+    code.append("\n")
+    code.append(spmv_kernel_blas())
+    code.append("\n")
+    if sparse_kernel_function:
+        code.append(sparse_kernel_function)
+        code.append("\n")
+    code.append("int main() {\n")
+    code.append("\tmkl_set_num_threads(1);\n")  # Single-threaded BLAS
+    code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
+    code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
+    if len(val) > 0:
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
+    else:
+        code.append(f"\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
+    if (len(ublocks) > 0):
+        if (len(indptr) > 0):
+            code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+            code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
+    code.append("\tstruct timespec t1, t2;\n")
+    code.append(f"\tlong sparse_times[{bench}];\n")
+    prev_count = 0
+    prev_nnz_block = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if prev_nnz_block not in ublocks:
+                    prev_count += 1
+                prev_nnz_block += 1
+    code.append(f"\tlong (*dense_block_times)[{bench}] = (long(*)[{bench}])malloc({prev_count} * {bench} * sizeof(long));\n")
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tsparse_times[i] = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{prev_count}; j++) {{\n")
+    code.append("\t\t\tdense_block_times[j][i] = 0;\n")
+    code.append("\t\t}\n")
+    code.append("\t}\n")
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append("\t\tmemset(y, 0, sizeof(double)*{0});\n".format(rpntr[-1]))
+    code.append(f"\t\tmemset(val, 0, {len(val) if len(val) > 0 else 1} * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\t\tmemset(csr_val, 0, {len(csr_val)} * sizeof(double));\n")
+        code.append(f"\t\tmemset(indptr, 0, {len(indptr)} * sizeof(int));\n")
+        code.append(f"\t\tmemset(indices, 0, {len(indices)} * sizeof(int));\n")
+    code.append("\t\tchar c;\n")
+    code.append(f"\t\tint x_size=0, val_size=0;\n")
+    code.append('''\t\tassert(fscanf(file1, "val=[%c", &c) == 1);
+        if (c != ']') {
+            ungetc(c, file1);
+            assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+            val_size++;
+            while (1) {
+                assert(fscanf(file1, "%c", &c) == 1);
+                if (c == ',') {
+                    assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+                    val_size++;
+                } else if (c == ']') {
+                    break;
+                } else {
+                    assert(0);
+                }
+            }
+        }
+        assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
+    if (len(ublocks) > 0):
+        code.append('''\t\tval_size=0;
+        assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
+        val_size++;
+        while (1) {
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {
+                assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+                val_size++;
+            } else if (c == ']') {
+                break;
+            } else {
+                assert(0);
+            }
+        }
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');\n''')
+    if (len(indptr) > 0):
+        code.append(f"""\t\tval_size=0;
+        assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+        val_size++;
+        while (1) {{
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {{
+                assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+                val_size++;
+            }} else if (c == ']') {{
+                break;
+            }} else {{
+                assert(0);
+            }}
+        }}
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');
+        val_size=0;
+        assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+        val_size++;
+        while (1) {{
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {{
+                assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+                val_size++;
+            }} else if (c == ']') {{
+                break;
+            }} else {{
+                assert(0);
+            }}
+        }}
+        if(fscanf(file1, "%c", &c));
+        assert(c=='\\n');\n""")
+    code.append("\t\tfclose(file1);\n")
+    code.append('''\t\twhile (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{
+            x_size++;
+        }}
+        fclose(file2);\n'''.format(cpntr[-1]))
+
+    # Call the sparse kernel function
+    sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices)
+
+    count = 0
+    nnz_block = 0
+    for a in range(len(rpntr)-1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr)-1):
+            if b in valid_cols:
+                if nnz_block not in ublocks:
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+                    # For Nx1 vectors (single column), use handwritten kernel - GCC is faster
+                    if (cpntr[b+1] - cpntr[b]) == 1:
+                        code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
+                    else:
+                        # Use BLAS dgemv for all other blocks (including single-row and general)
+                        code.append(f"\t\tspmv_kernel_blas(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+                    code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+                    count+=1
+                nnz_block += 1
+    code.append("\t}\n")
+
+    # Print sparse timings
+    code.append('\tprintf("Sparse: ");\n')
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tprintf(\"%lu,\", sparse_times[i]);\n")
+    code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+
+    # Print dense timings
+    code.append('\tprintf("Dense: ");\n')
+    code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\tlong total_dense = 0;\n")
+    code.append(f"\t\tfor (int j=0; j<{count}; j++) {{\n")
+    code.append("\t\t\ttotal_dense += dense_block_times[j][i];\n")
+    code.append("\t\t}\n")
+    code.append("\t\tprintf(\"%lu,\", total_dense);\n")
+    code.append("\t}\n")
+    code.append("\tprintf(\"\\n\");\n")
+
+    # Print individual dense block timings
+    code.append(f"\tfor (int j=0; j<{count}; j++) {{\n")
+    code.append('\t\tprintf("Dense Block %d: ", j+1);\n')
+    code.append(f"\t\tfor (int i=0; i<{bench}; i++) {{\n")
+    code.append("\t\t\tprintf(\"%lu,\", dense_block_times[j][i]);\n")
+    code.append("\t\t}\n")
+    code.append("\t\tprintf(\"\\n\");\n")
+    code.append("\t}\n")
+
+    # Print original filename output
+    code.append("\tprintf(\"\\n\");\n")
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
+    code.append("\t}\n")
+
+    # Free allocated memory
+    code.append(f"\tfree(dense_block_times);\n")
+    code.append(f"\tfree(y);\n")
+    code.append(f"\tfree(x);\n")
+    code.append(f"\tfree(val);\n")
+    if len(csr_val) > 0:
+        code.append(f"\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append(f"\tfree(indptr);\n")
+        code.append(f"\tfree(indices);\n")
+
+    code.append("}\n")
+    return code
+
 def gen_single_threaded_spmv_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     time1 = time.time_ns() // 1_000_000
-    
+
     def sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices):
         if len(ublocks) > 0:
             code.append(f"\t\tstruct csr_matrix mat = input_matrix({len(csr_val)}, {rpntr[-1]}, {cpntr[-1]}, csr_val, indices, indptr);\n")
@@ -1044,7 +1296,7 @@ def gen_single_threaded_spmv_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
             code.append("\t\tspmv_tr_spvv8_kernel(&tr, x, y);\n")
             code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
             code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
-    
+
     sparse_include = '#include "utility.h"\n' if len(ublocks) > 0 else ''
     code = _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call)
     
@@ -1099,7 +1351,78 @@ def gen_single_threaded_spmv_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
     if len(ublocks) > 0:
         sparse_include = "#include <mkl.h>\n#include <mkl_spblas.h>\n"
     code = _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call)
-    
+
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
+
+def gen_single_threaded_spmv_spv8_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+    """Generate code using BLAS dense kernels + SpV8 sparse kernel."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+
+    def sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices):
+        if len(ublocks) > 0:
+            code.append(f"\t\tstruct csr_matrix mat = input_matrix({len(csr_val)}, {rpntr[-1]}, {cpntr[-1]}, csr_val, indices, indptr);\n")
+            code.append("\t\tstruct tr_matrix tr = process(&mat);\n")
+            code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+            code.append("\t\tspmv_tr_spvv8_kernel(&tr, x, y);\n")
+            code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+            code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    sparse_include = '#include "utility.h"\n' if len(ublocks) > 0 else ''
+    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call)
+
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
+
+def gen_single_threaded_spmv_naive_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+    """Generate code using BLAS dense kernels + naive 3-loop CSR sparse kernel."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+
+    def sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices):
+        if len(ublocks) > 0:
+            code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+            code.append(f"\t\tspmv_sparse_naive(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+            code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+            code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, '', spmv_sparse_naive(), sparse_kernel_call)
+
+    with open(os.path.join(dir_name, filename+".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2-time1
+
+def gen_single_threaded_spmv_mkl_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+    """Generate code using BLAS dense kernels + MKL sparse kernel."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+
+    def sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices):
+        if len(ublocks) > 0:
+            code.append(f"""\t\tsparse_matrix_t A;
+        mkl_sparse_d_create_csr(&A, SPARSE_INDEX_BASE_ZERO, {rpntr[-1]}, {cpntr[-1]}, indptr, indptr+1, indices, csr_val);
+        struct matrix_descr descr;
+        descr.type = SPARSE_MATRIX_TYPE_GENERAL;\n""")
+            code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+            code.append("\t\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, 0.0, y);\n")
+            code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+            code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # MKL sparse functions need mkl_spblas.h (mkl.h is already included by _gen_single_threaded_spmv_common_blas)
+    sparse_include = ''
+    if len(ublocks) > 0:
+        sparse_include = "#include <mkl_spblas.h>\n"
+    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call)
+
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
     time2 = time.time_ns() // 1_000_000

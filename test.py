@@ -13,6 +13,8 @@ from src.autopartition import cut_indices2, similarity2
 from src.codegen import (
     gen_single_threaded_spmm_naive_naive,
     gen_single_threaded_spmm_naive_spreg,
+    gen_single_threaded_spmm_mkl_naive,
+    gen_single_threaded_spmm_mkl_spreg,
     vbr_spmm_codegen,
     gen_single_threaded_spmv_naive,
     gen_single_threaded_spmv_uzp_sparse_dispatch,
@@ -234,32 +236,32 @@ def run_spmm_unroll(threads):
 def test_spmm_unroll():
     run_spmm_unroll(1)
 
-def test_spmm_naive():
+def test_spmm_naive_naive():
     """Test gen_single_threaded_spmm_naive_naive against scipy SpMM."""
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)
-    
+
     # Convert to CSC format
     A = scipy.sparse.csc_matrix(mtx, copy=False)
     rows, cols = A.shape
-    
+
     # Convert to fully sparse VBRC format (no dense blocks)
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = \
         convert_sparse_to_vbrc_with_blocks(A, [])
-    
+
     # Verify it's fully sparse (no dense blocks)
     assert len(val) == 0, "Expected fully sparse matrix (val should be empty)"
-    
+
     # Write VBRC file (required by generated code)
     vbr_dir = os.path.join("tests")
-    filename = "example3_spmm_naive"
+    filename = "example3_spmm_naive_naive"
     _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
-    
+
     # Write dense matrix file (required by generated code) - 512 columns for SpMM
     write_dense_matrix(1.0, cols, 512)
-    
-    # Generate code using naive kernel (generate directly in tests/ directory)
+
+    # Generate code using naive_naive kernel (generate directly in tests/ directory)
     dir_name = os.path.join("tests")
     gen_single_threaded_spmm_naive_naive(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
@@ -305,6 +307,83 @@ def test_spmm_naive():
     
     # Compare results (allow small numerical differences)
     numpy.testing.assert_allclose(y_generated, Y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmm_mkl_naive():
+    """Test gen_single_threaded_spmm_mkl_naive against scipy SpMM.
+
+    Tests that MKL's cblas_dgemm produces correct results for dense blocks in SpMM.
+    """
+    # Load matrix from MTX file
+    mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
+    mtx = scipy.io.mmread(mtx_path)
+
+    # Convert to CSC format
+    A = scipy.sparse.csc_matrix(mtx, copy=False)
+    rows, cols = A.shape
+
+    # Convert to fully sparse VBRC format (no dense blocks)
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = \
+        convert_sparse_to_vbrc_with_blocks(A, [])
+
+    # Verify it's fully sparse (no dense blocks)
+    assert len(val) == 0, "Expected fully sparse matrix (val should be empty)"
+
+    # Write VBRC file (required by generated code)
+    vbr_dir = os.path.join("tests")
+    filename = "example3_spmm_mkl_naive"
+    _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
+
+    # Write dense matrix file (required by generated code) - 512 columns for SpMM
+    write_dense_matrix(1.0, cols, 512)
+
+    # Generate code using MKL_naive kernel (generate directly in tests/ directory)
+    dir_name = os.path.join("tests")
+    gen_single_threaded_spmm_mkl_naive(
+        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
+        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
+    )
+
+    # Compile the generated code with MKL flags
+    subprocess.check_call(
+        ["gcc", "-o", filename, f"{filename}.c"] + CFLAGS + MKL_FLAGS,
+        cwd="tests"
+    )
+
+    # Run the executable and capture output
+    output = subprocess.check_output([f"./{filename}"], cwd="tests").decode("utf-8").split("\n")
+
+    # Skip timing lines and extract result matrix
+    # The output format is: timing lines, then blank line, then y values one per line
+    result_lines = []
+    skip_timing = True
+    for line in output:
+        line = line.strip()
+        if not line:
+            skip_timing = False  # Blank line marks end of timing, start of results
+            continue
+        if skip_timing:
+            continue
+        if line.startswith("Sparse:") or line.startswith("Dense:") or line.startswith("Dense Block"):
+            continue
+        try:
+            # Try to parse as float - if successful, it's a result value
+            float(line)
+            result_lines.append(line)
+        except ValueError:
+            pass
+
+    # Convert result to numpy array and reshape to (rows, 512)
+    y_generated = numpy.array([float(x) for x in result_lines]).reshape(rows, 512)
+
+    # Compute expected result using scipy
+    # X is a matrix of ones with shape (cols, 512)
+    X = numpy.ones((cols, 512))
+    Y_expected = A.dot(X)
+
+    # Compare results (allow small numerical differences)
+    numpy.testing.assert_allclose(y_generated, Y_expected, rtol=1e-10, atol=1e-10)
+
 
 def _check_avx512_support():
     """Check if AVX512 is supported on this CPU."""
@@ -357,7 +436,7 @@ def _get_spreg_include_dirs():
     reason="AVX512 not supported on this CPU"
 )
 @pytest.mark.skip(reason="Compilation too slow for regular testing - use benchmark script instead")
-def test_spmm_spreg():
+def test_spmm_naive_spreg():
     """Test gen_single_threaded_spmm_naive_spreg against scipy SpMM."""
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
@@ -382,7 +461,7 @@ def test_spmm_spreg():
     # Write dense matrix file (required by generated code) - 512 columns for SpMM
     write_dense_matrix(1.0, cols, 512)
     
-    # Generate code using sparse-register-tiling kernel (generate directly in tests/ directory)
+    # Generate code using naive_spreg kernel (generate directly in tests/ directory)
     dir_name = os.path.join("tests")
     gen_single_threaded_spmm_naive_spreg(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
@@ -445,6 +524,105 @@ def test_spmm_spreg():
     
     # Compare results (allow small numerical differences)
     numpy.testing.assert_allclose(y_generated, Y_expected, rtol=1e-10, atol=1e-10)
+
+
+@pytest.mark.skipif(
+    not _check_avx512_support(),
+    reason="AVX512 not supported on this CPU"
+)
+@pytest.mark.skip(reason="Compilation too slow for regular testing - use benchmark script instead")
+def test_spmm_mkl_spreg():
+    """Test gen_single_threaded_spmm_mkl_spreg against scipy SpMM.
+
+    Tests MKL cblas_dgemm for dense blocks + sparse-register-tiling for sparse part.
+    """
+    # Load matrix from MTX file
+    mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
+    mtx = scipy.io.mmread(mtx_path)
+
+    # Convert to CSC format
+    A = scipy.sparse.csc_matrix(mtx, copy=False)
+    rows, cols = A.shape
+
+    # Convert to fully sparse VBRC format (no dense blocks)
+    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = \
+        convert_sparse_to_vbrc_with_blocks(A, [])
+
+    # Verify it's fully sparse (no dense blocks)
+    assert len(val) == 0, "Expected fully sparse matrix (val should be empty)"
+
+    # Write VBRC file (required by generated code)
+    vbr_dir = os.path.join("tests")
+    filename = "example3_spmm_mkl_spreg"
+    _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
+
+    # Write dense matrix file (required by generated code) - 512 columns for SpMM
+    write_dense_matrix(1.0, cols, 512)
+
+    # Generate code using mkl_spreg kernel (generate directly in tests/ directory)
+    dir_name = os.path.join("tests")
+    gen_single_threaded_spmm_mkl_spreg(
+        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
+        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
+    )
+
+    # Get source files and include directories (same as benchmark script)
+    spreg_src_files = _get_spreg_source_files()
+    include_dirs = _get_spreg_include_dirs()
+
+    # Build include flags
+    include_flags = []
+    for inc_dir in include_dirs:
+        include_flags.extend(["-I", inc_dir])
+
+    # Compile with g++ to handle C++ code
+    # Use -x c++ to treat the .c file as C++ for linking purposes
+    # CRITICAL: -DENABLE_AVX512 is required for factory registration
+    compile_cmd = [
+        "g++", "-x", "c++", "-o", filename, f"{filename}.c"
+    ] + spreg_src_files + [
+        "-std=c++17", "-O3", "-march=native", "-fopenmp", "-lstdc++fs", "-lpthread",
+        "-DRTE_CACHE_LINE_SIZE=64",
+        "-DENABLE_AVX512",  # Critical for factory registration
+        "-mavx512f",        # Enable AVX512 instructions
+    ] + include_flags + MKL_FLAGS
+
+    subprocess.check_call(compile_cmd, cwd="tests")
+
+    # Run the executable and capture output
+    output = subprocess.check_output([f"./{filename}"], cwd="tests").decode("utf-8").split("\n")
+
+    # Skip timing lines and extract result matrix
+    # The output format is: timing lines, then blank line, then y values one per line
+    result_lines = []
+    skip_timing = True
+    for line in output:
+        line = line.strip()
+        if not line:
+            skip_timing = False  # Blank line marks end of timing, start of results
+            continue
+        if skip_timing:
+            continue
+        if line.startswith("Sparse:") or line.startswith("Dense:") or line.startswith("Dense Block"):
+            continue
+        try:
+            # Try to parse as float - if successful, it's a result value
+            float(line)
+            result_lines.append(line)
+        except ValueError:
+            pass
+
+    # Convert result to numpy array and reshape to (rows, 512)
+    y_generated = numpy.array([float(x) for x in result_lines]).reshape(rows, 512)
+
+    # Compute expected result using scipy
+    # X is a matrix of ones with shape (cols, 512)
+    X = numpy.ones((cols, 512))
+    Y_expected = A.dot(X)
+
+    # Compare results (allow small numerical differences)
+    numpy.testing.assert_allclose(y_generated, Y_expected, rtol=1e-10, atol=1e-10)
+
 
 def test_spmv_naive():
     """Test gen_single_threaded_spmv_naive against scipy SpMV."""

@@ -42,6 +42,80 @@ def num_past_unrolled(ublocks: list[int], indx: list[int], start_pos: int) -> in
     return num_unrolled
 
 
+# Thresholds for MKL vs naive dispatch for dense blocks
+# Based on empirical analysis: MKL struggles with thin/vector-like blocks
+MKL_MIN_DIM_THRESHOLD = 8       # Minimum dimension for MKL to be beneficial
+MKL_MAX_ASPECT_RATIO = 100      # Maximum aspect ratio for MKL to be beneficial
+
+
+def should_use_mkl_for_block(rows: int, cols: int) -> bool:
+    """Determine whether to use MKL or naive kernel for a dense block.
+    
+    MKL (cblas_dgemm) is better for "chunky" blocks where both dimensions
+    are reasonably sized. For thin/vector-like blocks (one dimension very small)
+    or blocks with extreme aspect ratios, the naive handwritten kernel has
+    less overhead and performs better.
+    
+    Args:
+        rows: Number of rows in the dense block
+        cols: Number of columns in the dense block
+        
+    Returns:
+        True if MKL should be used, False if naive kernel should be used
+    """
+    min_dim = min(rows, cols)
+    max_dim = max(rows, cols)
+    
+    # Use naive for thin blocks (vector-like)
+    if min_dim < MKL_MIN_DIM_THRESHOLD:
+        return False
+    
+    # Use naive for extreme aspect ratios
+    aspect_ratio = max_dim / min_dim if min_dim > 0 else float('inf')
+    if aspect_ratio > MKL_MAX_ASPECT_RATIO:
+        return False
+    
+    # Use MKL for chunky blocks
+    return True
+
+
+def get_best_naive_spmm_kernel_call(num_rows: int, num_cols: int, i_start: int, i_end: int, 
+                                     j_start: int, j_end: int, val_offset: int) -> str:
+    """Select the best naive SpMM kernel based on block shape.
+    
+    Different kernels are optimized for different block shapes:
+    - spmm_kernel_2: Single row block (num_rows == 1)
+    - spmm_kernel_3: Single column block (num_cols == 1)
+    - spmm_kernel_4: Few columns (num_cols < 16) - blocks only in rows
+    - spmm_kernel_5: Few rows (num_rows < 16) - blocks only in columns
+    - spmm_kernel: General case with 16x16 blocking
+    
+    Args:
+        num_rows, num_cols: Block dimensions
+        i_start, i_end: Row range in output matrix
+        j_start, j_end: Column range in input matrix
+        val_offset: Offset into val array
+        
+    Returns:
+        C function call string for the best kernel
+    """
+    if num_rows == 1:
+        # Single row block - use kernel optimized for accumulating into one Y row
+        return f"spmm_kernel_2(y, x, val, {i_start}, {j_start}, {j_end}, {val_offset});"
+    elif num_cols == 1:
+        # Single column block - use kernel optimized for broadcasting one X row
+        return f"spmm_kernel_3(y, x, val, {i_start}, {i_end}, {j_start}, {val_offset});"
+    elif num_cols < 16:
+        # Few columns - block only in rows, iterate through all columns
+        return f"spmm_kernel_4(y, x, val, {i_start}, {i_end}, {j_start}, {j_end}, {val_offset});"
+    elif num_rows < 16:
+        # Few rows - block only in columns, iterate through all rows
+        return f"spmm_kernel_5(y, x, val, {i_start}, {i_end}, {j_start}, {j_end}, {val_offset});"
+    else:
+        # General case - use blocked kernel (16x16 blocking)
+        return f"spmm_kernel(y, x, val, {i_start}, {i_end}, {j_start}, {j_end}, {val_offset});"
+
+
 def vbr_spmv_codegen_for_all(density: int = 0):
     if density == 0:
         input_dir_name = "Generated_VBR"
@@ -541,24 +615,14 @@ def gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb,
             if b in valid_cols:
                 if nnz_block not in ublocks:
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-                    # Dispatch to appropriate kernel based on block shape
+                    # Dispatch to best naive kernel based on block shape
                     num_rows = rpntr[a+1] - rpntr[a]
                     num_cols = cpntr[b+1] - cpntr[b]
-                    if num_rows == 1:
-                        # Single row block - use kernel optimized for accumulating into one Y row
-                        code.append(f"\t\tspmm_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    elif num_cols == 1:
-                        # Single column block - use kernel optimized for broadcasting one X row
-                        code.append(f"\t\tspmm_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
-                    elif num_cols < 16:
-                        # Few columns - block only in rows, iterate through all columns
-                        code.append(f"\t\tspmm_kernel_4(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    elif num_rows < 16:
-                        # Few rows - block only in columns, iterate through all rows
-                        code.append(f"\t\tspmm_kernel_5(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    else:
-                        # General case - use blocked kernel (16x16 blocking)
-                        code.append(f"\t\tspmm_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    kernel_call = get_best_naive_spmm_kernel_call(
+                        num_rows, num_cols,
+                        rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[count]
+                    )
+                    code.append(f"\t\t{kernel_call}\n")
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
                     code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
                     count+=1
@@ -608,7 +672,7 @@ def gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb,
     if len(indptr) > 0:
         code.append(f"\tfree(indptr);\n")
         code.append(f"\tfree(indices);\n")
-    
+
     code.append("}\n")
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
@@ -637,6 +701,17 @@ def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, b
     code.append("#include <mkl.h>\n")
     code.append("#include <mkl_cblas.h>\n\n")
     code.append(spmm_kernel_mkl())
+    code.append("\n")
+    # Include all naive kernel variants for thin/vector-like blocks
+    code.append(spmm_kernel())    # General 16x16 blocked kernel
+    code.append("\n")
+    code.append(spmm_kernel_2())  # Single row (num_rows == 1)
+    code.append("\n")
+    code.append(spmm_kernel_3())  # Single column (num_cols == 1)
+    code.append("\n")
+    code.append(spmm_kernel_4())  # Few columns (num_cols < 16)
+    code.append("\n")
+    code.append(spmm_kernel_5())  # Few rows (num_rows < 16)
     code.append("\n")
     code.append(spmm_sparse())
     code.append("\n")
@@ -773,6 +848,8 @@ def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, b
         code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
     count = 0
     nnz_block = 0
+    mkl_blocks = 0
+    naive_blocks = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
             continue
@@ -780,9 +857,21 @@ def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, b
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 if nnz_block not in ublocks:
+                    block_rows = rpntr[a+1] - rpntr[a]
+                    block_cols = cpntr[b+1] - cpntr[b]
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-                    # Use MKL's cblas_dgemm for all dense blocks
-                    code.append(f"\t\tspmm_kernel_mkl(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    # Dispatch to MKL or best naive kernel based on block shape
+                    if should_use_mkl_for_block(block_rows, block_cols):
+                        code.append(f"\t\tspmm_kernel_mkl(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                        mkl_blocks += 1
+                    else:
+                        # Use the best naive kernel for this block shape
+                        kernel_call = get_best_naive_spmm_kernel_call(
+                            block_rows, block_cols,
+                            rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[count]
+                        )
+                        code.append(f"\t\t{kernel_call}\n")
+                        naive_blocks += 1
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
                     code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
                     count+=1
@@ -837,6 +926,8 @@ def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, b
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
     time2 = time.time_ns() // 1_000_000
+    # Log dispatch statistics
+    print(f"  [mkl_naive] Block dispatch: {mkl_blocks} MKL, {naive_blocks} naive (of {mkl_blocks + naive_blocks} total dense blocks)")
     return time2-time1
 
 
@@ -2548,24 +2639,14 @@ def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
             if b in valid_cols:
                 if nnz_block not in ublocks:
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-                    # Dispatch to appropriate kernel based on block shape
+                    # Dispatch to best naive kernel based on block shape
                     num_rows = rpntr[a+1] - rpntr[a]
                     num_cols = cpntr[b+1] - cpntr[b]
-                    if num_rows == 1:
-                        # Single row block - use kernel optimized for accumulating into one Y row
-                        code.append(f"\t\tspmm_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    elif num_cols == 1:
-                        # Single column block - use kernel optimized for broadcasting one X row
-                        code.append(f"\t\tspmm_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
-                    elif num_cols < 16:
-                        # Few columns - block only in rows, iterate through all columns
-                        code.append(f"\t\tspmm_kernel_4(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    elif num_rows < 16:
-                        # Few rows - block only in columns, iterate through all rows
-                        code.append(f"\t\tspmm_kernel_5(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                    else:
-                        # General case - use blocked kernel (16x16 blocking)
-                        code.append(f"\t\tspmm_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    kernel_call = get_best_naive_spmm_kernel_call(
+                        num_rows, num_cols,
+                        rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[count]
+                    )
+                    code.append(f"\t\t{kernel_call}\n")
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
                     code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
                     count+=1
@@ -2660,6 +2741,17 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
     code.append('#include "spmm_spreg_wrapper.h"\n')
     code.append("\n")
     code.append(spmm_kernel_mkl())
+    code.append("\n")
+    # Include all naive kernel variants for thin/vector-like blocks
+    code.append(spmm_kernel())    # General 16x16 blocked kernel
+    code.append("\n")
+    code.append(spmm_kernel_2())  # Single row (num_rows == 1)
+    code.append("\n")
+    code.append(spmm_kernel_3())  # Single column (num_cols == 1)
+    code.append("\n")
+    code.append(spmm_kernel_4())  # Few columns (num_cols < 16)
+    code.append("\n")
+    code.append(spmm_kernel_5())  # Few rows (num_rows < 16)
     code.append("\n")
     code.append("int main() {\n")
     # Set MKL to single-threaded
@@ -2911,6 +3003,8 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
         code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
     count = 0
     nnz_block = 0
+    mkl_blocks = 0
+    naive_blocks = 0
     for a in range(len(rpntr)-1):
         if bpntrb[a] == -1:
             continue
@@ -2918,9 +3012,21 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
         for b in range(len(cpntr)-1):
             if b in valid_cols:
                 if nnz_block not in ublocks:
+                    block_rows = rpntr[a+1] - rpntr[a]
+                    block_cols = cpntr[b+1] - cpntr[b]
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-                    # Use MKL's cblas_dgemm for all dense blocks
-                    code.append(f"\t\tspmm_kernel_mkl(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    # Dispatch to MKL or best naive kernel based on block shape
+                    if should_use_mkl_for_block(block_rows, block_cols):
+                        code.append(f"\t\tspmm_kernel_mkl(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                        mkl_blocks += 1
+                    else:
+                        # Use the best naive kernel for this block shape
+                        kernel_call = get_best_naive_spmm_kernel_call(
+                            block_rows, block_cols,
+                            rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[count]
+                        )
+                        code.append(f"\t\t{kernel_call}\n")
+                        naive_blocks += 1
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
                     code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
                     count+=1
@@ -2980,6 +3086,8 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
     time2 = time.time_ns() // 1_000_000
+    # Log dispatch statistics
+    print(f"  [mkl_spreg] Block dispatch: {mkl_blocks} MKL, {naive_blocks} naive (of {mkl_blocks + naive_blocks} total dense blocks)")
     return time2-time1
 
 

@@ -31,8 +31,10 @@ from ssgetpy import fetch
 from src.codegen import (
     gen_single_threaded_spmm_naive_naive,
     gen_single_threaded_spmm_naive_spreg,
+    gen_single_threaded_spmm_naive_mkl,
     gen_single_threaded_spmm_mkl_naive,
     gen_single_threaded_spmm_mkl_spreg,
+    gen_single_threaded_spmm_mkl_mkl,
 )
 from src.consts import CFLAGS
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file, analyze_dense_blocks
@@ -63,8 +65,10 @@ GENERATED_VBR_SPLIT_DIR = FILEPATH / "Generated_VBR_split"
 GENERATED_VBR_SPARSE_DIR = FILEPATH / "Generated_VBR_Sparse"
 GENERATED_SPMM_NAIVE_NAIVE_DIR = FILEPATH / "Generated_SpMM_C_naive_naive"
 GENERATED_SPMM_NAIVE_SPREG_DIR = FILEPATH / "Generated_SpMM_C_naive_spreg"
+GENERATED_SPMM_NAIVE_MKL_DIR = FILEPATH / "Generated_SpMM_C_naive_mkl"
 GENERATED_SPMM_MKL_NAIVE_DIR = FILEPATH / "Generated_SpMM_C_mkl_naive"
 GENERATED_SPMM_MKL_SPREG_DIR = FILEPATH / "Generated_SpMM_C_mkl_spreg"
+GENERATED_SPMM_MKL_MKL_DIR = FILEPATH / "Generated_SpMM_C_mkl_mkl"
 
 # Paths for sparse-register-tiling
 SPREG_BASE = FILEPATH / "sparse-register-tiling" / "spmm_nano_kernels"
@@ -1277,6 +1281,304 @@ def process_and_benchmark_matrix_mkl_spreg(
     return matrix_result
 
 
+def process_and_benchmark_matrix_naive_mkl(
+    matrix_name: str,
+    split_vbrc_data: Dict[str, Any],
+    sparse_vbrc_data: Dict[str, Any],
+    matrix_rows: int,
+    matrix_cols: int,
+    matrix_nnz: int,
+    bench_iterations: int,
+) -> Optional[Dict[str, Any]]:
+    """
+    Run SpMM benchmarks using naive dense + MKL sparse (mkl_sparse_d_mm) implementation.
+
+    Args:
+        matrix_name: Name of the matrix
+        split_vbrc_data: Pre-converted VBRC data with dense blocks
+        sparse_vbrc_data: Pre-converted VBRC data without dense blocks
+        matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
+        bench_iterations: Number of benchmark iterations
+
+    Returns:
+        Dictionary with benchmark results
+    """
+    codegen_dir_split = str(GENERATED_SPMM_NAIVE_MKL_DIR / "split")
+    codegen_dir_sparse = str(GENERATED_SPMM_NAIVE_MKL_DIR / "sparse")
+
+    os.makedirs(codegen_dir_split, exist_ok=True)
+    os.makedirs(codegen_dir_sparse, exist_ok=True)
+
+    val = split_vbrc_data["val"]
+    indx = split_vbrc_data["indx"]
+    bindx = split_vbrc_data["bindx"]
+    rpntr = split_vbrc_data["rpntr"]
+    cpntr = split_vbrc_data["cpntr"]
+    bpntrb = split_vbrc_data["bpntrb"]
+    bpntre = split_vbrc_data["bpntre"]
+    ublocks = split_vbrc_data["ublocks"]
+    indptr = split_vbrc_data["indptr"]
+    indices = split_vbrc_data["indices"]
+    csr_val = split_vbrc_data["csr_val"]
+    dense_blocks = split_vbrc_data["dense_blocks"]
+    vbr_dir = split_vbrc_data["vbr_dir"]
+
+    val_sparse = sparse_vbrc_data["val"]
+    indx_sparse = sparse_vbrc_data["indx"]
+    bindx_sparse = sparse_vbrc_data["bindx"]
+    rpntr_sparse = sparse_vbrc_data["rpntr"]
+    cpntr_sparse = sparse_vbrc_data["cpntr"]
+    bpntrb_sparse = sparse_vbrc_data["bpntrb"]
+    bpntre_sparse = sparse_vbrc_data["bpntre"]
+    ublocks_sparse = sparse_vbrc_data["ublocks"]
+    indptr_sparse = sparse_vbrc_data["indptr"]
+    indices_sparse = sparse_vbrc_data["indices"]
+    csr_val_sparse = sparse_vbrc_data["csr_val"]
+    sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
+
+    print(f"  [naive_mkl] Generating C code (split)...")
+    gen_single_threaded_spmm_naive_mkl(
+        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
+        ublocks, indptr, indices, csr_val,
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+    )
+
+    # MKL flags auto-detected from #include <mkl.h>
+    print(f"  [naive_mkl] Evaluating split version...")
+    avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
+
+    print(f"  [naive_mkl] Generating C code (fully sparse)...")
+    gen_single_threaded_spmm_naive_mkl(
+        val_sparse, indx_sparse, bindx_sparse,
+        rpntr_sparse, cpntr_sparse,
+        bpntrb_sparse, bpntre_sparse,
+        ublocks_sparse, indptr_sparse,
+        indices_sparse, csr_val_sparse,
+        codegen_dir_sparse, matrix_name,
+        sparse_vbr_dir, bench=bench_iterations
+    )
+
+    # MKL flags auto-detected from #include <mkl.h>
+    print(f"  [naive_mkl] Evaluating fully sparse version...")
+    sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
+        matrix_name, codegen_dir_sparse, bench_iterations
+    )
+
+    total_time = avg_sparse_time + avg_dense_time
+    sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
+    dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
+    speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+
+    dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
+    dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
+    sparse_nnz = matrix_nnz - dense_nnz
+    extra_zeros = dense_all - dense_nnz
+    dense_nnz_perc = (dense_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+    sparse_nnz_perc = (sparse_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+
+    density_calculation = matrix_nnz / (matrix_rows * matrix_cols) if matrix_rows * matrix_cols > 0 else 0
+
+    matrix_result = {
+        "matrix_name": matrix_name,
+        "matrix_dimensions": {
+            "rows": matrix_rows,
+            "cols": matrix_cols,
+            "nnz": matrix_nnz,
+            "density": round(density_calculation, 3),
+        },
+        "timing": {
+            "sparse_time_ns": round(avg_sparse_time, 2),
+            "dense_time_ns": round(avg_dense_time, 2),
+            "total_time_ns": round(total_time, 2),
+            "sparse_percentage": round(sparse_percentage, 3),
+            "dense_percentage": round(dense_percentage, 3),
+            "fully_sparse_time": sparse_avg_sparse_time,
+            "speedup": round(speedup, 3),
+            "expected_sparse_time_ns": ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
+            "dense_if_sparse_time_ns": sparse_avg_sparse_time - ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
+            "compile_time_split_s": compile_time_split_ns / 1e9 if compile_time_split_ns else 0.0,
+            "compile_time_sparse_s": compile_time_sparse_ns / 1e9 if compile_time_sparse_ns else 0.0,
+        },
+        "nnz": {
+            "sparse_nnz": sparse_nnz,
+            "dense_all": dense_all,
+            "dense_nnz": dense_nnz,
+            "extra_zeros": extra_zeros,
+            "dense_nnz_perc": round(dense_nnz_perc, 2),
+            "sparse_nnz_perc": round(sparse_nnz_perc, 2),
+        },
+        "individual_dense_block_timings": {}
+    }
+
+    for block_id, block_time in avg_individual_block_times.items():
+        block_info = dense_blocks[block_id - 1] if block_id - 1 < len(dense_blocks) else {}
+        block_nnz = block_info.get("nnz", 0)
+        dense_nnz_sum = sum(block.get("nnz", 0) for block in dense_blocks)
+        matrix_result["individual_dense_block_timings"][f"block_{block_id}"] = {
+            "time_ns": round(block_time, 2),
+            "percentage_of_total_time": round((block_time / total_time * 100), 2) if total_time > 0 else 0,
+            "percentage_of_dense_time": round((block_time / avg_dense_time * 100), 2) if avg_dense_time > 0 else 0,
+            "percentage_of_total_nnz": round((block_nnz / matrix_nnz * 100), 3) if matrix_nnz > 0 else 0,
+            "percentage_of_dense_nnz": round((block_nnz / dense_nnz_sum * 100), 3) if dense_nnz_sum > 0 else 0,
+            "rows": block_info.get("rows", 0),
+            "cols": block_info.get("cols", 0),
+            "density_percent": round(block_info.get("density_percent", 0), 3),
+            "nnz": block_nnz
+        }
+
+    return matrix_result
+
+
+def process_and_benchmark_matrix_mkl_mkl(
+    matrix_name: str,
+    split_vbrc_data: Dict[str, Any],
+    sparse_vbrc_data: Dict[str, Any],
+    matrix_rows: int,
+    matrix_cols: int,
+    matrix_nnz: int,
+    bench_iterations: int,
+) -> Optional[Dict[str, Any]]:
+    """
+    Run SpMM benchmarks using MKL dense (cblas_dgemm) + MKL sparse (mkl_sparse_d_mm) implementation.
+
+    Args:
+        matrix_name: Name of the matrix
+        split_vbrc_data: Pre-converted VBRC data with dense blocks
+        sparse_vbrc_data: Pre-converted VBRC data without dense blocks
+        matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
+        bench_iterations: Number of benchmark iterations
+
+    Returns:
+        Dictionary with benchmark results
+    """
+    codegen_dir_split = str(GENERATED_SPMM_MKL_MKL_DIR / "split")
+    codegen_dir_sparse = str(GENERATED_SPMM_MKL_MKL_DIR / "sparse")
+
+    os.makedirs(codegen_dir_split, exist_ok=True)
+    os.makedirs(codegen_dir_sparse, exist_ok=True)
+
+    val = split_vbrc_data["val"]
+    indx = split_vbrc_data["indx"]
+    bindx = split_vbrc_data["bindx"]
+    rpntr = split_vbrc_data["rpntr"]
+    cpntr = split_vbrc_data["cpntr"]
+    bpntrb = split_vbrc_data["bpntrb"]
+    bpntre = split_vbrc_data["bpntre"]
+    ublocks = split_vbrc_data["ublocks"]
+    indptr = split_vbrc_data["indptr"]
+    indices = split_vbrc_data["indices"]
+    csr_val = split_vbrc_data["csr_val"]
+    dense_blocks = split_vbrc_data["dense_blocks"]
+    vbr_dir = split_vbrc_data["vbr_dir"]
+
+    val_sparse = sparse_vbrc_data["val"]
+    indx_sparse = sparse_vbrc_data["indx"]
+    bindx_sparse = sparse_vbrc_data["bindx"]
+    rpntr_sparse = sparse_vbrc_data["rpntr"]
+    cpntr_sparse = sparse_vbrc_data["cpntr"]
+    bpntrb_sparse = sparse_vbrc_data["bpntrb"]
+    bpntre_sparse = sparse_vbrc_data["bpntre"]
+    ublocks_sparse = sparse_vbrc_data["ublocks"]
+    indptr_sparse = sparse_vbrc_data["indptr"]
+    indices_sparse = sparse_vbrc_data["indices"]
+    csr_val_sparse = sparse_vbrc_data["csr_val"]
+    sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
+
+    print(f"  [mkl_mkl] Generating C code (split)...")
+    gen_single_threaded_spmm_mkl_mkl(
+        val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
+        ublocks, indptr, indices, csr_val,
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+    )
+
+    # MKL flags auto-detected from #include <mkl.h>
+    print(f"  [mkl_mkl] Evaluating split version...")
+    avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
+
+    print(f"  [mkl_mkl] Generating C code (fully sparse)...")
+    gen_single_threaded_spmm_mkl_mkl(
+        val_sparse, indx_sparse, bindx_sparse,
+        rpntr_sparse, cpntr_sparse,
+        bpntrb_sparse, bpntre_sparse,
+        ublocks_sparse, indptr_sparse,
+        indices_sparse, csr_val_sparse,
+        codegen_dir_sparse, matrix_name,
+        sparse_vbr_dir, bench=bench_iterations
+    )
+
+    # MKL flags auto-detected from #include <mkl.h>
+    print(f"  [mkl_mkl] Evaluating fully sparse version...")
+    sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
+        matrix_name, codegen_dir_sparse, bench_iterations
+    )
+
+    total_time = avg_sparse_time + avg_dense_time
+    sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
+    dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
+    speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+
+    dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
+    dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
+    sparse_nnz = matrix_nnz - dense_nnz
+    extra_zeros = dense_all - dense_nnz
+    dense_nnz_perc = (dense_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+    sparse_nnz_perc = (sparse_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+
+    density_calculation = matrix_nnz / (matrix_rows * matrix_cols) if matrix_rows * matrix_cols > 0 else 0
+
+    matrix_result = {
+        "matrix_name": matrix_name,
+        "matrix_dimensions": {
+            "rows": matrix_rows,
+            "cols": matrix_cols,
+            "nnz": matrix_nnz,
+            "density": round(density_calculation, 3),
+        },
+        "timing": {
+            "sparse_time_ns": round(avg_sparse_time, 2),
+            "dense_time_ns": round(avg_dense_time, 2),
+            "total_time_ns": round(total_time, 2),
+            "sparse_percentage": round(sparse_percentage, 3),
+            "dense_percentage": round(dense_percentage, 3),
+            "fully_sparse_time": sparse_avg_sparse_time,
+            "speedup": round(speedup, 3),
+            "expected_sparse_time_ns": ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
+            "dense_if_sparse_time_ns": sparse_avg_sparse_time - ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
+            "compile_time_split_s": compile_time_split_ns / 1e9 if compile_time_split_ns else 0.0,
+            "compile_time_sparse_s": compile_time_sparse_ns / 1e9 if compile_time_sparse_ns else 0.0,
+        },
+        "nnz": {
+            "sparse_nnz": sparse_nnz,
+            "dense_all": dense_all,
+            "dense_nnz": dense_nnz,
+            "extra_zeros": extra_zeros,
+            "dense_nnz_perc": round(dense_nnz_perc, 2),
+            "sparse_nnz_perc": round(sparse_nnz_perc, 2),
+        },
+        "individual_dense_block_timings": {}
+    }
+
+    for block_id, block_time in avg_individual_block_times.items():
+        block_info = dense_blocks[block_id - 1] if block_id - 1 < len(dense_blocks) else {}
+        block_nnz = block_info.get("nnz", 0)
+        dense_nnz_sum = sum(block.get("nnz", 0) for block in dense_blocks)
+        matrix_result["individual_dense_block_timings"][f"block_{block_id}"] = {
+            "time_ns": round(block_time, 2),
+            "percentage_of_total_time": round((block_time / total_time * 100), 2) if total_time > 0 else 0,
+            "percentage_of_dense_time": round((block_time / avg_dense_time * 100), 2) if avg_dense_time > 0 else 0,
+            "percentage_of_total_nnz": round((block_nnz / matrix_nnz * 100), 3) if matrix_nnz > 0 else 0,
+            "percentage_of_dense_nnz": round((block_nnz / dense_nnz_sum * 100), 3) if dense_nnz_sum > 0 else 0,
+            "rows": block_info.get("rows", 0),
+            "cols": block_info.get("cols", 0),
+            "density_percent": round(block_info.get("density_percent", 0), 3),
+            "nnz": block_nnz
+        }
+
+    return matrix_result
+
+
 def main():
     """Main benchmarking function."""
     parser = argparse.ArgumentParser(
@@ -1300,20 +1602,22 @@ def main():
                         help="Output directory for results (default: results)")
     parser.add_argument("--dense", type=str, choices=["naive", "mkl", "all"], default="all",
                         help="Dense kernel to use: naive (handwritten), mkl (cblas_dgemm), or all (default: all)")
-    parser.add_argument("--sparse", type=str, choices=["naive", "spreg", "all"], default="all",
-                        help="Sparse kernel to use: naive (handwritten), spreg (sparse-register-tiling), or all (default: all)")
+    parser.add_argument("--sparse", type=str, choices=["naive", "spreg", "mkl", "all"], default="all",
+                        help="Sparse kernel to use: naive (handwritten), spreg (sparse-register-tiling), mkl (MKL mkl_sparse_d_mm), or all (default: all)")
 
     args = parser.parse_args()
 
     # Determine which combinations to run based on --dense and --sparse args
     dense_kernels = ["naive", "mkl"] if args.dense == "all" else [args.dense]
-    sparse_kernels = ["naive", "spreg"] if args.sparse == "all" else [args.sparse]
+    sparse_kernels = ["naive", "spreg", "mkl"] if args.sparse == "all" else [args.sparse]
 
     # Build list of (dense, sparse) combinations to run
     run_naive_naive = "naive" in dense_kernels and "naive" in sparse_kernels
     run_naive_spreg = "naive" in dense_kernels and "spreg" in sparse_kernels
+    run_naive_mkl = "naive" in dense_kernels and "mkl" in sparse_kernels
     run_mkl_naive = "mkl" in dense_kernels and "naive" in sparse_kernels
     run_mkl_spreg = "mkl" in dense_kernels and "spreg" in sparse_kernels
+    run_mkl_mkl = "mkl" in dense_kernels and "mkl" in sparse_kernels
     
     # Get matrices to process - merge positional arguments and --matrices flag, or use all
     matrices = args.matrices or args.matrices_flag
@@ -1328,10 +1632,14 @@ def main():
         benchmark_types.append("naive_naive")
     if run_naive_spreg:
         benchmark_types.append("naive_spreg")
+    if run_naive_mkl:
+        benchmark_types.append("naive_mkl")
     if run_mkl_naive:
         benchmark_types.append("mkl_naive")
     if run_mkl_spreg:
         benchmark_types.append("mkl_spreg")
+    if run_mkl_mkl:
+        benchmark_types.append("mkl_mkl")
     print(f"Will process {len(matrices)} matrices with benchmark types: {', '.join(benchmark_types)}")
     
     # Create output directory
@@ -1345,8 +1653,10 @@ def main():
     
     naive_naive_results = []
     naive_spreg_results = []
+    naive_mkl_results = []
     mkl_naive_results = []
     mkl_spreg_results = []
+    mkl_mkl_results = []
     
     for matrix_name in matrices:
         yaml_path = RESULTS_DIR / f"{matrix_name}.yaml"
@@ -1436,6 +1746,29 @@ def main():
                         json.dump(naive_spreg_results, f, indent=2)
                     print(f"  [naive_spreg] Results written to {output_file}")
 
+            # Run naive_mkl version (if enabled)
+            if run_naive_mkl:
+                print(f"\n  === Running naive_mkl SpMM benchmark ===")
+                result = process_and_benchmark_matrix_naive_mkl(
+                    matrix_name, split_vbrc_data, sparse_vbrc_data,
+                    matrix_rows, matrix_cols, matrix_nnz,
+                    args.bench
+                )
+                if result:
+                    existing_idx = next((i for i, r in enumerate(naive_mkl_results) if r["matrix_name"] == matrix_name), None)
+                    if existing_idx is not None:
+                        naive_mkl_results[existing_idx] = result
+                        print(f"  [naive_mkl] Updated existing result for {matrix_name}")
+                    else:
+                        naive_mkl_results.append(result)
+                        print(f"  [naive_mkl] Added new result for {matrix_name}")
+                    # Append matrix name to filename if --matrices flag was used
+                    filename = f"sable_spmm_naive_mkl_{matrix_name}.json" if use_matrix_suffix else "sable_spmm_naive_mkl.json"
+                    output_file = output_dir / filename
+                    with open(output_file, 'w') as f:
+                        json.dump(naive_mkl_results, f, indent=2)
+                    print(f"  [naive_mkl] Results written to {output_file}")
+
             # Run mkl_naive version (if enabled)
             if run_mkl_naive:
                 print(f"\n  === Running mkl_naive SpMM benchmark ===")
@@ -1481,7 +1814,30 @@ def main():
                     with open(output_file, 'w') as f:
                         json.dump(mkl_spreg_results, f, indent=2)
                     print(f"  [mkl_spreg] Results written to {output_file}")
-            
+
+            # Run mkl_mkl version (if enabled)
+            if run_mkl_mkl:
+                print(f"\n  === Running mkl_mkl SpMM benchmark ===")
+                result = process_and_benchmark_matrix_mkl_mkl(
+                    matrix_name, split_vbrc_data, sparse_vbrc_data,
+                    matrix_rows, matrix_cols, matrix_nnz,
+                    args.bench
+                )
+                if result:
+                    existing_idx = next((i for i, r in enumerate(mkl_mkl_results) if r["matrix_name"] == matrix_name), None)
+                    if existing_idx is not None:
+                        mkl_mkl_results[existing_idx] = result
+                        print(f"  [mkl_mkl] Updated existing result for {matrix_name}")
+                    else:
+                        mkl_mkl_results.append(result)
+                        print(f"  [mkl_mkl] Added new result for {matrix_name}")
+                    # Append matrix name to filename if --matrices flag was used
+                    filename = f"sable_spmm_mkl_mkl_{matrix_name}.json" if use_matrix_suffix else "sable_spmm_mkl_mkl.json"
+                    output_file = output_dir / filename
+                    with open(output_file, 'w') as f:
+                        json.dump(mkl_mkl_results, f, indent=2)
+                    print(f"  [mkl_mkl] Results written to {output_file}")
+
             print(f"\nCompleted processing {matrix_name}")
             
         except Exception as e:
@@ -1515,10 +1871,14 @@ def main():
         print_results_summary("naive_naive (handwritten dense + handwritten sparse)", naive_naive_results)
     if run_naive_spreg:
         print_results_summary("naive_spreg (handwritten dense + sparse-register-tiling)", naive_spreg_results)
+    if run_naive_mkl:
+        print_results_summary("naive_mkl (handwritten dense + MKL sparse)", naive_mkl_results)
     if run_mkl_naive:
         print_results_summary("mkl_naive (MKL dense + handwritten sparse)", mkl_naive_results)
     if run_mkl_spreg:
         print_results_summary("mkl_spreg (MKL dense + sparse-register-tiling)", mkl_spreg_results)
+    if run_mkl_mkl:
+        print_results_summary("mkl_mkl (MKL dense + MKL sparse)", mkl_mkl_results)
     
     print(f"\nResults written to {output_dir}/")
     return 0

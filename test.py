@@ -16,9 +16,9 @@ from src.codegen import (
     gen_single_threaded_spmm_mkl_naive,
     gen_single_threaded_spmm_mkl_spreg,
     vbr_spmm_codegen,
-    gen_single_threaded_spmv_naive,
-    gen_single_threaded_spmv_uzp_sparse_dispatch,
-    gen_single_threaded_spmv_uzp_sparse_dispatch_blas,
+    gen_single_threaded_spmv_naive_naive,
+    gen_single_threaded_spmv_naive_uzp,
+    gen_single_threaded_spmv_blas_uzp,
     vbr_spmv_codegen,
 )
 from src.consts import CFLAGS as CFLAGS
@@ -625,7 +625,7 @@ def test_spmm_mkl_spreg():
 
 
 def test_spmv_naive():
-    """Test gen_single_threaded_spmv_naive against scipy SpMV."""
+    """Test gen_single_threaded_spmv_naive_naive against scipy SpMV."""
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)
@@ -651,7 +651,7 @@ def test_spmv_naive():
     
     # Generate code using naive kernel (generate directly in tests/ directory)
     dir_name = os.path.join("tests")
-    gen_single_threaded_spmv_naive(
+    gen_single_threaded_spmv_naive_naive(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
         indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
     )
@@ -731,7 +731,7 @@ def test_spmv_uzp_sparse_dispatch():
 
     # Generate UZP dispatch code (generate directly in tests/ directory)
     dir_name = os.path.join("tests")
-    gen_single_threaded_spmv_uzp_sparse_dispatch(
+    gen_single_threaded_spmv_naive_uzp(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
         indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
     )
@@ -803,7 +803,7 @@ def test_spmv_uzp_sparse_dispatch_blas():
     write_dense_vector(1.0, cols)
 
     dir_name = os.path.join("tests")
-    gen_single_threaded_spmv_uzp_sparse_dispatch_blas(
+    gen_single_threaded_spmv_blas_uzp(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
         indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
     )

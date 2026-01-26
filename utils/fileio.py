@@ -13,30 +13,6 @@ from src.vbr import VBR
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
-def write_vbr_matrix(filename: str, vbr_matrix: VBR, dir_name: str):
-    
-    assert(type(vbr_matrix) == VBR)
-    assert(type(filename) == str)
-    
-    val = vbr_matrix.val
-    indx = vbr_matrix.indx
-    bindx = vbr_matrix.bindx
-    rpntr = vbr_matrix.rpntr
-    cpntr = vbr_matrix.cpntr
-    bpntrb = vbr_matrix.bpntrb
-    bpntre = vbr_matrix.bpntre
-    
-    if not exists(dir_name):
-        makedirs(dir_name)
-    with open(join(dir_name, filename+".vbr"), "w") as f:
-        f.write(f"val=[{','.join(map(str, val))}]\n")
-        f.write(f"indx=[{','.join(map(str, indx))}]\n")
-        f.write(f"bindx=[{','.join(map(str, bindx))}]\n")
-        f.write(f"rpntr=[{','.join(map(str, rpntr))}]\n")
-        f.write(f"cpntr=[{','.join(map(str, cpntr))}]\n")
-        f.write(f"bpntrb=[{','.join(map(str, bpntrb))}]\n")
-        f.write(f"bpntre=[{','.join(map(str, bpntre))}]\n")
-
 def write_dense_vector(val: float, size: int):
     filename = f"generated_vector_{size}.vector"
     dir_name = os.path.join(BASE_PATH, "Generated_dense_tensors")
@@ -94,25 +70,6 @@ def read_vbrc(filename):
         if l != "":
             ublocks = list(map(int, l.split(",")))
     return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val
-
-def read_vector(filename):
-    with open(filename, "r") as f:
-        x = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
-    return x
-
-def read_matrix(filename):
-    with open(filename, "r") as f:
-        x = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
-    return x
-
-def write_mm_file(filename, M):
-    with open(filename, 'w') as f:
-        f.write("%%MatrixMarket matrix coordinate real general\n")
-        f.write(f"{M.shape[0]} {M.shape[1]} {count_nonzero(M)}\n")
-        for i in range(M.shape[0]):
-            for j in range(M.shape[1]):
-                if M[i][j] != 0:
-                    f.write(f"{i+1} {j+1} {M[i][j]}\n")
 
 def cleanup(*args):
     for arg in args:

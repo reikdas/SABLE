@@ -32,10 +32,9 @@ from find_matrices import get_matrix_paths, cleanup_matrix_files, get_matrix_inf
 from ssgetpy import fetch
 
 from src.codegen import (
-    gen_single_threaded_spmv_spv8, gen_single_threaded_spmv_mkl, gen_single_threaded_spmv_naive,
-    gen_single_threaded_spmv_spv8_blas, gen_single_threaded_spmv_mkl_blas, gen_single_threaded_spmv_naive_blas,
-    gen_single_threaded_spmv_uzp_sparse_dispatch,
-    gen_single_threaded_spmv_uzp_sparse_dispatch_blas,
+    gen_single_threaded_spmv_naive_spv8, gen_single_threaded_spmv_naive_mkl, gen_single_threaded_spmv_naive_naive,
+    gen_single_threaded_spmv_blas_spv8, gen_single_threaded_spmv_blas_mkl, gen_single_threaded_spmv_blas_naive,
+    gen_single_threaded_spmv_naive_uzp, gen_single_threaded_spmv_blas_uzp
 )
 from src.consts import CFLAGS, MKL_FLAGS
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file, analyze_dense_blocks
@@ -379,15 +378,15 @@ def process_and_benchmark_matrix(
     if use_mkl:
         base_codegen_dir = GENERATED_SPMV_MKL_DIR
         if dense_kernel == "blas":
-            gen_function = gen_single_threaded_spmv_mkl_blas
+            gen_function = gen_single_threaded_spmv_blas_mkl
         else:
-            gen_function = gen_single_threaded_spmv_mkl
+            gen_function = gen_single_threaded_spmv_naive_mkl
     else:
         base_codegen_dir = GENERATED_SPMV_SPV8_DIR
         if dense_kernel == "blas":
-            gen_function = gen_single_threaded_spmv_spv8_blas
+            gen_function = gen_single_threaded_spmv_blas_spv8
         else:
-            gen_function = gen_single_threaded_spmv_spv8
+            gen_function = gen_single_threaded_spmv_naive_spv8
     
     codegen_dir_split = str(base_codegen_dir / "split")
     codegen_dir_sparse = str(base_codegen_dir / "sparse")
@@ -461,6 +460,9 @@ def process_and_benchmark_matrix(
     dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
     speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
     
+    # Calculate theoretical max speedup (if dense took 0 time)
+    theoretical_max_speedup = (sparse_avg_sparse_time / avg_sparse_time) if avg_sparse_time > 0 else 0.0
+    
     # Calculate nnz statistics
     dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
     dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
@@ -490,6 +492,7 @@ def process_and_benchmark_matrix(
             "dense_percentage": round(dense_percentage, 3),
             "fully_sparse_time": sparse_avg_sparse_time,
             "speedup": round(speedup, 3),
+            "theoretical_max_possible_speedup": round(theoretical_max_speedup, 3),
             # Compilation times (calling gcc) - stored in seconds
             "compile_time_split_s": compile_time_split_ns / 1e9 if compile_time_split_ns else 0.0,
             "compile_time_sparse_s": compile_time_sparse_ns / 1e9 if compile_time_sparse_ns else 0.0,
@@ -557,9 +560,9 @@ def process_and_benchmark_matrix_naive(
     """
     # Select codegen function based on dense kernel
     if dense_kernel == "blas":
-        gen_function = gen_single_threaded_spmv_naive_blas
+        gen_function = gen_single_threaded_spmv_blas_naive
     else:
-        gen_function = gen_single_threaded_spmv_naive
+        gen_function = gen_single_threaded_spmv_naive_naive
 
     codegen_dir_split = str(GENERATED_SPMV_NAIVE_DIR / "split")
     codegen_dir_sparse = str(GENERATED_SPMV_NAIVE_DIR / "sparse")
@@ -633,6 +636,9 @@ def process_and_benchmark_matrix_naive(
     dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
     speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
     
+    # Calculate theoretical max speedup (if dense took 0 time)
+    theoretical_max_speedup = (sparse_avg_sparse_time / avg_sparse_time) if avg_sparse_time > 0 else 0.0
+    
     # Calculate nnz statistics
     dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
     dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
@@ -662,6 +668,7 @@ def process_and_benchmark_matrix_naive(
             "dense_percentage": round(dense_percentage, 3),
             "fully_sparse_time": sparse_avg_sparse_time,
             "speedup": round(speedup, 3),
+            "theoretical_max_possible_speedup": round(theoretical_max_speedup, 3),
             # Compilation times (calling gcc) - stored in seconds
             "compile_time_split_s": compile_time_split_ns / 1e9 if compile_time_split_ns else 0.0,
             "compile_time_sparse_s": compile_time_sparse_ns / 1e9 if compile_time_sparse_ns else 0.0,
@@ -757,7 +764,7 @@ def process_and_benchmark_matrix_uzp(
     csr_val_sparse = sparse_vbrc_data["csr_val"]
     sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
 
-    gen_uzp = gen_single_threaded_spmv_uzp_sparse_dispatch_blas if dense_kernel == "blas" else gen_single_threaded_spmv_uzp_sparse_dispatch
+    gen_uzp = gen_single_threaded_spmv_blas_uzp if dense_kernel == "blas" else gen_single_threaded_spmv_naive_uzp
 
     print(f"  [{variant_name}] Generating C code (split)...")
     codegen_time_split_ns = gen_uzp(
@@ -893,21 +900,46 @@ def main():
                         help=f"Number of benchmark iterations (default: {DEFAULT_BENCH_ITERATIONS})")
     parser.add_argument("--output-dir", type=str, default="results",
                         help="Output directory for results (default: results)")
-    parser.add_argument("--sparse", type=str, choices=["naive", "spv8", "mkl", "uzp", "all"], default="all",
-                        help="Sparse kernel to use: naive (3-loop CSR), spv8 (SpV8), mkl (MKL sparse), uzp (UZP sparse dispatch), or all (default: all)")
-    parser.add_argument("--dense", type=str, choices=["naive", "blas", "all"], default="naive",
-                        help="Dense kernel to use: naive (handwritten), blas (cblas_dgemv), or all (default: naive)")
+    parser.add_argument("--sparse", type=str, default="all",
+                        help="Sparse kernel(s): naive, spv8, mkl, uzp, all, or comma-separated (e.g., 'spv8,mkl')")
+    parser.add_argument("--dense", type=str, default="all",
+                        help="Dense kernel(s): naive, blas, all, or comma-separated (e.g., 'naive,blas')")
 
     args = parser.parse_args()
 
-    # Determine which sparse and dense kernels to run
-    sparse_kernels = ["naive", "spv8", "mkl", "uzp"] if args.sparse == "all" else [args.sparse]
-    dense_kernels = ["naive", "blas"] if args.dense == "all" else [args.dense]
-    
+    # Determine which sparse and dense kernels to run (supports comma-separated values)
+    valid_sparse = {"naive", "spv8", "mkl", "uzp"}
+    valid_dense = {"naive", "blas"}
+
+    if args.sparse == "all":
+        sparse_kernels = ["naive", "spv8", "mkl", "uzp"]
+    else:
+        sparse_kernels = [k.strip() for k in args.sparse.split(",")]
+        invalid = set(sparse_kernels) - valid_sparse
+        if invalid:
+            parser.error(f"Invalid sparse kernel(s): {invalid}. Valid options: {valid_sparse}")
+
+    if args.dense == "all":
+        dense_kernels = ["naive", "blas"]
+    else:
+        dense_kernels = [k.strip() for k in args.dense.split(",")]
+        invalid = set(dense_kernels) - valid_dense
+        if invalid:
+            parser.error(f"Invalid dense kernel(s): {invalid}. Valid options: {valid_dense}")
+
     # Get matrices to process - merge positional arguments and --matrices flag, or use all
     matrices = args.matrices or args.matrices_flag
+    specific_matrices_requested = matrices is not None and len(matrices) > 0
     if not matrices:
         matrices = get_available_matrices()
+    
+    # Determine output file suffix based on whether specific matrices were requested
+    if specific_matrices_requested and len(matrices) == 1:
+        output_suffix = f"_{matrices[0]}"
+    elif specific_matrices_requested:
+        output_suffix = "_" + "_".join(matrices)
+    else:
+        output_suffix = ""
     
     print(f"Will process {len(matrices)} matrices")
     
@@ -968,7 +1000,10 @@ def main():
             # Run benchmarks for each combination of sparse and dense kernel
             for sparse_kernel in sparse_kernels:
                 for dense_kernel in dense_kernels:
+                    # results_key for internal tracking
                     results_key = f"{dense_kernel}_{sparse_kernel}"
+                    # file_key follows pattern: sable_spmv_{dense}_{sparse}.json
+                    file_key = f"{dense_kernel}_{sparse_kernel}"
                     print(f"\n  === Running {results_key} benchmark ===")
 
                     # Select the appropriate benchmark function based on sparse kernel
@@ -1001,10 +1036,10 @@ def main():
                         continue
 
                     if result:
-                        # Get the results list for this combination
-                        if results_key not in all_results:
-                            all_results[results_key] = []
-                        results_list = all_results[results_key]
+                        # Get the results list for this combination (use file_key for consistency with output files)
+                        if file_key not in all_results:
+                            all_results[file_key] = []
+                        results_list = all_results[file_key]
 
                         # Update or append result
                         existing_idx = next((i for i, r in enumerate(results_list) if r["matrix_name"] == matrix_name), None)
@@ -1016,7 +1051,7 @@ def main():
                             print(f"  [{results_key}] Added new result for {matrix_name}")
 
                         # Write intermediate results
-                        output_file = output_dir / f"sable_spmv_{results_key}.json"
+                        output_file = output_dir / f"sable_spmv_{file_key}{output_suffix}.json"
                         with open(output_file, 'w') as f:
                             json.dump(results_list, f, indent=2)
                         print(f"  [{results_key}] Results written to {output_file}")
@@ -1052,7 +1087,6 @@ def main():
 
     print(f"\nResults written to {output_dir}/")
     return 0
-
 
 if __name__ == "__main__":
     exit(main())

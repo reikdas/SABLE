@@ -212,7 +212,8 @@ def get_spreg_include_dirs():
 
 
 # Cache compiled object files to speed up subsequent builds
-_spreg_obj_cache = {}
+# Set to True once first compilation is done to enable disk-based caching
+_spreg_cache_initialized = False
 _spreg_obj_cache_dir = None
 
 
@@ -225,7 +226,7 @@ def compile_c_program_spreg(c_file_path: str, output_dir: str) -> Optional[Tuple
     Returns:
         Tuple of (executable_path, compile_time_ns) or None if compilation fails
     """
-    global _spreg_obj_cache, _spreg_obj_cache_dir
+    global _spreg_cache_initialized, _spreg_obj_cache_dir
     
     c_file = os.path.basename(c_file_path)
     output_name = os.path.splitext(c_file)[0]
@@ -277,8 +278,8 @@ def compile_c_program_spreg(c_file_path: str, output_dir: str) -> Optional[Tuple
         # Compile C++ files with g++ to object files (with caching)
         cpp_objs = []
         
-        # Check if cache needs rebuilding
-        need_rebuild_cache = _spreg_obj_cache_dir != str(obj_cache_dir) or not _spreg_obj_cache
+        # Check if cache needs rebuilding (only on first run or if cache dir changed)
+        need_rebuild_cache = _spreg_obj_cache_dir != str(obj_cache_dir) or not _spreg_cache_initialized
         
         for cpp_file in spreg_src_files:
             if not os.path.exists(cpp_file):
@@ -308,6 +309,7 @@ def compile_c_program_spreg(c_file_path: str, output_dir: str) -> Optional[Tuple
                 return None
         
         _spreg_obj_cache_dir = str(obj_cache_dir)
+        _spreg_cache_initialized = True
         
         # Link everything with g++
         link_cmd = ["g++", "-o", output_path, c_obj] + cpp_objs + common_flags + ["-fopenmp", "-lstdc++fs", "-lpthread"]
@@ -544,6 +546,7 @@ def process_and_benchmark_matrix_naive_naive(
     sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
     dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
     speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+    max_theoretical_speedup = (sparse_avg_sparse_time / avg_sparse_time) if avg_sparse_time > 0 else 0
     
     # Calculate nnz statistics
     dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
@@ -710,6 +713,7 @@ def process_and_benchmark_matrix_mkl_naive(
     sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
     dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
     speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+    max_theoretical_speedup = (sparse_avg_sparse_time / avg_sparse_time) if avg_sparse_time > 0 else 0
 
     # Calculate nnz statistics
     dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
@@ -740,6 +744,7 @@ def process_and_benchmark_matrix_mkl_naive(
             "dense_percentage": round(dense_percentage, 3),
             "fully_sparse_time": sparse_avg_sparse_time,
             "speedup": round(speedup, 3),
+            "max_theoretical_speedup_possible": round(max_theoretical_speedup, 3),
             "expected_sparse_time_ns": ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
             "dense_if_sparse_time_ns": sparse_avg_sparse_time - ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
             # Compilation times (calling gcc) - stored in seconds
@@ -876,6 +881,7 @@ def process_and_benchmark_matrix_naive_spreg(
     sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
     dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
     speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+    max_theoretical_speedup = (sparse_avg_sparse_time / avg_sparse_time) if avg_sparse_time > 0 else 0
     
     # Calculate nnz statistics
     dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
@@ -906,6 +912,7 @@ def process_and_benchmark_matrix_naive_spreg(
             "dense_percentage": round(dense_percentage, 3),
             "fully_sparse_time": sparse_avg_sparse_time,
             "speedup": round(speedup, 3),
+            "max_theoretical_speedup_possible": round(max_theoretical_speedup, 3),
             "expected_sparse_time_ns": ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
             "dense_if_sparse_time_ns": sparse_avg_sparse_time - ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
             # Compilation times (calling gcc) - stored in seconds
@@ -1039,7 +1046,7 @@ def compile_c_program_mkl_spreg(c_file_path: str, output_dir: str) -> Optional[T
     Compile the C program that uses both MKL and sparse-register-tiling.
     Uses gcc to compile C code, g++ to compile C++ wrapper, then g++ to link with MKL.
     """
-    global _spreg_obj_cache, _spreg_obj_cache_dir
+    global _spreg_cache_initialized, _spreg_obj_cache_dir
 
     c_file = os.path.basename(c_file_path)
     output_name = os.path.splitext(c_file)[0]
@@ -1088,7 +1095,7 @@ def compile_c_program_mkl_spreg(c_file_path: str, output_dir: str) -> Optional[T
 
         # Compile C++ files with g++ to object files (with caching)
         cpp_objs = []
-        need_rebuild_cache = _spreg_obj_cache_dir != str(obj_cache_dir) or not _spreg_obj_cache
+        need_rebuild_cache = _spreg_obj_cache_dir != str(obj_cache_dir) or not _spreg_cache_initialized
 
         for cpp_file in spreg_src_files:
             if not os.path.exists(cpp_file):
@@ -1114,6 +1121,7 @@ def compile_c_program_mkl_spreg(c_file_path: str, output_dir: str) -> Optional[T
                 return None
 
         _spreg_obj_cache_dir = str(obj_cache_dir)
+        _spreg_cache_initialized = True
 
         # Link everything with g++ including MKL flags
         mkl_link_flags = [flag for flag in MKL_FLAGS if flag.startswith("-L") or flag.startswith("-l") or flag.startswith("-Wl")]
@@ -1220,6 +1228,7 @@ def process_and_benchmark_matrix_mkl_spreg(
     sparse_percentage = (avg_sparse_time / total_time * 100) if total_time > 0 else 0
     dense_percentage = (avg_dense_time / total_time * 100) if total_time > 0 else 0
     speedup = (sparse_avg_sparse_time / total_time) if total_time > 0 else 0
+    max_theoretical_speedup = (sparse_avg_sparse_time / avg_sparse_time) if avg_sparse_time > 0 else 0
 
     dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
     dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
@@ -1246,6 +1255,7 @@ def process_and_benchmark_matrix_mkl_spreg(
             "dense_percentage": round(dense_percentage, 3),
             "fully_sparse_time": sparse_avg_sparse_time,
             "speedup": round(speedup, 3),
+            "max_theoretical_speedup_possible": round(max_theoretical_speedup, 3),
             "expected_sparse_time_ns": ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
             "dense_if_sparse_time_ns": sparse_avg_sparse_time - ((100-dense_nnz_perc)/100)*sparse_avg_sparse_time,
             "compile_time_split_s": compile_time_split_ns / 1e9 if compile_time_split_ns else 0.0,

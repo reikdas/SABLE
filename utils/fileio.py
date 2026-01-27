@@ -8,8 +8,6 @@ from typing import List, Tuple
 import yaml
 from numpy import count_nonzero
 
-from src.vbr import VBR
-
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 

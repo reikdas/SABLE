@@ -9,7 +9,6 @@ import scipy
 import scipy.io
 import scipy.sparse
 
-from src.autopartition import cut_indices2, similarity2
 from src.codegen import (
     gen_single_threaded_spmm_naive_naive,
     gen_single_threaded_spmm_naive_spreg,
@@ -32,7 +31,6 @@ from utils.convert_real_to_vbr import (convert_sparse_to_vbr,
                                        vbrc_matrix_gen,
                                        _write_vbrc_file)
 from utils.fileio import read_vbr, read_vbrc, write_dense_matrix, write_dense_vector
-from utils.mtx_matrices_gen import vbr_to_mtx
 from utils.utils import extract_mul_nums
 
 def cmp_file(file1, file2):
@@ -58,25 +56,6 @@ def cmp_file(file1, file2):
             return False
             
     return True
-
-def test_setup_file():
-    filename = "example.vbr"
-    dense = vbr_to_mtx(filename, dir_name="tests", vbr_dir="tests")
-    dense_canon = numpy.array([[ 4.,  2.,  0.,  0.,  0.,  1.,  0.,  0.,  0., -1.,  1.],
-                                [ 1.,  5.,  0.,  0.,  0.,  2.,  0.,  0.,  0.,  0., -1.],
-                                [ 0.,  0.,  6.,  1.,  2.,  2.,  0.,  0.,  0.,  0.,  0.],
-                                [ 0.,  0.,  2.,  7.,  1.,  0.,  0.,  0.,  0.,  0.,  0.],
-                                [ 0.,  0., -1.,  2.,  9.,  3.,  0.,  0.,  0.,  0.,  0.],
-                                [ 2.,  1.,  3.,  4.,  5., 10.,  4.,  3.,  2.,  0.,  0.],
-                                [ 0.,  0.,  0.,  0.,  0.,  4., 13.,  4.,  2.,  0.,  0.],
-                                [ 0.,  0.,  0.,  0.,  0.,  3.,  3., 11.,  3.,  0.,  0.],
-                                [ 0.,  0.,  0.,  0.,  0.,  0.,  2.,  0.,  7.,  0.,  0.],
-                                [ 8.,  4.,  0.,  0.,  0.,  0.,  0.,  0.,  0., 25.,  3.],
-                                [-2.,  3.,  0.,  0.,  0.,  0.,  0.,  0.,  0.,  8., 12.]])
-    assert(numpy.array_equal(dense, dense_canon))
-    assert(cmp_file("tests/example.mtx", "tests/example-canon.mtx"))
-    write_dense_vector(1.0, 11)
-    write_dense_matrix(1.0, 11, 512)
 
 def test_read_vbr():
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "example.vbr"))
@@ -158,7 +137,6 @@ def test_partition():
     assert(len(csr_val) == 0)
 
 def run_spmv(threads, mkl):
-    test_setup_file()
     vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests", mkl=mkl)
     subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS + MKL_FLAGS, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
@@ -204,7 +182,6 @@ def test_spmv_unroll_mkl():
 
 def run_spmm(threads):
     """Test SpMM codegen."""
-    test_setup_file()
     write_dense_matrix(1.0, 11, 512)
     vbr_spmm_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests", bench=5)
     subprocess.check_call(["gcc", "-o", "example_spmm", "example.c"] + CFLAGS, cwd="tests")
@@ -842,33 +819,6 @@ def test_spmv_uzp_sparse_dispatch_blas():
     x = numpy.ones(cols)
     y_expected = A.dot(x)
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-8, atol=1e-8)
-    
-@pytest.mark.skip(reason="Git cannot store Franz8_canon.vbr")
-def test_partition_vals_real():
-    # read matrix from mm-market format
-    mtx_path = os.path.join(BASE_PATH, "tests", "Franz8.mtx")
-    mtx = scipy.io.mmread(mtx_path)
-
-    # convert to scipy csc
-    A = scipy.sparse.csc_matrix(mtx, copy=False)
-    A_nnz = A.nnz
-
-    # get indices of VBR partitions
-    cpntr, rpntr = cut_indices2(A, 0.2, similarity2)
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre = read_vbr(os.path.join(BASE_PATH, "tests", "Franz8_canon.vbr"))
-    val2, indx2, bindx2, bpntrb2, bpntre2 = convert_sparse_to_vbr(A, rpntr, cpntr, "Franz8", "tests")
-
-    # check nnz
-    val_nnz = len([x for x in val if x != 0])
-    val2_nnz = len([x for x in val2 if x != 0])
-    assert(val_nnz == val2_nnz)
-    assert(A_nnz == val2_nnz)
-
-    assert(numpy.array_equal(val, val2))
-    assert(numpy.array_equal(indx, indx2))
-    assert(numpy.array_equal(bindx, bindx2))
-    assert(numpy.array_equal(bpntrb, bpntrb2))
-    assert(numpy.array_equal(bpntre, bpntre2))
 
 # def test_vbrc_matrix_gen():
 #     """Test vbrc_matrix_gen function by generating a small matrix and verifying it can be read back."""

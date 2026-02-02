@@ -1,9 +1,8 @@
 use linked_hash_map::LinkedHashMap;
 use num_traits::{Num, NumCast};
 use project_root::get_project_root;
-use sprs::{CsMat, TriMat};
+use sprs::CsMat;
 use stringreader::StringReader;
-use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::process::{Command, Stdio};
 use colored::Colorize;
@@ -32,79 +31,6 @@ pub fn read_matrix_market_csr<
        sprs::num_matrixmarket::MatrixMarketConjugate +
        std::ops::Neg<Output = T>
     > (path: &str, transpose_input: bool) -> CsMat<T> {
-    // Lightweight COO input support for SABLE dispatch.
-    //
-    // File format (text, 1-based indices):
-    //   COO <nrows> <ncols> <nnz>
-    //   <row> <col> <val>
-    //   ...
-    //
-    // This is intentionally close to MatrixMarket "coordinate" triplets, but
-    // without the full MatrixMarket banner/comments.
-    fn try_read_coo_csr<U: Num + NumCast + Clone + sprs::num_kinds::PrimitiveKind>(
-        path: &str,
-        transpose_input: bool,
-    ) -> Option<CsMat<U>> {
-        let file = File::open(path).ok()?;
-        let mut reader = BufReader::new(file);
-
-        // Find first non-empty, non-comment line
-        let mut header = String::new();
-        loop {
-            header.clear();
-            if reader.read_line(&mut header).ok()? == 0 {
-                return None;
-            }
-            let h = header.trim();
-            if h.is_empty() || h.starts_with('#') || h.starts_with('%') {
-                continue;
-            }
-            let mut it = h.split_whitespace();
-            let tag = it.next()?;
-            if tag.to_ascii_lowercase() != "coo" {
-                return None;
-            }
-            let nrows: usize = it.next()?.parse().ok()?;
-            let ncols: usize = it.next()?.parse().ok()?;
-            let nnz: usize = it.next()?.parse().ok()?;
-
-            let (out_rows, out_cols) = if transpose_input { (ncols, nrows) } else { (nrows, ncols) };
-            let mut tri = TriMat::<U>::with_capacity((out_rows, out_cols), nnz);
-
-            for line in reader.lines() {
-                let line = line.ok()?;
-                let s = line.trim();
-                if s.is_empty() || s.starts_with('#') || s.starts_with('%') {
-                    continue;
-                }
-                let mut it = s.split_whitespace();
-                let r1: usize = it.next()?.parse().ok()?;
-                let c1: usize = it.next()?.parse().ok()?;
-                let v: f64 = it.next()?.parse().ok()?;
-                if r1 == 0 || c1 == 0 {
-                    return None;
-                }
-                let r0 = r1 - 1;
-                let c0 = c1 - 1;
-                if r0 >= nrows || c0 >= ncols {
-                    return None;
-                }
-                let val_u: U = NumCast::from(v)?;
-                if transpose_input {
-                    tri.add_triplet(c0, r0, val_u);
-                } else {
-                    tri.add_triplet(r0, c0, val_u);
-                }
-            }
-
-            return Some(tri.to_csr());
-        }
-    }
-
-    if let Some(coo_mat) = try_read_coo_csr::<T>(path, transpose_input) {
-        return coo_mat;
-    }
-
     let value_matrix: CsMat<T> = {
         match sprs::io::read_matrix_market(path) {
             Ok(mat) => {

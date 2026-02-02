@@ -23,8 +23,8 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple
 
 import scipy
-from scipy.io import mmread
-from scipy.sparse import csc_matrix
+from scipy.io import mmread, mmwrite
+from scipy.sparse import csc_matrix, csr_array
 
 # Add find-submatrices to path for importing
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "find-submatrices"))
@@ -57,6 +57,7 @@ GENERATED_SPMV_SPV8_DIR = FILEPATH / "Generated_SpMV_C_spv8"
 GENERATED_SPMV_MKL_DIR = FILEPATH / "Generated_SpMV_C_mkl"
 GENERATED_SPMV_NAIVE_DIR = FILEPATH / "Generated_SpMV_C_naive"
 GENERATED_SPMV_UZP_DIR = FILEPATH / "Generated_SpMV_C_uzp"
+GENERATED_SPARSE_MTX_DIR = FILEPATH / "Generated_sparse_mtx"
 
 
 def compile_c_program(c_file_path: str, output_dir: str, use_mkl: bool = False) -> Optional[Tuple[str, float]]:
@@ -313,11 +314,23 @@ def convert_and_prepare_vbrc(
     if len(val) == 0 and len(dense_block_coords) > 0:
         print(f"  Warning: No dense blocks found after conversion")
     
+    # Generate .mtx from split CSR sparse part (for UZP offline preparation)
+    split_sparse_mtx_path = ""
+    if len(csr_val) > 0 and len(indptr) > 0:
+        sparse_mtx_dir = str(GENERATED_SPARSE_MTX_DIR)
+        os.makedirs(sparse_mtx_dir, exist_ok=True)
+        split_sparse_mtx_path = os.path.join(sparse_mtx_dir, f"{matrix_name}.mtx")
+        nrows = rpntr[-1]
+        ncols = cpntr[-1]
+        sparse_csr = csr_array((csr_val, indices, indptr), shape=(nrows, ncols))
+        mmwrite(split_sparse_mtx_path, sparse_csr)
+
     split_data = {
         "val": val, "indx": indx, "bindx": bindx, "rpntr": rpntr, "cpntr": cpntr,
         "bpntrb": bpntrb, "bpntre": bpntre, "ublocks": ublocks,
         "indptr": indptr, "indices": indices, "csr_val": csr_val,
-        "dense_blocks": dense_blocks, "vbr_dir": vbr_dir
+        "dense_blocks": dense_blocks, "vbr_dir": vbr_dir,
+        "sparse_mtx_path": split_sparse_mtx_path,
     }
     
     # Convert to fully sparse VBRC format (no dense blocks)
@@ -334,12 +347,24 @@ def convert_and_prepare_vbrc(
     # Assert that the sparse variant has no dense blocks
     assert len(val_sparse) == 0, f"Expected fully sparse variant for {matrix_name}, but found {len(val_sparse)} dense blocks"
     
+    # Generate .mtx from fully-sparse CSR part (for UZP offline preparation)
+    sparse_sparse_mtx_path = ""
+    if len(csr_val_sparse) > 0 and len(indptr_sparse) > 0:
+        sparse_mtx_dir = str(GENERATED_SPARSE_MTX_DIR)
+        os.makedirs(sparse_mtx_dir, exist_ok=True)
+        sparse_sparse_mtx_path = os.path.join(sparse_mtx_dir, f"{matrix_name}_sparse.mtx")
+        nrows_s = rpntr_sparse[-1]
+        ncols_s = cpntr_sparse[-1]
+        sparse_csr_s = csr_array((csr_val_sparse, indices_sparse, indptr_sparse), shape=(nrows_s, ncols_s))
+        mmwrite(sparse_sparse_mtx_path, sparse_csr_s)
+
     sparse_data = {
-        "val": val_sparse, "indx": indx_sparse, "bindx": bindx_sparse, 
+        "val": val_sparse, "indx": indx_sparse, "bindx": bindx_sparse,
         "rpntr": rpntr_sparse, "cpntr": cpntr_sparse,
         "bpntrb": bpntrb_sparse, "bpntre": bpntre_sparse, "ublocks": ublocks_sparse,
         "indptr": indptr_sparse, "indices": indices_sparse, "csr_val": csr_val_sparse,
-        "vbr_dir": sparse_vbr_dir
+        "vbr_dir": sparse_vbr_dir,
+        "sparse_mtx_path": sparse_sparse_mtx_path,
     }
     
     return split_data, sparse_data
@@ -750,6 +775,7 @@ def process_and_benchmark_matrix_uzp(
     csr_val = split_vbrc_data["csr_val"]
     dense_blocks = split_vbrc_data.get("dense_blocks", [])
     vbr_dir = split_vbrc_data["vbr_dir"]
+    split_sparse_mtx_path = split_vbrc_data.get("sparse_mtx_path", "")
 
     val_sparse = sparse_vbrc_data["val"]
     indx_sparse = sparse_vbrc_data["indx"]
@@ -763,6 +789,7 @@ def process_and_benchmark_matrix_uzp(
     indices_sparse = sparse_vbrc_data["indices"]
     csr_val_sparse = sparse_vbrc_data["csr_val"]
     sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
+    sparse_sparse_mtx_path = sparse_vbrc_data.get("sparse_mtx_path", "")
 
     gen_uzp = gen_single_threaded_spmv_blas_uzp if dense_kernel == "blas" else gen_single_threaded_spmv_naive_uzp
 
@@ -783,6 +810,7 @@ def process_and_benchmark_matrix_uzp(
         matrix_name,
         vbr_dir,
         bench=bench_iterations,
+        sparse_mtx_path=split_sparse_mtx_path,
     )
 
     print(f"  [{variant_name}] Evaluating split version...")
@@ -807,6 +835,7 @@ def process_and_benchmark_matrix_uzp(
         matrix_name,
         sparse_vbr_dir,
         bench=bench_iterations,
+        sparse_mtx_path=sparse_sparse_mtx_path,
     )
 
     print(f"  [{variant_name}] Evaluating fully sparse version...")

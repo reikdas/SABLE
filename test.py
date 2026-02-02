@@ -678,13 +678,13 @@ def test_spmv_uzp_sparse_dispatch():
 
     This verifies that:
     - SABLE-generated code can dispatch the sparse CSR remainder to UZP
-    - COO conversion + UZP mining happen outside the timed loop (in generated code)
+    - UZP preparation (z_polyhedrator + spf_aggregator) runs via uzp_prepare.sh
     - Only the UZP kernel execution is timed
     """
-    # Require the prebuilt z_polyhedrator binary (UZP miner)
-    zpoly = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator")
-    if not os.path.exists(zpoly):
-        pytest.skip("z_polyhedrator binary not found; skipping UZP dispatch test")
+    # Require the uzp_prepare.sh script
+    uzp_prepare = os.path.join(BASE_PATH, "uzp_prepare.sh")
+    if not os.path.exists(uzp_prepare):
+        pytest.skip("uzp_prepare.sh not found; skipping UZP dispatch test")
 
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
@@ -703,6 +703,13 @@ def test_spmv_uzp_sparse_dispatch():
     filename = "example3_uzp"
     _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
 
+    # Generate .mtx from the sparse CSR part (offline step)
+    nrows = rpntr[-1]
+    ncols = cpntr[-1]
+    sparse_mat = scipy.sparse.csr_array((csr_val, indices, indptr), shape=(nrows, ncols))
+    sparse_mtx_path = os.path.join(BASE_PATH, "tests", f"{filename}.mtx")
+    scipy.io.mmwrite(sparse_mtx_path, sparse_mat)
+
     # Write dense vector file (required by generated code)
     write_dense_vector(1.0, cols)
 
@@ -710,7 +717,8 @@ def test_spmv_uzp_sparse_dispatch():
     dir_name = os.path.join("tests")
     gen_single_threaded_spmv_naive_uzp(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
-        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
+        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1,
+        sparse_mtx_path=sparse_mtx_path,
     )
 
     # Compile the generated code, linking in UZP executor sources
@@ -755,9 +763,9 @@ def test_spmv_uzp_sparse_dispatch():
 
 def test_spmv_uzp_sparse_dispatch_blas():
     """Test UZP sparse-dispatch + BLAS dense blocks backend against scipy SpMV."""
-    zpoly = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator")
-    if not os.path.exists(zpoly):
-        pytest.skip("z_polyhedrator binary not found; skipping UZP dispatch BLAS test")
+    uzp_prepare = os.path.join(BASE_PATH, "uzp_prepare.sh")
+    if not os.path.exists(uzp_prepare):
+        pytest.skip("uzp_prepare.sh not found; skipping UZP dispatch BLAS test")
 
     # Best-effort MKL availability check (avoid noisy compile failures)
     mkl_inc = next((f[2:] for f in MKL_FLAGS if f.startswith("-I")), None)
@@ -779,10 +787,18 @@ def test_spmv_uzp_sparse_dispatch_blas():
     _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
     write_dense_vector(1.0, cols)
 
+    # Generate .mtx from the sparse CSR part (offline step)
+    nrows = rpntr[-1]
+    ncols = cpntr[-1]
+    sparse_mat = scipy.sparse.csr_array((csr_val, indices, indptr), shape=(nrows, ncols))
+    sparse_mtx_path = os.path.join(BASE_PATH, "tests", f"{filename}.mtx")
+    scipy.io.mmwrite(sparse_mtx_path, sparse_mat)
+
     dir_name = os.path.join("tests")
     gen_single_threaded_spmv_blas_uzp(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks,
-        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1
+        indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=1,
+        sparse_mtx_path=sparse_mtx_path,
     )
 
     uzp_genex_dir = os.path.join(BASE_PATH, "uzp-artifact", "spmv-executors", "uzp-genex")

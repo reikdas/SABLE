@@ -1497,17 +1497,17 @@ def gen_single_threaded_spmv_naive_uzp(
     filename,
     vbr_dir,
     bench: int = 5,
+    sparse_mtx_path: str = "",
 ) -> int:
     """Generate code using UZP for the sparse (CSR) part.
 
-    Key property: COO conversion + UZP pattern mining happen ONCE, outside the
-    benchmark timing loop. Only the UZP kernel execution is timed.
+    UZP preparation (z_polyhedrator + spf_aggregator) runs ONCE via a shell
+    script outside the timing loop.  Only the UZP kernel execution is timed.
 
-    Notes:
-    - UZP pattern mining is performed by `z_polyhedrator search`.
-    - The generated code writes the sparse remainder to a lightweight COO text
-      format (1-based indices) and runs z_polyhedrator on it.
-    - Dense blocks (if any) are still executed/timed the same way as other backends.
+    Args:
+        sparse_mtx_path: Absolute path to the .mtx file containing just the
+            sparse remainder of this matrix.  Generated offline by
+            ``generate_sparse_mtx.py``.
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -1516,10 +1516,7 @@ def gen_single_threaded_spmv_naive_uzp(
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
 
-    # UZP inputs (absolute paths for generated C code)
-    zpoly_bin = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator")
-    patterns_path = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "data", "patterns.txt")
-    zpoly_root = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator")
+    uzp_prepare_script = os.path.join(BASE_PATH, "uzp_prepare.sh")
 
     code: list[str] = []
     code.append("#include <assert.h>\n")
@@ -1553,27 +1550,15 @@ def gen_single_threaded_spmv_naive_uzp(
         code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
     else:
         code.append("\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
+    code.append("\tassert(y && x && val);\n\n")
 
-    if len(csr_val) > 0:
-        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
-        code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
-        code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
-    code.append("\tassert(y && x && val);\n")
-    if len(csr_val) > 0:
-        code.append("\tassert(csr_val && indptr && indices);\n")
-    code.append("\n")
-
-    code.append("\t// Read VBRC + dense vector ONCE (outside timing loop)\n")
+    code.append("\t// Read dense block values from VBRC (outside timing loop)\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening vbrc file\\n\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening vector file\\n\"); return 1; }\n")
     code.append("\tmemset(x, 0, (size_t)ncols * sizeof(double));\n")
     code.append("\tmemset(val, 0, (size_t)({0}) * sizeof(double));\n".format(len(val) if len(val) > 0 else 1))
-    if len(csr_val) > 0:
-        code.append(f"\tmemset(csr_val, 0, (size_t){len(csr_val)} * sizeof(double));\n")
-        code.append(f"\tmemset(indptr, 0, (size_t){len(indptr)} * sizeof(int));\n")
-        code.append(f"\tmemset(indices, 0, (size_t){len(indices)} * sizeof(int));\n")
     code.append("\tchar c;\n")
     code.append("\tint x_size = 0, val_size = 0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -1595,58 +1580,6 @@ def gen_single_threaded_spmv_naive_uzp(
 \t}
 \tassert(fscanf(file1, "%c", &c) == 1 && c == '\\n');
 ''')
-    if len(ublocks) > 0:
-        code.append('''\tval_size=0;
-\tassert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
-\tval_size++;
-\twhile (1) {
-\t\tassert(fscanf(file1, "%c", &c) == 1);
-\t\tif (c == ',') {
-\t\t\tassert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
-\t\t\tval_size++;
-\t\t} else if (c == ']') {
-\t\t\tbreak;
-\t\t} else {
-\t\t\tassert(0);
-\t\t}
-\t}
-\tif(fscanf(file1, "%c", &c));
-\tassert(c=='\\n');
-''')
-    if len(indptr) > 0:
-        code.append(f"""\tval_size=0;
-\tassert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
-\tval_size++;
-\twhile (1) {{
-\t\tassert(fscanf(file1, "%c", &c) == 1);
-\t\tif (c == ',') {{
-\t\t\tassert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
-\t\t\tval_size++;
-\t\t}} else if (c == ']') {{
-\t\t\tbreak;
-\t\t}} else {{
-\t\t\tassert(0);
-\t\t}}
-\t}}
-\tif(fscanf(file1, "%c", &c));
-\tassert(c=='\\n');
-\tval_size=0;
-\tassert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
-\tval_size++;
-\twhile (1) {{
-\t\tassert(fscanf(file1, "%c", &c) == 1);
-\t\tif (c == ',') {{
-\t\t\tassert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
-\t\t\tval_size++;
-\t\t}} else if (c == ']') {{
-\t\t\tbreak;
-\t\t}} else {{
-\t\t\tassert(0);
-\t\t}}
-\t}}
-\tif(fscanf(file1, "%c", &c));
-\tassert(c=='\\n');
-""")
     code.append("\tfclose(file1);\n")
     code.append('''\twhile (x_size < ncols && fscanf(file2, "%lf,", &x[x_size]) == 1) {
 \t\tx_size++;
@@ -1655,48 +1588,19 @@ def gen_single_threaded_spmv_naive_uzp(
 ''')
     code.append("\n")
 
-    # Build COO + mine UZP ONCE (outside timing loop)
+    # Run UZP preparation shell script ONCE (outside timing loop)
     if len(ublocks) > 0:
-        code.append("\t// Convert CSR -> COO once (1-based indices, COO format)\n")
-        code.append(f"\tconst int nnz = {len(csr_val)};\n")
-        code.append("\tint *coo_r = (int*)malloc((size_t)nnz * sizeof(int));\n")
-        code.append("\tint *coo_c = (int*)malloc((size_t)nnz * sizeof(int));\n")
-        code.append("\tdouble *coo_v = (double*)malloc((size_t)nnz * sizeof(double));\n")
-        code.append("\tassert(coo_r && coo_c && coo_v);\n")
-        code.append("\tint k = 0;\n")
-        code.append("\tfor (int r = 0; r < nrows; r++) {\n")
-        code.append("\t\tfor (int p = indptr[r]; p < indptr[r+1]; p++) {\n")
-        code.append("\t\t\tcoo_r[k] = r + 1;\n")
-        code.append("\t\t\tcoo_c[k] = indices[p] + 1;\n")
-        code.append("\t\t\tcoo_v[k] = csr_val[p];\n")
-        code.append("\t\t\tk++;\n")
-        code.append("\t\t}\n")
-        code.append("\t}\n")
-        code.append("\tassert(k == nnz);\n\n")
-
-        code.append("\t// Write COO file for z_polyhedrator (outside timing loop)\n")
-        code.append("\tchar coo_path[512];\n")
-        code.append("\tchar uzp_base[512];\n")
-        code.append(f"\tsnprintf(coo_path, sizeof(coo_path), \"/tmp/{filename}_%d.coo\", (int)getpid());\n")
-        code.append(f"\tsnprintf(uzp_base, sizeof(uzp_base), \"/tmp/{filename}_%d\", (int)getpid());\n")
-        code.append("\tFILE *fcoo = fopen(coo_path, \"w\");\n")
-        code.append("\tassert(fcoo);\n")
-        code.append("\tfprintf(fcoo, \"COO %d %d %d\\n\", nrows, ncols, nnz);\n")
-        code.append("\tfor (int i = 0; i < nnz; i++) {\n")
-        code.append("\t\tfprintf(fcoo, \"%d %d %.17g\\n\", coo_r[i], coo_c[i], coo_v[i]);\n")
-        code.append("\t}\n")
-        code.append("\tfclose(fcoo);\n\n")
-
-        code.append("\t// Run UZP pattern mining once (outside timing loop)\n")
+        mtx_abs = os.path.abspath(sparse_mtx_path)
+        mtx_basename = os.path.splitext(os.path.basename(sparse_mtx_path))[0]
+        uzp_tmp_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Generated_UZP_tmp', filename))
+        code.append("\t// Prepare UZP files from offline-generated .mtx (outside timing loop)\n")
+        code.append(f"\tchar uzp_dir[] = \"{uzp_tmp_dir}\";\n")
         code.append("\tchar cmd[2048];\n")
-        # z_polyhedrator requires running from its project root (Cargo.toml discovery).
-        code.append(
-            f"\tsnprintf(cmd, sizeof(cmd), \"cd \\\"{os.path.abspath(zpoly_root)}\\\" && \\\"{os.path.abspath(zpoly_bin)}\\\" search \\\"{os.path.abspath(patterns_path)}\\\" \\\"%s\\\" -w \\\"%s\\\" > /dev/null 2>&1\", coo_path, uzp_base);\n"
-        )
+        code.append(f"\tsnprintf(cmd, sizeof(cmd), \"\\\"{os.path.abspath(uzp_prepare_script)}\\\" \\\"{mtx_abs}\\\" \\\"%s\\\"\", uzp_dir);\n")
         code.append("\tint rc = system(cmd);\n")
         code.append("\tassert(rc == 0);\n")
         code.append("\tchar uzp_path[600];\n")
-        code.append("\tsnprintf(uzp_path, sizeof(uzp_path), \"%s.1d.uzp\", uzp_base);\n")
+        code.append(f"\tsnprintf(uzp_path, sizeof(uzp_path), \"%s/{mtx_basename}.tuned.uzp\", uzp_dir);\n")
         code.append("\ts_spf_structure_t* spf_mat = spf_matrix_read_from_file(uzp_path);\n")
         code.append("\tassert(spf_mat);\n\n")
 
@@ -1793,13 +1697,6 @@ def gen_single_threaded_spmv_naive_uzp(
     code.append("\tfree(y);\n")
     code.append("\tfree(x);\n")
     code.append("\tfree(val);\n")
-    if len(csr_val) > 0:
-        code.append("\tfree(csr_val);\n")
-        code.append("\tfree(indptr);\n")
-        code.append("\tfree(indices);\n")
-        code.append("\tfree(coo_r);\n")
-        code.append("\tfree(coo_c);\n")
-        code.append("\tfree(coo_v);\n")
     code.append("\treturn 0;\n")
     code.append("}\n")
 
@@ -1825,12 +1722,18 @@ def gen_single_threaded_spmv_blas_uzp(
     filename,
     vbr_dir,
     bench: int = 5,
+    sparse_mtx_path: str = "",
 ) -> int:
     """UZP sparse dispatch + BLAS dense blocks (cblas_dgemv).
 
-    - COO conversion + UZP mining happen ONCE, outside the timing loop.
-    - Only UZP kernel execution is timed for the sparse part.
-    - Dense blocks use BLAS (`cblas_dgemv`) except Nx1 blocks which keep `spmv_kernel_3`.
+    UZP preparation (z_polyhedrator + spf_aggregator) runs ONCE via a shell
+    script outside the timing loop.  Only the UZP kernel execution is timed.
+    Dense blocks use BLAS (``cblas_dgemv``) except Nx1 blocks which keep
+    ``spmv_kernel_3``.
+
+    Args:
+        sparse_mtx_path: Absolute path to the .mtx file containing just the
+            sparse remainder of this matrix.
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -1839,9 +1742,7 @@ def gen_single_threaded_spmv_blas_uzp(
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
 
-    zpoly_bin = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator")
-    patterns_path = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator", "data", "patterns.txt")
-    zpoly_root = os.path.join(BASE_PATH, "uzp-artifact", "z_polyhedrator")
+    uzp_prepare_script = os.path.join(BASE_PATH, "uzp_prepare.sh")
 
     code: list[str] = []
     code.append("#include <assert.h>\n")
@@ -1872,27 +1773,15 @@ def gen_single_threaded_spmv_blas_uzp(
         code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
     else:
         code.append("\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
+    code.append("\tassert(y && x && val);\n\n")
 
-    if len(csr_val) > 0:
-        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
-        code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
-        code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
-    code.append("\tassert(y && x && val);\n")
-    if len(csr_val) > 0:
-        code.append("\tassert(csr_val && indptr && indices);\n")
-    code.append("\n")
-
-    code.append("\t// Read VBRC + dense vector ONCE (outside timing loop)\n")
+    code.append("\t// Read dense block values from VBRC (outside timing loop)\n")
     code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
     code.append("\tif (file1 == NULL) { printf(\"Error opening vbrc file\\n\"); return 1; }\n")
     code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
     code.append("\tif (file2 == NULL) { printf(\"Error opening vector file\\n\"); return 1; }\n")
     code.append("\tmemset(x, 0, (size_t)ncols * sizeof(double));\n")
     code.append("\tmemset(val, 0, (size_t)({0}) * sizeof(double));\n".format(len(val) if len(val) > 0 else 1))
-    if len(csr_val) > 0:
-        code.append(f"\tmemset(csr_val, 0, (size_t){len(csr_val)} * sizeof(double));\n")
-        code.append(f"\tmemset(indptr, 0, (size_t){len(indptr)} * sizeof(int));\n")
-        code.append(f"\tmemset(indices, 0, (size_t){len(indices)} * sizeof(int));\n")
     code.append("\tchar c;\n")
     code.append("\tint x_size = 0, val_size = 0;\n")
     code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
@@ -1914,58 +1803,6 @@ def gen_single_threaded_spmv_blas_uzp(
 \t}
 \tassert(fscanf(file1, "%c", &c) == 1 && c == '\\n');
 ''')
-    if len(ublocks) > 0:
-        code.append('''\tval_size=0;
-\tassert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
-\tval_size++;
-\twhile (1) {
-\t\tassert(fscanf(file1, "%c", &c) == 1);
-\t\tif (c == ',') {
-\t\t\tassert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
-\t\t\tval_size++;
-\t\t} else if (c == ']') {
-\t\t\tbreak;
-\t\t} else {
-\t\t\tassert(0);
-\t\t}
-\t}
-\tif(fscanf(file1, "%c", &c));
-\tassert(c=='\\n');
-''')
-    if len(indptr) > 0:
-        code.append(f"""\tval_size=0;
-\tassert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
-\tval_size++;
-\twhile (1) {{
-\t\tassert(fscanf(file1, "%c", &c) == 1);
-\t\tif (c == ',') {{
-\t\t\tassert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
-\t\t\tval_size++;
-\t\t}} else if (c == ']') {{
-\t\t\tbreak;
-\t\t}} else {{
-\t\t\tassert(0);
-\t\t}}
-\t}}
-\tif(fscanf(file1, "%c", &c));
-\tassert(c=='\\n');
-\tval_size=0;
-\tassert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
-\tval_size++;
-\twhile (1) {{
-\t\tassert(fscanf(file1, "%c", &c) == 1);
-\t\tif (c == ',') {{
-\t\t\tassert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
-\t\t\tval_size++;
-\t\t}} else if (c == ']') {{
-\t\t\tbreak;
-\t\t}} else {{
-\t\t\tassert(0);
-\t\t}}
-\t}}
-\tif(fscanf(file1, "%c", &c));
-\tassert(c=='\\n');
-""")
     code.append("\tfclose(file1);\n")
     code.append('''\twhile (x_size < ncols && fscanf(file2, "%lf,", &x[x_size]) == 1) {
 \t\tx_size++;
@@ -1974,46 +1811,19 @@ def gen_single_threaded_spmv_blas_uzp(
 ''')
     code.append("\n")
 
+    # Run UZP preparation shell script ONCE (outside timing loop)
     if len(ublocks) > 0:
-        code.append("\t// Convert CSR -> COO once (1-based indices)\n")
-        code.append(f"\tconst int nnz = {len(csr_val)};\n")
-        code.append("\tint *coo_r = (int*)malloc((size_t)nnz * sizeof(int));\n")
-        code.append("\tint *coo_c = (int*)malloc((size_t)nnz * sizeof(int));\n")
-        code.append("\tdouble *coo_v = (double*)malloc((size_t)nnz * sizeof(double));\n")
-        code.append("\tassert(coo_r && coo_c && coo_v);\n")
-        code.append("\tint k = 0;\n")
-        code.append("\tfor (int r = 0; r < nrows; r++) {\n")
-        code.append("\t\tfor (int p = indptr[r]; p < indptr[r+1]; p++) {\n")
-        code.append("\t\t\tcoo_r[k] = r + 1;\n")
-        code.append("\t\t\tcoo_c[k] = indices[p] + 1;\n")
-        code.append("\t\t\tcoo_v[k] = csr_val[p];\n")
-        code.append("\t\t\tk++;\n")
-        code.append("\t\t}\n")
-        code.append("\t}\n")
-        code.append("\tassert(k == nnz);\n\n")
-
-        code.append("\tchar coo_path[512];\n")
-        code.append("\tchar uzp_base[512];\n")
-        code.append(f"\tsnprintf(coo_path, sizeof(coo_path), \"/tmp/{filename}_%d.coo\", (int)getpid());\n")
-        code.append(f"\tsnprintf(uzp_base, sizeof(uzp_base), \"/tmp/{filename}_%d\", (int)getpid());\n")
-        code.append("\tFILE *fcoo = fopen(coo_path, \"w\");\n")
-        code.append("\tassert(fcoo);\n")
-        code.append("\tfprintf(fcoo, \"COO %d %d %d\\n\", nrows, ncols, nnz);\n")
-        code.append("\tfor (int i = 0; i < nnz; i++) {\n")
-        code.append("\t\tfprintf(fcoo, \"%d %d %.17g\\n\", coo_r[i], coo_c[i], coo_v[i]);\n")
-        code.append("\t}\n")
-        code.append("\tfclose(fcoo);\n\n")
-
-        code.append("\t// Run UZP mining once (outside timing)\n")
+        mtx_abs = os.path.abspath(sparse_mtx_path)
+        mtx_basename = os.path.splitext(os.path.basename(sparse_mtx_path))[0]
+        uzp_tmp_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'Generated_UZP_tmp', filename))
+        code.append("\t// Prepare UZP files from offline-generated .mtx (outside timing loop)\n")
+        code.append(f"\tchar uzp_dir[] = \"{uzp_tmp_dir}\";\n")
         code.append("\tchar cmd[2048];\n")
-        # z_polyhedrator requires running from its project root (Cargo.toml discovery).
-        code.append(
-            f"\tsnprintf(cmd, sizeof(cmd), \"cd \\\"{os.path.abspath(zpoly_root)}\\\" && \\\"{os.path.abspath(zpoly_bin)}\\\" search \\\"{os.path.abspath(patterns_path)}\\\" \\\"%s\\\" -w \\\"%s\\\" > /dev/null 2>&1\", coo_path, uzp_base);\n"
-        )
+        code.append(f"\tsnprintf(cmd, sizeof(cmd), \"\\\"{os.path.abspath(uzp_prepare_script)}\\\" \\\"{mtx_abs}\\\" \\\"%s\\\"\", uzp_dir);\n")
         code.append("\tint rc = system(cmd);\n")
         code.append("\tassert(rc == 0);\n")
         code.append("\tchar uzp_path[600];\n")
-        code.append("\tsnprintf(uzp_path, sizeof(uzp_path), \"%s.1d.uzp\", uzp_base);\n")
+        code.append(f"\tsnprintf(uzp_path, sizeof(uzp_path), \"%s/{mtx_basename}.tuned.uzp\", uzp_dir);\n")
         code.append("\ts_spf_structure_t* spf_mat = spf_matrix_read_from_file(uzp_path);\n")
         code.append("\tassert(spf_mat);\n\n")
 
@@ -2101,13 +1911,6 @@ def gen_single_threaded_spmv_blas_uzp(
     code.append("\tfree(y);\n")
     code.append("\tfree(x);\n")
     code.append("\tfree(val);\n")
-    if len(csr_val) > 0:
-        code.append("\tfree(csr_val);\n")
-        code.append("\tfree(indptr);\n")
-        code.append("\tfree(indices);\n")
-        code.append("\tfree(coo_r);\n")
-        code.append("\tfree(coo_c);\n")
-        code.append("\tfree(coo_v);\n")
     code.append("\treturn 0;\n")
     code.append("}\n")
 

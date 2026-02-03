@@ -190,6 +190,22 @@ def spmv_sparse_naive():
     code.append("}\n\n")
     return "".join(code)
 
+
+def spmv_sparse_naive_parallel():
+    """OpenMP-parallelized CSR SpMV kernel."""
+    code = []
+    code.append("void spmv_sparse_naive_parallel(double *restrict y, const double *restrict csr_val, const int *restrict indices, const int *restrict indptr, const double *restrict x, const int rpntr_size) {\n")
+    code.append("\t#pragma omp parallel for schedule(dynamic, 64)\n")
+    code.append("\tfor (int i = 0; i < rpntr_size; i++) {\n")
+    code.append("\t\tdouble sum = 0.0;\n")
+    code.append("\t\tfor (int j = indptr[i]; j < indptr[i + 1]; j++) {\n")
+    code.append("\t\t\tsum += csr_val[j] * x[indices[j]];\n")
+    code.append("\t\t}\n")
+    code.append("\t\ty[i] += sum;\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    return "".join(code)
+
 def spmm_kernel():
     """General SpMM kernel with 2D blocking for arbitrary block shapes."""
     code = """
@@ -385,6 +401,25 @@ void spmm_sparse(double *restrict y, const double *restrict csr_val, const int *
     return code
 
 
+def spmm_sparse_parallel():
+    """OpenMP-parallelized CSR SpMM kernel."""
+    code = """
+void spmm_sparse_parallel(double *restrict y, const double *restrict csr_val, const int *restrict indices, const int *restrict indptr, const double *restrict x, const int sparse_rows) {
+    #pragma omp parallel for schedule(dynamic, 64)
+    for (int i = 0; i < sparse_rows; i++) {
+        for (int p = indptr[i]; p < indptr[i+1]; p++) {
+            int col = indices[p];
+            double val = csr_val[p];
+            for (int j = 0; j < 512; ++j) {
+                y[i * 512 + j] += val * x[col * 512 + j];
+            }
+        }
+    }
+}
+"""
+    return code
+
+
 def spmm_kernel_mkl():
     """SpMM kernel using MKL's cblas_dgemm for dense blocks.
 
@@ -424,18 +459,30 @@ void spmm_kernel_mkl(
     return code
 
 
-def gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
-    """Generate SpMM code with handwritten dense kernels + handwritten sparse kernel."""
+def gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
+    """Generate SpMM code with handwritten dense kernels + handwritten sparse kernel.
+
+    Args:
+        threads: Number of threads for OpenMP parallelization (default: 1)
+    """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     time1 = time.time_ns() // 1_000_000
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
+
+    # Use parallel kernel when threads > 1
+    use_parallel = threads > 1
+    sparse_kernel_name = "spmm_sparse_parallel" if use_parallel else "spmm_sparse"
+    sparse_kernel_func = spmm_sparse_parallel() if use_parallel else spmm_sparse()
+
     code = []
     code.append("#include <stdio.h>\n")
     code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
+    if threads > 1:
+        code.append("#include <omp.h>\n")
     code.append("#include <assert.h>\n\n")
     code.append(spmm_kernel())
     code.append("\n")
@@ -447,9 +494,11 @@ def gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb,
     code.append("\n")
     code.append(spmm_kernel_5())
     code.append("\n")
-    code.append(spmm_sparse())
+    code.append(sparse_kernel_func)
     code.append("\n")
     code.append("int main() {\n")
+    if threads > 1:
+        code.append(f"\tomp_set_num_threads({threads});\n\n")
     code.append(f"\tdouble *y = (double*)malloc({rpntr[-1] * 512} * sizeof(double));\n")
     code.append(f"\tdouble *x = (double*)malloc({cpntr[-1] * 512} * sizeof(double));\n")
     if len(val) > 0:
@@ -575,7 +624,7 @@ def gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb,
     
     if (len(ublocks) > 0):
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-        code.append("\t\tspmm_sparse(y, csr_val, indices, indptr, x, {0});\n".format(rpntr[-1]))
+        code.append(f"\t\t{sparse_kernel_name}(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
     count = 0
@@ -653,18 +702,27 @@ def gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb,
     return time2-time1
 
 
-def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate SpMM code with MKL cblas_dgemm dense kernel + handwritten sparse kernel.
 
     Uses MKL BLAS for dense blocks instead of hand-written kernels.
     This should provide significantly better performance for larger blocks
     while potentially having overhead for very small blocks.
+
+    Args:
+        threads: Number of threads for MKL parallelization (default: 1)
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     time1 = time.time_ns() // 1_000_000
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
+
+    # Use parallel kernel when threads > 1
+    use_parallel = threads > 1
+    sparse_kernel_name = "spmm_sparse_parallel" if use_parallel else "spmm_sparse"
+    sparse_kernel_func = spmm_sparse_parallel() if use_parallel else spmm_sparse()
+
     code = []
     code.append("#include <stdio.h>\n")
     code.append("#include <time.h>\n")
@@ -672,7 +730,10 @@ def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, b
     code.append("#include <string.h>\n")
     code.append("#include <assert.h>\n")
     code.append("#include <mkl.h>\n")
-    code.append("#include <mkl_cblas.h>\n\n")
+    code.append("#include <mkl_cblas.h>\n")
+    if threads > 1:
+        code.append("#include <omp.h>\n")
+    code.append("\n")
     code.append(spmm_kernel_mkl())
     code.append("\n")
     # Include all naive kernel variants for thin/vector-like blocks
@@ -686,11 +747,13 @@ def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, b
     code.append("\n")
     code.append(spmm_kernel_5())  # Few rows (num_rows < 16)
     code.append("\n")
-    code.append(spmm_sparse())
+    code.append(sparse_kernel_func)
     code.append("\n")
     code.append("int main() {\n")
-    # Set MKL to single-threaded
-    code.append("\tmkl_set_num_threads(1);\n\n")
+    # Set thread counts
+    if threads > 1:
+        code.append(f"\tomp_set_num_threads({threads});\n")
+    code.append(f"\tmkl_set_num_threads({threads});\n\n")
     code.append(f"\tdouble *y = (double*)malloc({rpntr[-1] * 512} * sizeof(double));\n")
     code.append(f"\tdouble *x = (double*)malloc({cpntr[-1] * 512} * sizeof(double));\n")
     if len(val) > 0:
@@ -816,7 +879,7 @@ def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, b
 
     if (len(ublocks) > 0):
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-        code.append("\t\tspmm_sparse(y, csr_val, indices, indptr, x, {0});\n".format(rpntr[-1]))
+        code.append(f"\t\t{sparse_kernel_name}(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
     count = 0
@@ -904,7 +967,7 @@ def gen_single_threaded_spmm_mkl_naive(val, indx, bindx, rpntr, cpntr, bpntrb, b
     return time2-time1
 
 
-def _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_kernel_include, sparse_kernel_function, sparse_kernel_call, dense_first=False):
+def _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_kernel_include, sparse_kernel_function, sparse_kernel_call, dense_first=False, threads=1, use_mkl=False):
     """Common code generation for single-threaded SpMV functions.
 
     Args:
@@ -912,6 +975,8 @@ def _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         sparse_kernel_function: String with additional kernel function definitions (e.g., spmv_sparse_naive function)
         sparse_kernel_call: Function that generates the sparse kernel call code, takes (code, ublocks, csr_val, rpntr, cpntr, indptr, indices) as args
         dense_first: If True, execute dense kernel before sparse kernel. If False, execute sparse kernel first.
+        threads: Number of threads to use for parallelization (default: 1)
+        use_mkl: If True, set MKL thread count as well (default: False)
     """
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
@@ -920,6 +985,8 @@ def _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     code.append("#include <time.h>\n")
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
+    if threads > 1:
+        code.append("#include <omp.h>\n")
     if sparse_kernel_include:
         code.append(sparse_kernel_include)
     code.append("#include <assert.h>\n\n")
@@ -933,6 +1000,13 @@ def _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpn
         code.append(sparse_kernel_function)
         code.append("\n")
     code.append("int main() {\n")
+    # Set up thread counts if using parallelization
+    if threads > 1:
+        code.append(f"\tomp_set_num_threads({threads});\n")
+    if use_mkl:
+        code.append(f"\tmkl_set_num_threads({threads});\n")
+    if threads > 1 or use_mkl:
+        code.append("\n")
     code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
     code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
     if len(val) > 0:
@@ -1135,7 +1209,7 @@ def _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     code.append("}\n")
     return code
 
-def _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_kernel_include, sparse_kernel_function, sparse_kernel_call, dense_first=False):
+def _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_kernel_include, sparse_kernel_function, sparse_kernel_call, dense_first=False, threads=1):
     """Common code generation for single-threaded SpMV functions with BLAS dense kernels.
 
     Uses cblas_dgemv for dense blocks, but keeps spmv_kernel_3 for single-column (Nx1) blocks
@@ -1146,6 +1220,7 @@ def _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb
         sparse_kernel_function: String with additional kernel function definitions (e.g., spmv_sparse_naive function)
         sparse_kernel_call: Function that generates the sparse kernel call code, takes (code, ublocks, csr_val, rpntr, cpntr, indptr, indices) as args
         dense_first: If True, execute dense kernel before sparse kernel. If False, execute sparse kernel first.
+        threads: Number of threads for MKL parallelization (default: 1)
     """
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
@@ -1155,6 +1230,8 @@ def _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb
     code.append("#include <stdlib.h>\n")
     code.append("#include <string.h>\n")
     code.append("#include <mkl.h>\n")  # Always include MKL for cblas_dgemv
+    if threads > 1:
+        code.append("#include <omp.h>\n")
     if sparse_kernel_include:
         code.append(sparse_kernel_include)
     code.append("#include <assert.h>\n\n")
@@ -1170,7 +1247,11 @@ def _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb
         code.append(sparse_kernel_function)
         code.append("\n")
     code.append("int main() {\n")
-    code.append("\tmkl_set_num_threads(1);\n")  # Single-threaded BLAS
+    # Set up thread counts
+    if threads > 1:
+        code.append(f"\tomp_set_num_threads({threads});\n")
+    code.append(f"\tmkl_set_num_threads({threads});\n")  # MKL threading
+    code.append("\n")
     code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
     code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
     if len(val) > 0:
@@ -1388,7 +1469,7 @@ def _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb
     code.append("}\n")
     return code
 
-def gen_single_threaded_spmv_naive_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmv_naive_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate code using naive dense kernels + SpV8 sparse kernel.
     
     When sparse dispatch is spv8, dense dispatch comes before sparse dispatch.
@@ -1410,45 +1491,57 @@ def gen_single_threaded_spmv_naive_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, 
             code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
 
     sparse_include = '#include "utility.h"\n' if len(ublocks) > 0 else ''
-    code = _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call, dense_first=dense_first)
+    # SpV8 kernel has internal OpenMP parallelization, just pass threads for omp_set_num_threads
+    code = _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call, dense_first=dense_first, threads=threads)
 
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 
-def gen_single_threaded_spmv_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmv_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate code using naive dense kernels + naive 3-loop CSR SpMV kernel for sparse part.
-    
+
     This function can handle both split matrices (with dense blocks) and fully sparse matrices.
     Dense blocks are handled using the standard dense kernels (spmv_kernel, spmv_kernel_2, spmv_kernel_3).
-    
+
     When sparse dispatch is naive, sparse dispatch comes before dense dispatch.
+
+    Args:
+        threads: Number of threads to use for parallelization (default: 1)
     """
-    
+
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     time1 = time.time_ns() // 1_000_000
-    
+
+    # Use parallel kernel when threads > 1
+    use_parallel = threads > 1
+    kernel_name = "spmv_sparse_naive_parallel" if use_parallel else "spmv_sparse_naive"
+    kernel_func = spmv_sparse_naive_parallel() if use_parallel else spmv_sparse_naive()
+
     def sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices):
         if len(ublocks) > 0:
             code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-            code.append(f"\t\tspmv_sparse_naive(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+            code.append(f"\t\t{kernel_name}(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
             code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
             code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
-    
+
     # When sparse dispatch is naive, sparse dispatch comes before dense dispatch
-    code = _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, '', spmv_sparse_naive(), sparse_kernel_call, dense_first=False)
+    code = _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, '', kernel_func, sparse_kernel_call, dense_first=False, threads=threads)
 
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 
-def gen_single_threaded_spmv_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmv_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate code using naive dense kernels + MKL sparse kernel.
-    
+
     When sparse dispatch is mkl, sparse dispatch comes before dense dispatch.
+
+    Args:
+        threads: Number of threads to use for MKL parallelization (default: 1)
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -1461,11 +1554,11 @@ def gen_single_threaded_spmv_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, b
 
     def sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices):
         if len(ublocks) > 0:
+            # Note: mkl_set_num_threads is set once in main() via _gen_single_threaded_spmv_common
             code.append(f"""\t\tsparse_matrix_t A;
         mkl_sparse_d_create_csr(&A, SPARSE_INDEX_BASE_ZERO, {rpntr[-1]}, {cpntr[-1]}, indptr, indptr+1, indices, csr_val);
         struct matrix_descr descr;
-        descr.type = SPARSE_MATRIX_TYPE_GENERAL;
-        mkl_set_num_threads(1);\n""")
+        descr.type = SPARSE_MATRIX_TYPE_GENERAL;\n""")
             code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
             code.append(f"\t\tmkl_sparse_d_mv(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, A, descr, x, {beta}, y);\n")
             code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
@@ -1474,7 +1567,7 @@ def gen_single_threaded_spmv_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, b
     sparse_include = ''
     if len(ublocks) > 0:
         sparse_include = "#include <mkl.h>\n#include <mkl_spblas.h>\n"
-    code = _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call, dense_first=dense_first)
+    code = _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call, dense_first=dense_first, threads=threads, use_mkl=True)
 
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
@@ -1497,7 +1590,11 @@ def gen_single_threaded_spmv_naive_uzp(
     filename,
     vbr_dir,
     bench: int = 5,
+<<<<<<< HEAD
     sparse_mtx_path: str = "",
+=======
+    threads: int = 1,
+>>>>>>> e02be83 (Parallel codegen + parallel SpMV numbers)
 ) -> int:
     """Generate code using UZP for the sparse (CSR) part.
 
@@ -1722,7 +1819,11 @@ def gen_single_threaded_spmv_blas_uzp(
     filename,
     vbr_dir,
     bench: int = 5,
+<<<<<<< HEAD
     sparse_mtx_path: str = "",
+=======
+    threads: int = 1,
+>>>>>>> e02be83 (Parallel codegen + parallel SpMV numbers)
 ) -> int:
     """UZP sparse dispatch + BLAS dense blocks (cblas_dgemv).
 
@@ -1920,10 +2021,13 @@ def gen_single_threaded_spmv_blas_uzp(
     time2 = time.time_ns() // 1_000_000
     return time2 - time1
 
-def gen_single_threaded_spmv_blas_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmv_blas_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate code using BLAS dense kernels + SpV8 sparse kernel.
-    
+
     When sparse dispatch is spv8, dense dispatch comes before sparse dispatch.
+
+    Args:
+        threads: Number of threads for parallelization (default: 1)
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -1942,41 +2046,52 @@ def gen_single_threaded_spmv_blas_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, b
             code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
 
     sparse_include = '#include "utility.h"\n' if len(ublocks) > 0 else ''
-    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call, dense_first=dense_first)
+    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call, dense_first=dense_first, threads=threads)
 
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 
-def gen_single_threaded_spmv_blas_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmv_blas_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate code using BLAS dense kernels + naive 3-loop CSR sparse kernel.
-    
+
     When sparse dispatch is naive, sparse dispatch comes before dense dispatch.
+
+    Args:
+        threads: Number of threads for parallelization (default: 1)
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
     time1 = time.time_ns() // 1_000_000
 
+    # Use parallel kernel when threads > 1
+    use_parallel = threads > 1
+    kernel_name = "spmv_sparse_naive_parallel" if use_parallel else "spmv_sparse_naive"
+    kernel_func = spmv_sparse_naive_parallel() if use_parallel else spmv_sparse_naive()
+
     def sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices):
         if len(ublocks) > 0:
             code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-            code.append(f"\t\tspmv_sparse_naive(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+            code.append(f"\t\t{kernel_name}(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
             code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
             code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
 
     # When sparse dispatch is naive, sparse dispatch comes before dense dispatch
-    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, '', spmv_sparse_naive(), sparse_kernel_call, dense_first=False)
+    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, '', kernel_func, sparse_kernel_call, dense_first=False, threads=threads)
 
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 
-def gen_single_threaded_spmv_blas_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmv_blas_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate code using BLAS dense kernels + MKL sparse kernel.
-    
+
     When sparse dispatch is mkl, sparse dispatch comes before dense dispatch.
+
+    Args:
+        threads: Number of threads for MKL parallelization (default: 1)
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -1989,6 +2104,7 @@ def gen_single_threaded_spmv_blas_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bp
 
     def sparse_kernel_call(code, ublocks, csr_val, rpntr, cpntr, indptr, indices):
         if len(ublocks) > 0:
+            # Note: mkl_set_num_threads is set once in main() via _gen_single_threaded_spmv_common_blas
             code.append(f"""\t\tsparse_matrix_t A;
         mkl_sparse_d_create_csr(&A, SPARSE_INDEX_BASE_ZERO, {rpntr[-1]}, {cpntr[-1]}, indptr, indptr+1, indices, csr_val);
         struct matrix_descr descr;
@@ -2002,7 +2118,7 @@ def gen_single_threaded_spmv_blas_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bp
     sparse_include = ''
     if len(ublocks) > 0:
         sparse_include = "#include <mkl_spblas.h>\n"
-    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call, dense_first=dense_first)
+    code = _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, sparse_include, '', sparse_kernel_call, dense_first=dense_first, threads=threads)
 
     with open(os.path.join(dir_name, filename+".c"), "w") as f:
         f.writelines(code)
@@ -2229,21 +2345,23 @@ def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, m
     time1 = time.time_ns() // 1_000_000
     if mkl:
         # gen_single_threaded_spmv_dgemv(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
-        gen_single_threaded_spmv_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
-    elif threads == 1:
-        gen_single_threaded_spmv_naive_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+        gen_single_threaded_spmv_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, threads)
     else:
-        gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+        # Use single-threaded codegen with threads parameter - SpV8 kernel has internal OpenMP support
+        gen_single_threaded_spmv_naive_spv8(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, threads)
     time2 = time.time_ns() // 1_000_000
     return time2-time1
 
-def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate SpMM code with handwritten dense kernels + sparse-register-tiling sparse kernel.
 
     Uses separate init/execute/cleanup pattern for spreg:
     - spmm_spreg_init: Called once before timing loop (inspection + packing)
     - spmm_spreg_execute: Called inside timing loop (actual SpMM)
     - spmm_spreg_cleanup: Called after timing loop
+
+    Args:
+        threads: Number of threads for sparse-register-tiling parallelization (default: 1)
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -2380,12 +2498,12 @@ def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
         assert(init_c=='\\n');\n""")
         code.append("\tfclose(init_file);\n")
         code.append(f"\n\t// Initialize sparse-register-tiling executor (not timed)\n")
-        code.append(f"\tvoid *spreg_handle = spmm_spreg_init(csr_val, indices, indptr, {rpntr[-1]}, {cpntr[-1]}, 512);\n")
+        code.append(f"\tvoid *spreg_handle = spmm_spreg_init(csr_val, indices, indptr, {rpntr[-1]}, {cpntr[-1]}, 512, {threads});\n")
         code.append("\tif (spreg_handle == NULL) {\n")
         code.append("\t\tprintf(\"Failed to initialize sparse-register-tiling executor\\n\");\n")
         code.append("\t\treturn 1;\n")
         code.append("\t}\n")
-    
+
     # === BENCHMARK LOOP - load data each iteration (outside timing), like SpMV ===
     code.append(f"\n\t// Benchmark loop - load data each iteration (outside timing)\n")
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
@@ -2560,7 +2678,7 @@ def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
     return time2-time1
 
 
-def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate SpMM code with MKL cblas_dgemm dense kernel + sparse-register-tiling sparse kernel.
 
     Uses MKL BLAS for dense blocks and sparse-register-tiling for sparse part.
@@ -2568,6 +2686,9 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
     - spmm_spreg_init: Called once before timing loop (inspection + packing)
     - spmm_spreg_execute: Called inside timing loop (actual SpMM)
     - spmm_spreg_cleanup: Called after timing loop
+
+    Args:
+        threads: Number of threads for parallelization (MKL + spreg) (default: 1)
     """
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
@@ -2605,8 +2726,8 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
     code.append(spmm_kernel_5())  # Few rows (num_rows < 16)
     code.append("\n")
     code.append("int main() {\n")
-    # Set MKL to single-threaded
-    code.append("\tmkl_set_num_threads(1);\n\n")
+    # Set thread counts
+    code.append(f"\tmkl_set_num_threads({threads});\n\n")
     code.append(f"\tdouble *y = (double*)malloc({rpntr[-1] * 512} * sizeof(double));\n")
     code.append(f"\tdouble *x = (double*)malloc({cpntr[-1] * 512} * sizeof(double));\n")
     if len(val) > 0:
@@ -2737,7 +2858,7 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
         assert(init_c=='\\n');\n""")
         code.append("\tfclose(init_file);\n")
         code.append(f"\n\t// Initialize sparse-register-tiling executor (not timed)\n")
-        code.append(f"\tvoid *spreg_handle = spmm_spreg_init(csr_val, indices, indptr, {rpntr[-1]}, {cpntr[-1]}, 512);\n")
+        code.append(f"\tvoid *spreg_handle = spmm_spreg_init(csr_val, indices, indptr, {rpntr[-1]}, {cpntr[-1]}, 512, {threads});\n")
         code.append("\tif (spreg_handle == NULL) {\n")
         code.append("\t\tprintf(\"Failed to initialize sparse-register-tiling executor\\n\");\n")
         code.append("\t\treturn 1;\n")
@@ -2942,7 +3063,7 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
     return time2-time1
 
 
-def gen_single_threaded_spmm_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmm_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate SpMM code with handwritten dense kernels + MKL sparse kernel (mkl_sparse_d_mm).
 
     Uses handwritten kernels for dense blocks and MKL's mkl_sparse_d_mm for the sparse CSR part.
@@ -3187,7 +3308,7 @@ def gen_single_threaded_spmm_naive_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, b
     return time2-time1
 
 
-def gen_single_threaded_spmm_mkl_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5)->int:
+def gen_single_threaded_spmm_mkl_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench:int=5, threads:int=1)->int:
     """Generate SpMM code with MKL cblas_dgemm dense kernel + MKL sparse kernel (mkl_sparse_d_mm).
 
     Uses MKL BLAS for dense blocks and MKL's mkl_sparse_d_mm for the sparse CSR part.
@@ -3220,8 +3341,8 @@ def gen_single_threaded_spmm_mkl_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     code.append(spmm_kernel_5())  # Few rows (num_rows < 16)
     code.append("\n")
     code.append("int main() {\n")
-    # Set MKL to single-threaded
-    code.append("\tmkl_set_num_threads(1);\n\n")
+    # Set thread counts
+    code.append(f"\tmkl_set_num_threads({threads});\n\n")
     code.append(f"\tdouble *y = (double*)malloc({rpntr[-1] * 512} * sizeof(double));\n")
     code.append(f"\tdouble *x = (double*)malloc({cpntr[-1] * 512} * sizeof(double));\n")
     if len(val) > 0:
@@ -3446,9 +3567,7 @@ def vbr_spmm_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, b
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = read_vbrc(vbr_path)
     time1 = time.time_ns() // 1_000_000
-    if threads == 1:
-        gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
-    else:
-        gen_multi_threaded_spmm(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench)
+    # Use single-threaded codegen with threads parameter - it has internal OpenMP support
+    gen_single_threaded_spmm_naive_naive(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench, threads)
     time2 = time.time_ns() // 1_000_000
     return time2-time1

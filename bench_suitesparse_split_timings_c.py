@@ -48,6 +48,10 @@ BASE_PATH = os.path.join(FILEPATH)
 COMPILE_TIMEOUT = 60 * 60 * 4
 DEFAULT_BENCH_ITERATIONS = 30
 
+# Physical core IDs for benchmark pinning (from lscpu: 20 physical cores,
+# 1 thread/core, single socket, single NUMA node, cores 0-19)
+PHYSICAL_CORES = list(range(20))
+
 # Directories
 SUITESPARSE_DIR = FILEPATH / "Suitesparse"
 RESULTS_DIR = FILEPATH / "find-submatrices" / "results"
@@ -130,6 +134,7 @@ def eval_single_file_split_timings(
     fname: str,
     codegen_dir: str,
     bench_freq: int,
+    threads: int = 1,
     extract_indiv_blocks: bool = True
 ) -> Tuple[float, float, Dict[int, float], float]:
     """
@@ -138,8 +143,7 @@ def eval_single_file_split_timings(
     Returns:
         Tuple of (avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_ns)
     """
-    pid = os.getpid()
-    cpu_affinity = os.sched_getaffinity(pid)
+    cores_to_use = PHYSICAL_CORES[:threads]
 
     sparse_times = []
     dense_times = []
@@ -162,7 +166,7 @@ def eval_single_file_split_timings(
     for _ in range(bench_freq):
         try:
             output = subprocess.check_output(
-                ["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), executable_path],
+                ["taskset", "-a", "-c", ",".join([str(x) for x in cores_to_use]), executable_path],
                 cwd=codegen_dir,
                 preexec_fn=set_ulimit
             ).decode("utf-8").split("\n")
@@ -379,7 +383,8 @@ def process_and_benchmark_matrix(
     matrix_nnz: int,
     bench_iterations: int,
     use_mkl: bool = False,
-    dense_kernel: str = "naive"
+    dense_kernel: str = "naive",
+    threads: int = 1
 ) -> Optional[Dict[str, Any]]:
     """
     Run benchmarks for either SpV8 or MKL using pre-converted VBRC data.
@@ -392,6 +397,7 @@ def process_and_benchmark_matrix(
         bench_iterations: Number of benchmark iterations
         use_mkl: Whether to use MKL (True) or SpV8 (False) for sparse kernel
         dense_kernel: Which dense kernel to use: "naive" (handwritten) or "blas" (cblas_dgemv)
+        threads: Number of threads for parallelization (default: 1)
 
     Returns:
         Dictionary with benchmark results
@@ -401,18 +407,17 @@ def process_and_benchmark_matrix(
 
     # Select directories and functions based on sparse variant and dense kernel
     if use_mkl:
-        base_codegen_dir = GENERATED_SPMV_MKL_DIR
         if dense_kernel == "blas":
             gen_function = gen_single_threaded_spmv_blas_mkl
         else:
             gen_function = gen_single_threaded_spmv_naive_mkl
     else:
-        base_codegen_dir = GENERATED_SPMV_SPV8_DIR
         if dense_kernel == "blas":
             gen_function = gen_single_threaded_spmv_blas_spv8
         else:
             gen_function = gen_single_threaded_spmv_naive_spv8
-    
+
+    base_codegen_dir = FILEPATH / f"Generated_SpMV_C_{dense_kernel}_{sparse_variant}"
     codegen_dir_split = str(base_codegen_dir / "split")
     codegen_dir_sparse = str(base_codegen_dir / "sparse")
     
@@ -453,13 +458,13 @@ def process_and_benchmark_matrix(
     codegen_time_split_ns = gen_function(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
-        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations, threads=threads
     )
     
     # Evaluate split version (compile + run)
     print(f"  [{variant_name}] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
     
     # Generate C code for sparse version (codegen time)
     print(f"  [{variant_name}] Generating C code (fully sparse)...")
@@ -470,13 +475,13 @@ def process_and_benchmark_matrix(
         ublocks_sparse, indptr_sparse,
         indices_sparse, csr_val_sparse,
         codegen_dir_sparse, matrix_name,
-        sparse_vbr_dir, bench=bench_iterations
+        sparse_vbr_dir, bench=bench_iterations, threads=threads
     )
     
     # Evaluate fully sparse version (compile + run)
     print(f"  [{variant_name}] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
     
     # Calculate percentages
@@ -567,7 +572,8 @@ def process_and_benchmark_matrix_naive(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
-    dense_kernel: str = "naive"
+    dense_kernel: str = "naive",
+    threads: int = 1
 ) -> Optional[Dict[str, Any]]:
     """
     Run benchmarks for naive implementation using pre-converted VBRC data.
@@ -589,8 +595,9 @@ def process_and_benchmark_matrix_naive(
     else:
         gen_function = gen_single_threaded_spmv_naive_naive
 
-    codegen_dir_split = str(GENERATED_SPMV_NAIVE_DIR / "split")
-    codegen_dir_sparse = str(GENERATED_SPMV_NAIVE_DIR / "sparse")
+    base_codegen_dir = FILEPATH / f"Generated_SpMV_C_{dense_kernel}_naive"
+    codegen_dir_split = str(base_codegen_dir / "split")
+    codegen_dir_sparse = str(base_codegen_dir / "sparse")
     
     # Ensure directories exist
     os.makedirs(codegen_dir_split, exist_ok=True)
@@ -629,13 +636,13 @@ def process_and_benchmark_matrix_naive(
     codegen_time_split_ns = gen_function(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
-        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # Evaluate split version (compile + run)
     print(f"  [naive_{dense_kernel}] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
 
     # Generate C code for sparse version (codegen time)
     print(f"  [naive_{dense_kernel}] Generating C code (fully sparse)...")
@@ -646,13 +653,13 @@ def process_and_benchmark_matrix_naive(
         ublocks_sparse, indptr_sparse,
         indices_sparse, csr_val_sparse,
         codegen_dir_sparse, matrix_name,
-        sparse_vbr_dir, bench=bench_iterations
+        sparse_vbr_dir, bench=bench_iterations, threads=threads
     )
     
     # Evaluate fully sparse version (compile + run)
     print(f"  [naive] Evaluating fully sparse version...")
     sparse_avg_sparse_time, sparse_avg_dense_time, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
     
     # Calculate percentages
@@ -744,6 +751,7 @@ def process_and_benchmark_matrix_uzp(
     matrix_nnz: int,
     bench_iterations: int,
     dense_kernel: str = "naive",
+    threads: int = 1
 ) -> Optional[Dict[str, Any]]:
     """Run benchmarks using UZP sparse dispatch for the sparse kernel.
 
@@ -756,8 +764,9 @@ def process_and_benchmark_matrix_uzp(
 
     variant_name = f"uzp_{dense_kernel}"
 
-    codegen_dir_split = str(GENERATED_SPMV_UZP_DIR / "split")
-    codegen_dir_sparse = str(GENERATED_SPMV_UZP_DIR / "sparse")
+    base_codegen_dir = FILEPATH / f"Generated_SpMV_C_{dense_kernel}_uzp"
+    codegen_dir_split = str(base_codegen_dir / "split")
+    codegen_dir_sparse = str(base_codegen_dir / "sparse")
     os.makedirs(codegen_dir_split, exist_ok=True)
     os.makedirs(codegen_dir_sparse, exist_ok=True)
 
@@ -811,11 +820,12 @@ def process_and_benchmark_matrix_uzp(
         vbr_dir,
         bench=bench_iterations,
         sparse_mtx_path=split_sparse_mtx_path,
+        threads=threads,
     )
 
     print(f"  [{variant_name}] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_split, bench_iterations
+        matrix_name, codegen_dir_split, bench_iterations, threads=threads
     )
 
     print(f"  [{variant_name}] Generating C code (fully sparse)...")
@@ -836,11 +846,12 @@ def process_and_benchmark_matrix_uzp(
         sparse_vbr_dir,
         bench=bench_iterations,
         sparse_mtx_path=sparse_sparse_mtx_path,
+        threads=threads,
     )
 
     print(f"  [{variant_name}] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
 
     total_time = avg_sparse_time + avg_dense_time
@@ -933,8 +944,13 @@ def main():
                         help="Sparse kernel(s): naive, spv8, mkl, uzp, all, or comma-separated (e.g., 'spv8,mkl')")
     parser.add_argument("--dense", type=str, default="all",
                         help="Dense kernel(s): naive, blas, all, or comma-separated (e.g., 'naive,blas')")
+    parser.add_argument("--threads", type=str, default="1",
+                        help="Number of threads: single value (e.g., '4') or comma-separated list (e.g., '1,2,4,8')")
 
     args = parser.parse_args()
+
+    # Parse thread counts
+    thread_counts = [int(t.strip()) for t in args.threads.split(",")]
 
     # Determine which sparse and dense kernels to run (supports comma-separated values)
     valid_sparse = {"naive", "spv8", "mkl", "uzp"}
@@ -1026,64 +1042,73 @@ def main():
             )
             dense_blocks = split_vbrc_data["dense_blocks"]
             
-            # Run benchmarks for each combination of sparse and dense kernel
-            for sparse_kernel in sparse_kernels:
-                for dense_kernel in dense_kernels:
-                    # results_key for internal tracking
-                    results_key = f"{dense_kernel}_{sparse_kernel}"
-                    # file_key follows pattern: sable_spmv_{dense}_{sparse}.json
-                    file_key = f"{dense_kernel}_{sparse_kernel}"
-                    print(f"\n  === Running {results_key} benchmark ===")
+            # Run benchmarks for each combination of sparse and dense kernel and thread count
+            for num_threads in thread_counts:
+                for sparse_kernel in sparse_kernels:
+                    for dense_kernel in dense_kernels:
+                        results_key = f"{dense_kernel}_{sparse_kernel}"
+                        print(f"\n  === Running {results_key} benchmark (threads={num_threads}) ===")
 
-                    # Select the appropriate benchmark function based on sparse kernel
-                    if sparse_kernel == "naive":
-                        result = process_and_benchmark_matrix_naive(
-                            matrix_name, split_vbrc_data, sparse_vbrc_data,
-                            matrix_rows, matrix_cols, matrix_nnz,
-                            args.bench, dense_kernel=dense_kernel
-                        )
-                    elif sparse_kernel == "spv8":
-                        result = process_and_benchmark_matrix(
-                            matrix_name, split_vbrc_data, sparse_vbrc_data,
-                            matrix_rows, matrix_cols, matrix_nnz,
-                            args.bench, use_mkl=False, dense_kernel=dense_kernel
-                        )
-                    elif sparse_kernel == "mkl":
-                        result = process_and_benchmark_matrix(
-                            matrix_name, split_vbrc_data, sparse_vbrc_data,
-                            matrix_rows, matrix_cols, matrix_nnz,
-                            args.bench, use_mkl=True, dense_kernel=dense_kernel
-                        )
-                    elif sparse_kernel == "uzp":
-                        result = process_and_benchmark_matrix_uzp(
-                            matrix_name, split_vbrc_data, sparse_vbrc_data,
-                            matrix_rows, matrix_cols, matrix_nnz,
-                            args.bench, dense_kernel=dense_kernel
-                        )
-                    else:
-                        print(f"  [{results_key}] Unknown sparse kernel: {sparse_kernel}")
-                        continue
-
-                    if result:
-                        # Get the results list for this combination (use file_key for consistency with output files)
-                        if file_key not in all_results:
-                            all_results[file_key] = []
-                        results_list = all_results[file_key]
-
-                        # Update or append result
-                        existing_idx = next((i for i, r in enumerate(results_list) if r["matrix_name"] == matrix_name), None)
-                        if existing_idx is not None:
-                            results_list[existing_idx] = result
-                            print(f"  [{results_key}] Updated existing result for {matrix_name}")
+                        # Select the appropriate benchmark function based on sparse kernel
+                        if sparse_kernel == "naive":
+                            result = process_and_benchmark_matrix_naive(
+                                matrix_name, split_vbrc_data, sparse_vbrc_data,
+                                matrix_rows, matrix_cols, matrix_nnz,
+                                args.bench, dense_kernel=dense_kernel, threads=num_threads
+                            )
+                        elif sparse_kernel == "spv8":
+                            result = process_and_benchmark_matrix(
+                                matrix_name, split_vbrc_data, sparse_vbrc_data,
+                                matrix_rows, matrix_cols, matrix_nnz,
+                                args.bench, use_mkl=False, dense_kernel=dense_kernel, threads=num_threads
+                            )
+                        elif sparse_kernel == "mkl":
+                            result = process_and_benchmark_matrix(
+                                matrix_name, split_vbrc_data, sparse_vbrc_data,
+                                matrix_rows, matrix_cols, matrix_nnz,
+                                args.bench, use_mkl=True, dense_kernel=dense_kernel, threads=num_threads
+                            )
+                        elif sparse_kernel == "uzp":
+                            result = process_and_benchmark_matrix_uzp(
+                                matrix_name, split_vbrc_data, sparse_vbrc_data,
+                                matrix_rows, matrix_cols, matrix_nnz,
+                                args.bench, dense_kernel=dense_kernel, threads=num_threads
+                            )
                         else:
-                            results_list.append(result)
-                            print(f"  [{results_key}] Added new result for {matrix_name}")
+                            print(f"  [{results_key}] Unknown sparse kernel: {sparse_kernel}")
+                            continue
 
-                        # Write intermediate results
-                        output_file = output_dir / f"sable_spmv_{file_key}{output_suffix}.json"
-                        with open(output_file, 'w') as f:
-                            json.dump(results_list, f, indent=2)
-                        print(f"  [{results_key}] Results written to {output_file}")
+                        if result:
+                            if results_key not in all_results:
+                                all_results[results_key] = []
+                            results_list = all_results[results_key]
+
+                            # Find or create matrix entry
+                            existing_idx = next((i for i, r in enumerate(results_list) if r["matrix_name"] == matrix_name), None)
+                            if existing_idx is not None:
+                                matrix_entry = results_list[existing_idx]
+                                print(f"  [{results_key}] Updating result for {matrix_name}")
+                            else:
+                                matrix_entry = {
+                                    "matrix_name": result["matrix_name"],
+                                    "matrix_dimensions": result["matrix_dimensions"],
+                                    "timing": {},
+                                    "nnz": result["nnz"],
+                                }
+                                results_list.append(matrix_entry)
+                                print(f"  [{results_key}] Added new result for {matrix_name}")
+
+                            # Add thread-specific timing data
+                            thread_key = f"{num_threads} thread"
+                            thread_timing = dict(result["timing"])
+                            thread_timing["individual_dense_block_timings"] = result["individual_dense_block_timings"]
+                            matrix_entry["timing"][thread_key] = thread_timing
+
+                            # Write intermediate results
+                            output_file = output_dir / f"sable_spmv_{results_key}{output_suffix}.json"
+                            with open(output_file, 'w') as f:
+                                json.dump(results_list, f, indent=2)
+                            print(f"  [{results_key}] Results written to {output_file}")
             
             print(f"\nCompleted processing {matrix_name}")
             
@@ -1107,12 +1132,13 @@ def main():
         if results_list:
             print(f"\n{results_key} Results ({len(results_list)} matrices):")
             for result in results_list:
-                num_dense_blocks = len(result['individual_dense_block_timings'])
-                speedup_dispatch = result['timing'].get('speedup', 0)
-                print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
-                      f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
-                      f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
-                      f"speedup: {speedup_dispatch:.3f}x")
+                for thread_key, thread_timing in result['timing'].items():
+                    num_dense_blocks = len(thread_timing.get('individual_dense_block_timings', {}))
+                    speedup_dispatch = thread_timing.get('speedup', 0)
+                    print(f"  {result['matrix_name']} ({thread_key}): {num_dense_blocks} dense blocks, "
+                          f"sparse: {thread_timing['sparse_time_ns']:.0f}ns, "
+                          f"dense: {thread_timing['dense_time_ns']:.0f}ns, "
+                          f"speedup: {speedup_dispatch:.3f}x")
 
     print(f"\nResults written to {output_dir}/")
     return 0

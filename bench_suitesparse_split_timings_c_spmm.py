@@ -44,6 +44,7 @@ from utils.utils import set_ulimit
 # Import benchmark utilities from SpMV benchmark
 from bench_suitesparse_split_timings_c import (
     eval_single_file_split_timings,
+    PHYSICAL_CORES,
 )
 
 # Import compilation function - we'll override it for spreg
@@ -81,6 +82,7 @@ def eval_single_file_split_timings_spreg(
     fname: str,
     codegen_dir: str,
     bench_freq: int,
+    threads: int = 1,
     extract_indiv_blocks: bool = True
 ) -> Tuple[float, float, Dict[int, float], float]:
     """
@@ -93,9 +95,8 @@ def eval_single_file_split_timings_spreg(
     from bench_suitesparse_split_timings_c import remove_outliers_deciles
     import statistics
     import re
-    
-    pid = os.getpid()
-    cpu_affinity = os.sched_getaffinity(pid)
+
+    cores_to_use = PHYSICAL_CORES[:threads]
 
     sparse_times = []
     dense_times = []
@@ -115,14 +116,14 @@ def eval_single_file_split_timings_spreg(
     for _ in range(bench_freq):
         try:
             output = subprocess.check_output(
-                ["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), executable_path],
+                ["taskset", "-a", "-c", ",".join([str(x) for x in cores_to_use]), executable_path],
                 cwd=codegen_dir,
                 preexec_fn=set_ulimit
             ).decode("utf-8").split("\n")
         except subprocess.CalledProcessError as e:
             print(f"Error running {fname}: {e}")
             continue
-        
+
         # Extract Sparse, Dense, and individual block timings by searching ALL lines
         # (not assuming specific positions, since output may have extra lines)
         for line in output:
@@ -461,6 +462,7 @@ def process_and_benchmark_matrix_naive_naive(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
+    threads: int = 1,
 ) -> Optional[Dict[str, Any]]:
     """
     Run SpMM benchmarks using naive dense + naive sparse implementation.
@@ -515,13 +517,13 @@ def process_and_benchmark_matrix_naive_naive(
     gen_single_threaded_spmm_naive_naive(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
-        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # Evaluate split version (compile + run)
     print(f"  [naive_naive] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
 
     # Generate C code for sparse version
     print(f"  [naive_naive] Generating C code (fully sparse)...")
@@ -532,13 +534,13 @@ def process_and_benchmark_matrix_naive_naive(
         ublocks_sparse, indptr_sparse,
         indices_sparse, csr_val_sparse,
         codegen_dir_sparse, matrix_name,
-        sparse_vbr_dir, bench=bench_iterations
+        sparse_vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # Evaluate fully sparse version (compile + run)
     print(f"  [naive_naive] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
     
     # Calculate percentages
@@ -628,6 +630,7 @@ def process_and_benchmark_matrix_mkl_naive(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
+    threads: int = 1,
 ) -> Optional[Dict[str, Any]]:
     """
     Run SpMM benchmarks using MKL dense + naive sparse implementation.
@@ -682,13 +685,13 @@ def process_and_benchmark_matrix_mkl_naive(
     gen_single_threaded_spmm_mkl_naive(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
-        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # Evaluate split version (compile + run) - MKL flags auto-detected from directory name
     print(f"  [mkl_naive] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
 
     # Generate C code for sparse version
     print(f"  [mkl_naive] Generating C code (fully sparse)...")
@@ -699,13 +702,13 @@ def process_and_benchmark_matrix_mkl_naive(
         ublocks_sparse, indptr_sparse,
         indices_sparse, csr_val_sparse,
         codegen_dir_sparse, matrix_name,
-        sparse_vbr_dir, bench=bench_iterations
+        sparse_vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # Evaluate fully sparse version (compile + run) - MKL flags auto-detected from directory name
     print(f"  [mkl_naive] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
 
     # Calculate percentages
@@ -796,6 +799,7 @@ def process_and_benchmark_matrix_naive_spreg(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
+    threads: int = 1,
 ) -> Optional[Dict[str, Any]]:
     """
     Run SpMM benchmarks using naive dense + sparse-register-tiling implementation.
@@ -850,13 +854,13 @@ def process_and_benchmark_matrix_naive_spreg(
     gen_single_threaded_spmm_naive_spreg(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
-        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # Evaluate split version (compile + run)
     print(f"  [naive_spreg] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings_spreg(matrix_name, codegen_dir_split, bench_iterations)
+        eval_single_file_split_timings_spreg(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
 
     # Generate C code for sparse version
     print(f"  [naive_spreg] Generating C code (fully sparse)...")
@@ -867,13 +871,13 @@ def process_and_benchmark_matrix_naive_spreg(
         ublocks_sparse, indptr_sparse,
         indices_sparse, csr_val_sparse,
         codegen_dir_sparse, matrix_name,
-        sparse_vbr_dir, bench=bench_iterations
+        sparse_vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # Evaluate fully sparse version (compile + run)
     print(f"  [naive_spreg] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings_spreg(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
     
     # Calculate percentages
@@ -960,6 +964,7 @@ def eval_single_file_split_timings_mkl_spreg(
     fname: str,
     codegen_dir: str,
     bench_freq: int,
+    threads: int = 1,
     extract_indiv_blocks: bool = True
 ) -> Tuple[float, float, Dict[int, float], float]:
     """
@@ -973,8 +978,7 @@ def eval_single_file_split_timings_mkl_spreg(
     import statistics
     import re
 
-    pid = os.getpid()
-    cpu_affinity = os.sched_getaffinity(pid)
+    cores_to_use = PHYSICAL_CORES[:threads]
 
     sparse_times = []
     dense_times = []
@@ -994,7 +998,7 @@ def eval_single_file_split_timings_mkl_spreg(
     for _ in range(bench_freq):
         try:
             output = subprocess.check_output(
-                ["taskset", "-a", "-c", ",".join([str(x) for x in cpu_affinity]), executable_path],
+                ["taskset", "-a", "-c", ",".join([str(x) for x in cores_to_use]), executable_path],
                 cwd=codegen_dir,
                 preexec_fn=set_ulimit
             ).decode("utf-8").split("\n")
@@ -1150,6 +1154,7 @@ def process_and_benchmark_matrix_mkl_spreg(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
+    threads: int = 1,
 ) -> Optional[Dict[str, Any]]:
     """
     Run SpMM benchmarks using MKL dense + sparse-register-tiling implementation.
@@ -1201,12 +1206,12 @@ def process_and_benchmark_matrix_mkl_spreg(
     gen_single_threaded_spmm_mkl_spreg(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
-        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations, threads=threads
     )
 
     print(f"  [mkl_spreg] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings_mkl_spreg(matrix_name, codegen_dir_split, bench_iterations)
+        eval_single_file_split_timings_mkl_spreg(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
 
     print(f"  [mkl_spreg] Generating C code (fully sparse)...")
     gen_single_threaded_spmm_mkl_spreg(
@@ -1216,12 +1221,12 @@ def process_and_benchmark_matrix_mkl_spreg(
         ublocks_sparse, indptr_sparse,
         indices_sparse, csr_val_sparse,
         codegen_dir_sparse, matrix_name,
-        sparse_vbr_dir, bench=bench_iterations
+        sparse_vbr_dir, bench=bench_iterations, threads=threads
     )
 
     print(f"  [mkl_spreg] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings_mkl_spreg(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
 
     total_time = avg_sparse_time + avg_dense_time
@@ -1299,6 +1304,7 @@ def process_and_benchmark_matrix_naive_mkl(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
+    threads: int = 1,
 ) -> Optional[Dict[str, Any]]:
     """
     Run SpMM benchmarks using naive dense + MKL sparse (mkl_sparse_d_mm) implementation.
@@ -1350,13 +1356,13 @@ def process_and_benchmark_matrix_naive_mkl(
     gen_single_threaded_spmm_naive_mkl(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
-        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # MKL flags auto-detected from #include <mkl.h>
     print(f"  [naive_mkl] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
 
     print(f"  [naive_mkl] Generating C code (fully sparse)...")
     gen_single_threaded_spmm_naive_mkl(
@@ -1366,13 +1372,13 @@ def process_and_benchmark_matrix_naive_mkl(
         ublocks_sparse, indptr_sparse,
         indices_sparse, csr_val_sparse,
         codegen_dir_sparse, matrix_name,
-        sparse_vbr_dir, bench=bench_iterations
+        sparse_vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # MKL flags auto-detected from #include <mkl.h>
     print(f"  [naive_mkl] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
 
     total_time = avg_sparse_time + avg_dense_time
@@ -1448,6 +1454,7 @@ def process_and_benchmark_matrix_mkl_mkl(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
+    threads: int = 1,
 ) -> Optional[Dict[str, Any]]:
     """
     Run SpMM benchmarks using MKL dense (cblas_dgemm) + MKL sparse (mkl_sparse_d_mm) implementation.
@@ -1499,13 +1506,13 @@ def process_and_benchmark_matrix_mkl_mkl(
     gen_single_threaded_spmm_mkl_mkl(
         val, indx, bindx, rpntr, cpntr, bpntrb, bpntre,
         ublocks, indptr, indices, csr_val,
-        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations
+        codegen_dir_split, matrix_name, vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # MKL flags auto-detected from #include <mkl.h>
     print(f"  [mkl_mkl] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations)
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
 
     print(f"  [mkl_mkl] Generating C code (fully sparse)...")
     gen_single_threaded_spmm_mkl_mkl(
@@ -1515,13 +1522,13 @@ def process_and_benchmark_matrix_mkl_mkl(
         ublocks_sparse, indptr_sparse,
         indices_sparse, csr_val_sparse,
         codegen_dir_sparse, matrix_name,
-        sparse_vbr_dir, bench=bench_iterations
+        sparse_vbr_dir, bench=bench_iterations, threads=threads
     )
 
     # MKL flags auto-detected from #include <mkl.h>
     print(f"  [mkl_mkl] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations
+        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
     )
 
     total_time = avg_sparse_time + avg_dense_time
@@ -1614,8 +1621,13 @@ def main():
                         help="Dense kernel to use: naive (handwritten), mkl (cblas_dgemm), or all (default: all)")
     parser.add_argument("--sparse", type=str, choices=["naive", "spreg", "mkl", "all"], default="all",
                         help="Sparse kernel to use: naive (handwritten), spreg (sparse-register-tiling), mkl (MKL mkl_sparse_d_mm), or all (default: all)")
+    parser.add_argument("--threads", type=str, default="1",
+                        help="Number of threads: single value (e.g., '4') or comma-separated list (e.g., '1,2,4,8')")
 
     args = parser.parse_args()
+
+    # Parse thread counts
+    thread_counts = [int(t.strip()) for t in args.threads.split(",")]
 
     # Determine which combinations to run based on --dense and --sparse args
     dense_kernels = ["naive", "mkl"] if args.dense == "all" else [args.dense]
@@ -1710,143 +1722,205 @@ def main():
             )
             dense_blocks = split_vbrc_data["dense_blocks"]
             
-            # Run naive_naive version (if enabled)
-            if run_naive_naive:
-                print(f"\n  === Running naive_naive SpMM benchmark ===")
-                result = process_and_benchmark_matrix_naive_naive(
-                    matrix_name, split_vbrc_data, sparse_vbrc_data,
-                    matrix_rows, matrix_cols, matrix_nnz,
-                    args.bench
-                )
-                if result:
-                    existing_idx = next((i for i, r in enumerate(naive_naive_results) if r["matrix_name"] == matrix_name), None)
-                    if existing_idx is not None:
-                        naive_naive_results[existing_idx] = result
-                        print(f"  [naive_naive] Updated existing result for {matrix_name}")
-                    else:
-                        naive_naive_results.append(result)
-                        print(f"  [naive_naive] Added new result for {matrix_name}")
-                    # Append matrix name to filename if --matrices flag was used
-                    filename = f"sable_spmm_naive_naive_{matrix_name}.json" if use_matrix_suffix else "sable_spmm_naive_naive.json"
-                    output_file = output_dir / filename
-                    with open(output_file, 'w') as f:
-                        json.dump(naive_naive_results, f, indent=2)
-                    print(f"  [naive_naive] Results written to {output_file}")
+            # Run benchmarks for each thread count
+            for num_threads in thread_counts:
+                # Run naive_naive version (if enabled)
+                if run_naive_naive:
+                    print(f"\n  === Running naive_naive SpMM benchmark (threads={num_threads}) ===")
+                    result = process_and_benchmark_matrix_naive_naive(
+                        matrix_name, split_vbrc_data, sparse_vbrc_data,
+                        matrix_rows, matrix_cols, matrix_nnz,
+                        args.bench, threads=num_threads
+                    )
+                    if result:
+                        existing_idx = next((i for i, r in enumerate(naive_naive_results) if r["matrix_name"] == matrix_name), None)
+                        if existing_idx is not None:
+                            matrix_entry = naive_naive_results[existing_idx]
+                            print(f"  [naive_naive] Updating result for {matrix_name}")
+                        else:
+                            matrix_entry = {
+                                "matrix_name": result["matrix_name"],
+                                "matrix_dimensions": result["matrix_dimensions"],
+                                "timing": {},
+                                "nnz": result["nnz"],
+                            }
+                            naive_naive_results.append(matrix_entry)
+                            print(f"  [naive_naive] Added new result for {matrix_name}")
+                        thread_key = f"{num_threads} thread"
+                        thread_timing = dict(result["timing"])
+                        thread_timing["individual_dense_block_timings"] = result["individual_dense_block_timings"]
+                        matrix_entry["timing"][thread_key] = thread_timing
+                        base_name = "sable_spmm_naive_naive"
+                        filename = f"{base_name}_{matrix_name}.json" if use_matrix_suffix else f"{base_name}.json"
+                        output_file = output_dir / filename
+                        with open(output_file, 'w') as f:
+                            json.dump(naive_naive_results, f, indent=2)
+                        print(f"  [naive_naive] Results written to {output_file}")
 
-            # Run naive_spreg version (if enabled)
-            if run_naive_spreg:
-                print(f"\n  === Running naive_spreg SpMM benchmark ===")
-                result = process_and_benchmark_matrix_naive_spreg(
-                    matrix_name, split_vbrc_data, sparse_vbrc_data,
-                    matrix_rows, matrix_cols, matrix_nnz,
-                    args.bench
-                )
-                if result:
-                    existing_idx = next((i for i, r in enumerate(naive_spreg_results) if r["matrix_name"] == matrix_name), None)
-                    if existing_idx is not None:
-                        naive_spreg_results[existing_idx] = result
-                        print(f"  [naive_spreg] Updated existing result for {matrix_name}")
-                    else:
-                        naive_spreg_results.append(result)
-                        print(f"  [naive_spreg] Added new result for {matrix_name}")
-                    # Append matrix name to filename if --matrices flag was used
-                    filename = f"sable_spmm_naive_spreg_{matrix_name}.json" if use_matrix_suffix else "sable_spmm_naive_spreg.json"
-                    output_file = output_dir / filename
-                    with open(output_file, 'w') as f:
-                        json.dump(naive_spreg_results, f, indent=2)
-                    print(f"  [naive_spreg] Results written to {output_file}")
+                # Run naive_spreg version (if enabled)
+                if run_naive_spreg:
+                    print(f"\n  === Running naive_spreg SpMM benchmark (threads={num_threads}) ===")
+                    result = process_and_benchmark_matrix_naive_spreg(
+                        matrix_name, split_vbrc_data, sparse_vbrc_data,
+                        matrix_rows, matrix_cols, matrix_nnz,
+                        args.bench, threads=num_threads
+                    )
+                    if result:
+                        existing_idx = next((i for i, r in enumerate(naive_spreg_results) if r["matrix_name"] == matrix_name), None)
+                        if existing_idx is not None:
+                            matrix_entry = naive_spreg_results[existing_idx]
+                            print(f"  [naive_spreg] Updating result for {matrix_name}")
+                        else:
+                            matrix_entry = {
+                                "matrix_name": result["matrix_name"],
+                                "matrix_dimensions": result["matrix_dimensions"],
+                                "timing": {},
+                                "nnz": result["nnz"],
+                            }
+                            naive_spreg_results.append(matrix_entry)
+                            print(f"  [naive_spreg] Added new result for {matrix_name}")
+                        thread_key = f"{num_threads} thread"
+                        thread_timing = dict(result["timing"])
+                        thread_timing["individual_dense_block_timings"] = result["individual_dense_block_timings"]
+                        matrix_entry["timing"][thread_key] = thread_timing
+                        base_name = "sable_spmm_naive_spreg"
+                        filename = f"{base_name}_{matrix_name}.json" if use_matrix_suffix else f"{base_name}.json"
+                        output_file = output_dir / filename
+                        with open(output_file, 'w') as f:
+                            json.dump(naive_spreg_results, f, indent=2)
+                        print(f"  [naive_spreg] Results written to {output_file}")
 
-            # Run naive_mkl version (if enabled)
-            if run_naive_mkl:
-                print(f"\n  === Running naive_mkl SpMM benchmark ===")
-                result = process_and_benchmark_matrix_naive_mkl(
-                    matrix_name, split_vbrc_data, sparse_vbrc_data,
-                    matrix_rows, matrix_cols, matrix_nnz,
-                    args.bench
-                )
-                if result:
-                    existing_idx = next((i for i, r in enumerate(naive_mkl_results) if r["matrix_name"] == matrix_name), None)
-                    if existing_idx is not None:
-                        naive_mkl_results[existing_idx] = result
-                        print(f"  [naive_mkl] Updated existing result for {matrix_name}")
-                    else:
-                        naive_mkl_results.append(result)
-                        print(f"  [naive_mkl] Added new result for {matrix_name}")
-                    # Append matrix name to filename if --matrices flag was used
-                    filename = f"sable_spmm_naive_mkl_{matrix_name}.json" if use_matrix_suffix else "sable_spmm_naive_mkl.json"
-                    output_file = output_dir / filename
-                    with open(output_file, 'w') as f:
-                        json.dump(naive_mkl_results, f, indent=2)
-                    print(f"  [naive_mkl] Results written to {output_file}")
+                # Run naive_mkl version (if enabled)
+                if run_naive_mkl:
+                    print(f"\n  === Running naive_mkl SpMM benchmark (threads={num_threads}) ===")
+                    result = process_and_benchmark_matrix_naive_mkl(
+                        matrix_name, split_vbrc_data, sparse_vbrc_data,
+                        matrix_rows, matrix_cols, matrix_nnz,
+                        args.bench, threads=num_threads
+                    )
+                    if result:
+                        existing_idx = next((i for i, r in enumerate(naive_mkl_results) if r["matrix_name"] == matrix_name), None)
+                        if existing_idx is not None:
+                            matrix_entry = naive_mkl_results[existing_idx]
+                            print(f"  [naive_mkl] Updating result for {matrix_name}")
+                        else:
+                            matrix_entry = {
+                                "matrix_name": result["matrix_name"],
+                                "matrix_dimensions": result["matrix_dimensions"],
+                                "timing": {},
+                                "nnz": result["nnz"],
+                            }
+                            naive_mkl_results.append(matrix_entry)
+                            print(f"  [naive_mkl] Added new result for {matrix_name}")
+                        thread_key = f"{num_threads} thread"
+                        thread_timing = dict(result["timing"])
+                        thread_timing["individual_dense_block_timings"] = result["individual_dense_block_timings"]
+                        matrix_entry["timing"][thread_key] = thread_timing
+                        base_name = "sable_spmm_naive_mkl"
+                        filename = f"{base_name}_{matrix_name}.json" if use_matrix_suffix else f"{base_name}.json"
+                        output_file = output_dir / filename
+                        with open(output_file, 'w') as f:
+                            json.dump(naive_mkl_results, f, indent=2)
+                        print(f"  [naive_mkl] Results written to {output_file}")
 
-            # Run mkl_naive version (if enabled)
-            if run_mkl_naive:
-                print(f"\n  === Running mkl_naive SpMM benchmark ===")
-                result = process_and_benchmark_matrix_mkl_naive(
-                    matrix_name, split_vbrc_data, sparse_vbrc_data,
-                    matrix_rows, matrix_cols, matrix_nnz,
-                    args.bench
-                )
-                if result:
-                    existing_idx = next((i for i, r in enumerate(mkl_naive_results) if r["matrix_name"] == matrix_name), None)
-                    if existing_idx is not None:
-                        mkl_naive_results[existing_idx] = result
-                        print(f"  [mkl_naive] Updated existing result for {matrix_name}")
-                    else:
-                        mkl_naive_results.append(result)
-                        print(f"  [mkl_naive] Added new result for {matrix_name}")
-                    # Append matrix name to filename if --matrices flag was used
-                    filename = f"sable_spmm_mkl_naive_{matrix_name}.json" if use_matrix_suffix else "sable_spmm_mkl_naive.json"
-                    output_file = output_dir / filename
-                    with open(output_file, 'w') as f:
-                        json.dump(mkl_naive_results, f, indent=2)
-                    print(f"  [mkl_naive] Results written to {output_file}")
+                # Run mkl_naive version (if enabled)
+                if run_mkl_naive:
+                    print(f"\n  === Running mkl_naive SpMM benchmark (threads={num_threads}) ===")
+                    result = process_and_benchmark_matrix_mkl_naive(
+                        matrix_name, split_vbrc_data, sparse_vbrc_data,
+                        matrix_rows, matrix_cols, matrix_nnz,
+                        args.bench, threads=num_threads
+                    )
+                    if result:
+                        existing_idx = next((i for i, r in enumerate(mkl_naive_results) if r["matrix_name"] == matrix_name), None)
+                        if existing_idx is not None:
+                            matrix_entry = mkl_naive_results[existing_idx]
+                            print(f"  [mkl_naive] Updating result for {matrix_name}")
+                        else:
+                            matrix_entry = {
+                                "matrix_name": result["matrix_name"],
+                                "matrix_dimensions": result["matrix_dimensions"],
+                                "timing": {},
+                                "nnz": result["nnz"],
+                            }
+                            mkl_naive_results.append(matrix_entry)
+                            print(f"  [mkl_naive] Added new result for {matrix_name}")
+                        thread_key = f"{num_threads} thread"
+                        thread_timing = dict(result["timing"])
+                        thread_timing["individual_dense_block_timings"] = result["individual_dense_block_timings"]
+                        matrix_entry["timing"][thread_key] = thread_timing
+                        base_name = "sable_spmm_mkl_naive"
+                        filename = f"{base_name}_{matrix_name}.json" if use_matrix_suffix else f"{base_name}.json"
+                        output_file = output_dir / filename
+                        with open(output_file, 'w') as f:
+                            json.dump(mkl_naive_results, f, indent=2)
+                        print(f"  [mkl_naive] Results written to {output_file}")
 
-            # Run mkl_spreg version (if enabled)
-            if run_mkl_spreg:
-                print(f"\n  === Running mkl_spreg SpMM benchmark ===")
-                result = process_and_benchmark_matrix_mkl_spreg(
-                    matrix_name, split_vbrc_data, sparse_vbrc_data,
-                    matrix_rows, matrix_cols, matrix_nnz,
-                    args.bench
-                )
-                if result:
-                    existing_idx = next((i for i, r in enumerate(mkl_spreg_results) if r["matrix_name"] == matrix_name), None)
-                    if existing_idx is not None:
-                        mkl_spreg_results[existing_idx] = result
-                        print(f"  [mkl_spreg] Updated existing result for {matrix_name}")
-                    else:
-                        mkl_spreg_results.append(result)
-                        print(f"  [mkl_spreg] Added new result for {matrix_name}")
-                    # Append matrix name to filename if --matrices flag was used
-                    filename = f"sable_spmm_mkl_spreg_{matrix_name}.json" if use_matrix_suffix else "sable_spmm_mkl_spreg.json"
-                    output_file = output_dir / filename
-                    with open(output_file, 'w') as f:
-                        json.dump(mkl_spreg_results, f, indent=2)
-                    print(f"  [mkl_spreg] Results written to {output_file}")
+                # Run mkl_spreg version (if enabled)
+                if run_mkl_spreg:
+                    print(f"\n  === Running mkl_spreg SpMM benchmark (threads={num_threads}) ===")
+                    result = process_and_benchmark_matrix_mkl_spreg(
+                        matrix_name, split_vbrc_data, sparse_vbrc_data,
+                        matrix_rows, matrix_cols, matrix_nnz,
+                        args.bench, threads=num_threads
+                    )
+                    if result:
+                        existing_idx = next((i for i, r in enumerate(mkl_spreg_results) if r["matrix_name"] == matrix_name), None)
+                        if existing_idx is not None:
+                            matrix_entry = mkl_spreg_results[existing_idx]
+                            print(f"  [mkl_spreg] Updating result for {matrix_name}")
+                        else:
+                            matrix_entry = {
+                                "matrix_name": result["matrix_name"],
+                                "matrix_dimensions": result["matrix_dimensions"],
+                                "timing": {},
+                                "nnz": result["nnz"],
+                            }
+                            mkl_spreg_results.append(matrix_entry)
+                            print(f"  [mkl_spreg] Added new result for {matrix_name}")
+                        thread_key = f"{num_threads} thread"
+                        thread_timing = dict(result["timing"])
+                        thread_timing["individual_dense_block_timings"] = result["individual_dense_block_timings"]
+                        matrix_entry["timing"][thread_key] = thread_timing
+                        base_name = "sable_spmm_mkl_spreg"
+                        filename = f"{base_name}_{matrix_name}.json" if use_matrix_suffix else f"{base_name}.json"
+                        output_file = output_dir / filename
+                        with open(output_file, 'w') as f:
+                            json.dump(mkl_spreg_results, f, indent=2)
+                        print(f"  [mkl_spreg] Results written to {output_file}")
 
-            # Run mkl_mkl version (if enabled)
-            if run_mkl_mkl:
-                print(f"\n  === Running mkl_mkl SpMM benchmark ===")
-                result = process_and_benchmark_matrix_mkl_mkl(
-                    matrix_name, split_vbrc_data, sparse_vbrc_data,
-                    matrix_rows, matrix_cols, matrix_nnz,
-                    args.bench
-                )
-                if result:
-                    existing_idx = next((i for i, r in enumerate(mkl_mkl_results) if r["matrix_name"] == matrix_name), None)
-                    if existing_idx is not None:
-                        mkl_mkl_results[existing_idx] = result
-                        print(f"  [mkl_mkl] Updated existing result for {matrix_name}")
-                    else:
-                        mkl_mkl_results.append(result)
-                        print(f"  [mkl_mkl] Added new result for {matrix_name}")
-                    # Append matrix name to filename if --matrices flag was used
-                    filename = f"sable_spmm_mkl_mkl_{matrix_name}.json" if use_matrix_suffix else "sable_spmm_mkl_mkl.json"
-                    output_file = output_dir / filename
-                    with open(output_file, 'w') as f:
-                        json.dump(mkl_mkl_results, f, indent=2)
-                    print(f"  [mkl_mkl] Results written to {output_file}")
+                # Run mkl_mkl version (if enabled)
+                if run_mkl_mkl:
+                    print(f"\n  === Running mkl_mkl SpMM benchmark (threads={num_threads}) ===")
+                    result = process_and_benchmark_matrix_mkl_mkl(
+                        matrix_name, split_vbrc_data, sparse_vbrc_data,
+                        matrix_rows, matrix_cols, matrix_nnz,
+                        args.bench, threads=num_threads
+                    )
+                    if result:
+                        existing_idx = next((i for i, r in enumerate(mkl_mkl_results) if r["matrix_name"] == matrix_name), None)
+                        if existing_idx is not None:
+                            matrix_entry = mkl_mkl_results[existing_idx]
+                            print(f"  [mkl_mkl] Updating result for {matrix_name}")
+                        else:
+                            matrix_entry = {
+                                "matrix_name": result["matrix_name"],
+                                "matrix_dimensions": result["matrix_dimensions"],
+                                "timing": {},
+                                "nnz": result["nnz"],
+                            }
+                            mkl_mkl_results.append(matrix_entry)
+                            print(f"  [mkl_mkl] Added new result for {matrix_name}")
+                        thread_key = f"{num_threads} thread"
+                        thread_timing = dict(result["timing"])
+                        thread_timing["individual_dense_block_timings"] = result["individual_dense_block_timings"]
+                        matrix_entry["timing"][thread_key] = thread_timing
+                        base_name = "sable_spmm_mkl_mkl"
+                        filename = f"{base_name}_{matrix_name}.json" if use_matrix_suffix else f"{base_name}.json"
+                        output_file = output_dir / filename
+                        with open(output_file, 'w') as f:
+                            json.dump(mkl_mkl_results, f, indent=2)
+                        print(f"  [mkl_mkl] Results written to {output_file}")
 
             print(f"\nCompleted processing {matrix_name}")
             
@@ -1870,12 +1944,13 @@ def main():
         if results:
             print(f"\n{name} SpMM Results ({len(results)} matrices):")
             for result in results:
-                num_dense_blocks = len(result['individual_dense_block_timings'])
-                speedup_dispatch = result['timing'].get('speedup', 0)
-                print(f"  {result['matrix_name']}: {num_dense_blocks} dense blocks, "
-                      f"sparse: {result['timing']['sparse_time_ns']:.0f}ns, "
-                      f"dense: {result['timing']['dense_time_ns']:.0f}ns, "
-                      f"speedup: {speedup_dispatch:.3f}x")
+                for thread_key, thread_timing in result['timing'].items():
+                    num_dense_blocks = len(thread_timing.get('individual_dense_block_timings', {}))
+                    speedup_dispatch = thread_timing.get('speedup', 0)
+                    print(f"  {result['matrix_name']} ({thread_key}): {num_dense_blocks} dense blocks, "
+                          f"sparse: {thread_timing['sparse_time_ns']:.0f}ns, "
+                          f"dense: {thread_timing['dense_time_ns']:.0f}ns, "
+                          f"speedup: {speedup_dispatch:.3f}x")
 
     if run_naive_naive:
         print_results_summary("naive_naive (handwritten dense + handwritten sparse)", naive_naive_results)

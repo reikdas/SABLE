@@ -1590,11 +1590,8 @@ def gen_single_threaded_spmv_naive_uzp(
     filename,
     vbr_dir,
     bench: int = 5,
-<<<<<<< HEAD
     sparse_mtx_path: str = "",
-=======
     threads: int = 1,
->>>>>>> e02be83 (Parallel codegen + parallel SpMV numbers)
 ) -> int:
     """Generate code using UZP for the sparse (CSR) part.
 
@@ -1819,11 +1816,8 @@ def gen_single_threaded_spmv_blas_uzp(
     filename,
     vbr_dir,
     bench: int = 5,
-<<<<<<< HEAD
     sparse_mtx_path: str = "",
-=======
     threads: int = 1,
->>>>>>> e02be83 (Parallel codegen + parallel SpMV numbers)
 ) -> int:
     """UZP sparse dispatch + BLAS dense blocks (cblas_dgemv).
 

@@ -1275,6 +1275,786 @@
             "nnz": 6024
           }
         }
+      },
+      "4 thread": {
+        "sparse_time_ns": 32755973.48,
+        "dense_time_ns": 2123794.54,
+        "total_time_ns": 34879768.01,
+        "sparse_percentage": 93.911,
+        "dense_percentage": 6.089,
+        "fully_sparse_time": 39049431.6,
+        "speedup": 1.12,
+        "max_theoretical_speedup_possible": 1.192,
+        "expected_sparse_time_ns": 34181138.727346964,
+        "dense_if_sparse_time_ns": 4868292.872653037,
+        "compile_time_split_s": 0.503133183,
+        "compile_time_sparse_s": 0.456364728,
+        "individual_dense_block_timings": {
+          "block_1": {
+            "time_ns": 97142.07,
+            "percentage_of_total_time": 0.28,
+            "percentage_of_dense_time": 4.57,
+            "percentage_of_total_nnz": 0.366,
+            "percentage_of_dense_nnz": 2.939,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.611,
+            "nnz": 6020
+          },
+          "block_2": {
+            "time_ns": 80650.15,
+            "percentage_of_total_time": 0.23,
+            "percentage_of_dense_time": 3.8,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_3": {
+            "time_ns": 80138.27,
+            "percentage_of_total_time": 0.23,
+            "percentage_of_dense_time": 3.77,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_4": {
+            "time_ns": 79184.49,
+            "percentage_of_total_time": 0.23,
+            "percentage_of_dense_time": 3.73,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_5": {
+            "time_ns": 78140.38,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 3.68,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_6": {
+            "time_ns": 77775.88,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 3.66,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_7": {
+            "time_ns": 75842.52,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 3.57,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_8": {
+            "time_ns": 75027.77,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 3.53,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_9": {
+            "time_ns": 74107.65,
+            "percentage_of_total_time": 0.21,
+            "percentage_of_dense_time": 3.49,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_10": {
+            "time_ns": 73168.88,
+            "percentage_of_total_time": 0.21,
+            "percentage_of_dense_time": 3.45,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_11": {
+            "time_ns": 71687.62,
+            "percentage_of_total_time": 0.21,
+            "percentage_of_dense_time": 3.38,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_12": {
+            "time_ns": 71221.71,
+            "percentage_of_total_time": 0.2,
+            "percentage_of_dense_time": 3.35,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_13": {
+            "time_ns": 67464.57,
+            "percentage_of_total_time": 0.19,
+            "percentage_of_dense_time": 3.18,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_14": {
+            "time_ns": 67416.19,
+            "percentage_of_total_time": 0.19,
+            "percentage_of_dense_time": 3.17,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_15": {
+            "time_ns": 62013.68,
+            "percentage_of_total_time": 0.18,
+            "percentage_of_dense_time": 2.92,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_16": {
+            "time_ns": 62018.24,
+            "percentage_of_total_time": 0.18,
+            "percentage_of_dense_time": 2.92,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_17": {
+            "time_ns": 58709.24,
+            "percentage_of_total_time": 0.17,
+            "percentage_of_dense_time": 2.76,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_18": {
+            "time_ns": 58119.15,
+            "percentage_of_total_time": 0.17,
+            "percentage_of_dense_time": 2.74,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_19": {
+            "time_ns": 58042.07,
+            "percentage_of_total_time": 0.17,
+            "percentage_of_dense_time": 2.73,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_20": {
+            "time_ns": 56500.28,
+            "percentage_of_total_time": 0.16,
+            "percentage_of_dense_time": 2.66,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_21": {
+            "time_ns": 55706.25,
+            "percentage_of_total_time": 0.16,
+            "percentage_of_dense_time": 2.62,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_22": {
+            "time_ns": 54615.05,
+            "percentage_of_total_time": 0.16,
+            "percentage_of_dense_time": 2.57,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_23": {
+            "time_ns": 53623.53,
+            "percentage_of_total_time": 0.15,
+            "percentage_of_dense_time": 2.52,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_24": {
+            "time_ns": 53534.81,
+            "percentage_of_total_time": 0.15,
+            "percentage_of_dense_time": 2.52,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_25": {
+            "time_ns": 51225.47,
+            "percentage_of_total_time": 0.15,
+            "percentage_of_dense_time": 2.41,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_26": {
+            "time_ns": 51021.51,
+            "percentage_of_total_time": 0.15,
+            "percentage_of_dense_time": 2.4,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_27": {
+            "time_ns": 49508.51,
+            "percentage_of_total_time": 0.14,
+            "percentage_of_dense_time": 2.33,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_28": {
+            "time_ns": 45590.25,
+            "percentage_of_total_time": 0.13,
+            "percentage_of_dense_time": 2.15,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_29": {
+            "time_ns": 47018.57,
+            "percentage_of_total_time": 0.13,
+            "percentage_of_dense_time": 2.21,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_30": {
+            "time_ns": 47308.53,
+            "percentage_of_total_time": 0.14,
+            "percentage_of_dense_time": 2.23,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_31": {
+            "time_ns": 46726.82,
+            "percentage_of_total_time": 0.13,
+            "percentage_of_dense_time": 2.2,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_32": {
+            "time_ns": 46034.4,
+            "percentage_of_total_time": 0.13,
+            "percentage_of_dense_time": 2.17,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_33": {
+            "time_ns": 45393.11,
+            "percentage_of_total_time": 0.13,
+            "percentage_of_dense_time": 2.14,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_34": {
+            "time_ns": 45237.01,
+            "percentage_of_total_time": 0.13,
+            "percentage_of_dense_time": 2.13,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          }
+        }
+      },
+      "12 thread": {
+        "sparse_time_ns": 12679616.57,
+        "dense_time_ns": 1509379.21,
+        "total_time_ns": 14188995.79,
+        "sparse_percentage": 89.362,
+        "dense_percentage": 10.638,
+        "fully_sparse_time": 14943500.05,
+        "speedup": 1.053,
+        "max_theoretical_speedup_possible": 1.179,
+        "expected_sparse_time_ns": 13080493.808805307,
+        "dense_if_sparse_time_ns": 1863006.2411946934,
+        "compile_time_split_s": 0.505149191,
+        "compile_time_sparse_s": 0.472235997,
+        "individual_dense_block_timings": {
+          "block_1": {
+            "time_ns": 203928.12,
+            "percentage_of_total_time": 1.44,
+            "percentage_of_dense_time": 13.51,
+            "percentage_of_total_nnz": 0.366,
+            "percentage_of_dense_nnz": 2.939,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.611,
+            "nnz": 6020
+          },
+          "block_2": {
+            "time_ns": 45481.41,
+            "percentage_of_total_time": 0.32,
+            "percentage_of_dense_time": 3.01,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_3": {
+            "time_ns": 44108.3,
+            "percentage_of_total_time": 0.31,
+            "percentage_of_dense_time": 2.92,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_4": {
+            "time_ns": 43882.34,
+            "percentage_of_total_time": 0.31,
+            "percentage_of_dense_time": 2.91,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_5": {
+            "time_ns": 43012.65,
+            "percentage_of_total_time": 0.3,
+            "percentage_of_dense_time": 2.85,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_6": {
+            "time_ns": 43031.7,
+            "percentage_of_total_time": 0.3,
+            "percentage_of_dense_time": 2.85,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_7": {
+            "time_ns": 42354.35,
+            "percentage_of_total_time": 0.3,
+            "percentage_of_dense_time": 2.81,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_8": {
+            "time_ns": 42069.81,
+            "percentage_of_total_time": 0.3,
+            "percentage_of_dense_time": 2.79,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_9": {
+            "time_ns": 41586.2,
+            "percentage_of_total_time": 0.29,
+            "percentage_of_dense_time": 2.76,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_10": {
+            "time_ns": 41308.93,
+            "percentage_of_total_time": 0.29,
+            "percentage_of_dense_time": 2.74,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_11": {
+            "time_ns": 41127.69,
+            "percentage_of_total_time": 0.29,
+            "percentage_of_dense_time": 2.72,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_12": {
+            "time_ns": 40825.09,
+            "percentage_of_total_time": 0.29,
+            "percentage_of_dense_time": 2.7,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_13": {
+            "time_ns": 40476.71,
+            "percentage_of_total_time": 0.29,
+            "percentage_of_dense_time": 2.68,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_14": {
+            "time_ns": 40284.39,
+            "percentage_of_total_time": 0.28,
+            "percentage_of_dense_time": 2.67,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_15": {
+            "time_ns": 39624.9,
+            "percentage_of_total_time": 0.28,
+            "percentage_of_dense_time": 2.63,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_16": {
+            "time_ns": 39617.95,
+            "percentage_of_total_time": 0.28,
+            "percentage_of_dense_time": 2.62,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_17": {
+            "time_ns": 38637.62,
+            "percentage_of_total_time": 0.27,
+            "percentage_of_dense_time": 2.56,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_18": {
+            "time_ns": 38506.12,
+            "percentage_of_total_time": 0.27,
+            "percentage_of_dense_time": 2.55,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_19": {
+            "time_ns": 37859.47,
+            "percentage_of_total_time": 0.27,
+            "percentage_of_dense_time": 2.51,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_20": {
+            "time_ns": 36879.96,
+            "percentage_of_total_time": 0.26,
+            "percentage_of_dense_time": 2.44,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_21": {
+            "time_ns": 37265.71,
+            "percentage_of_total_time": 0.26,
+            "percentage_of_dense_time": 2.47,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_22": {
+            "time_ns": 36668.45,
+            "percentage_of_total_time": 0.26,
+            "percentage_of_dense_time": 2.43,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_23": {
+            "time_ns": 35978.3,
+            "percentage_of_total_time": 0.25,
+            "percentage_of_dense_time": 2.38,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_24": {
+            "time_ns": 35821.11,
+            "percentage_of_total_time": 0.25,
+            "percentage_of_dense_time": 2.37,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_25": {
+            "time_ns": 34466.66,
+            "percentage_of_total_time": 0.24,
+            "percentage_of_dense_time": 2.28,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_26": {
+            "time_ns": 34766.04,
+            "percentage_of_total_time": 0.25,
+            "percentage_of_dense_time": 2.3,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_27": {
+            "time_ns": 32907.2,
+            "percentage_of_total_time": 0.23,
+            "percentage_of_dense_time": 2.18,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_28": {
+            "time_ns": 31480.26,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 2.09,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_29": {
+            "time_ns": 32291.49,
+            "percentage_of_total_time": 0.23,
+            "percentage_of_dense_time": 2.14,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_30": {
+            "time_ns": 32244.51,
+            "percentage_of_total_time": 0.23,
+            "percentage_of_dense_time": 2.14,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_31": {
+            "time_ns": 31723.19,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 2.1,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_32": {
+            "time_ns": 31504.58,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 2.09,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_33": {
+            "time_ns": 31416.05,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 2.08,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_34": {
+            "time_ns": 31045.22,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 2.06,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          }
+        }
       }
     },
     "nnz": {
@@ -4839,6 +5619,82 @@
             "nnz": 27596
           }
         }
+      },
+      "4 thread": {
+        "sparse_time_ns": 8517594.45,
+        "dense_time_ns": 6112953.44,
+        "total_time_ns": 14630547.89,
+        "sparse_percentage": 58.218,
+        "dense_percentage": 41.782,
+        "fully_sparse_time": 13000879.2375,
+        "speedup": 0.889,
+        "max_theoretical_speedup_possible": 1.526,
+        "expected_sparse_time_ns": 9001076.97502836,
+        "dense_if_sparse_time_ns": 3999802.2624716405,
+        "compile_time_split_s": 0.47884164,
+        "compile_time_sparse_s": 0.467728618,
+        "individual_dense_block_timings": {
+          "block_1": {
+            "time_ns": 2658384.92,
+            "percentage_of_total_time": 18.17,
+            "percentage_of_dense_time": 43.49,
+            "percentage_of_total_nnz": 15.383,
+            "percentage_of_dense_nnz": 50.0,
+            "rows": 4,
+            "cols": 6899,
+            "density_percent": 100.0,
+            "nnz": 27596
+          },
+          "block_2": {
+            "time_ns": 3457399.0,
+            "percentage_of_total_time": 23.63,
+            "percentage_of_dense_time": 56.56,
+            "percentage_of_total_nnz": 15.383,
+            "percentage_of_dense_nnz": 50.0,
+            "rows": 6899,
+            "cols": 4,
+            "density_percent": 100.0,
+            "nnz": 27596
+          }
+        }
+      },
+      "12 thread": {
+        "sparse_time_ns": 6632453.92,
+        "dense_time_ns": 6499424.83,
+        "total_time_ns": 13131878.75,
+        "sparse_percentage": 50.507,
+        "dense_percentage": 49.493,
+        "fully_sparse_time": 12098260.1375,
+        "speedup": 0.921,
+        "max_theoretical_speedup_possible": 1.824,
+        "expected_sparse_time_ns": 8376154.3178902,
+        "dense_if_sparse_time_ns": 3722105.8196097994,
+        "compile_time_split_s": 0.485945537,
+        "compile_time_sparse_s": 0.446616923,
+        "individual_dense_block_timings": {
+          "block_1": {
+            "time_ns": 2898395.91,
+            "percentage_of_total_time": 22.07,
+            "percentage_of_dense_time": 44.59,
+            "percentage_of_total_nnz": 15.383,
+            "percentage_of_dense_nnz": 50.0,
+            "rows": 4,
+            "cols": 6899,
+            "density_percent": 100.0,
+            "nnz": 27596
+          },
+          "block_2": {
+            "time_ns": 3597673.19,
+            "percentage_of_total_time": 27.4,
+            "percentage_of_dense_time": 55.35,
+            "percentage_of_total_nnz": 15.383,
+            "percentage_of_dense_nnz": 50.0,
+            "rows": 6899,
+            "cols": 4,
+            "density_percent": 100.0,
+            "nnz": 27596
+          }
+        }
       }
     },
     "nnz": {
@@ -7008,6 +7864,60 @@
           "block_1": {
             "time_ns": 3936474.11,
             "percentage_of_total_time": 83.84,
+            "percentage_of_dense_time": 100.0,
+            "percentage_of_total_nnz": 99.273,
+            "percentage_of_dense_nnz": 100.0,
+            "rows": 1501,
+            "cols": 1501,
+            "density_percent": 100.0,
+            "nnz": 2253000
+          }
+        }
+      },
+      "4 thread": {
+        "sparse_time_ns": 1237817.94,
+        "dense_time_ns": 6906809.92,
+        "total_time_ns": 8144627.86,
+        "sparse_percentage": 15.198,
+        "dense_percentage": 84.802,
+        "fully_sparse_time": 60600174.1625,
+        "speedup": 7.441,
+        "max_theoretical_speedup_possible": 48.957,
+        "expected_sparse_time_ns": 440609.39997621,
+        "dense_if_sparse_time_ns": 60159564.76252379,
+        "compile_time_split_s": 0.467492807,
+        "compile_time_sparse_s": 0.448712678,
+        "individual_dense_block_timings": {
+          "block_1": {
+            "time_ns": 6906809.92,
+            "percentage_of_total_time": 84.8,
+            "percentage_of_dense_time": 100.0,
+            "percentage_of_total_nnz": 99.273,
+            "percentage_of_dense_nnz": 100.0,
+            "rows": 1501,
+            "cols": 1501,
+            "density_percent": 100.0,
+            "nnz": 2253000
+          }
+        }
+      },
+      "12 thread": {
+        "sparse_time_ns": 634800.32,
+        "dense_time_ns": 3190030.59,
+        "total_time_ns": 3824830.91,
+        "sparse_percentage": 16.597,
+        "dense_percentage": 83.403,
+        "fully_sparse_time": 22805541.7,
+        "speedup": 5.962,
+        "max_theoretical_speedup_possible": 35.926,
+        "expected_sparse_time_ns": 165813.6496047803,
+        "dense_if_sparse_time_ns": 22639728.05039522,
+        "compile_time_split_s": 0.460838611,
+        "compile_time_sparse_s": 0.450018462,
+        "individual_dense_block_timings": {
+          "block_1": {
+            "time_ns": 3190030.59,
+            "percentage_of_total_time": 83.4,
             "percentage_of_dense_time": 100.0,
             "percentage_of_total_nnz": 99.273,
             "percentage_of_dense_nnz": 100.0,
@@ -13938,6 +14848,60 @@
           "block_1": {
             "time_ns": 218145.54,
             "percentage_of_total_time": 15.97,
+            "percentage_of_dense_time": 100.0,
+            "percentage_of_total_nnz": 43.347,
+            "percentage_of_dense_nnz": 100.0,
+            "rows": 227,
+            "cols": 200,
+            "density_percent": 86.081,
+            "nnz": 39081
+          }
+        }
+      },
+      "4 thread": {
+        "sparse_time_ns": 1352427.8,
+        "dense_time_ns": 211497.71,
+        "total_time_ns": 1563925.51,
+        "sparse_percentage": 86.476,
+        "dense_percentage": 13.524,
+        "fully_sparse_time": 2221711.8625,
+        "speedup": 1.421,
+        "max_theoretical_speedup_possible": 1.643,
+        "expected_sparse_time_ns": 1258661.2036747986,
+        "dense_if_sparse_time_ns": 963050.6588252012,
+        "compile_time_split_s": 0.460971696,
+        "compile_time_sparse_s": 0.446825253,
+        "individual_dense_block_timings": {
+          "block_1": {
+            "time_ns": 211497.71,
+            "percentage_of_total_time": 13.52,
+            "percentage_of_dense_time": 100.0,
+            "percentage_of_total_nnz": 43.347,
+            "percentage_of_dense_nnz": 100.0,
+            "rows": 227,
+            "cols": 200,
+            "density_percent": 86.081,
+            "nnz": 39081
+          }
+        }
+      },
+      "12 thread": {
+        "sparse_time_ns": 1139245.48,
+        "dense_time_ns": 119181.82,
+        "total_time_ns": 1258427.3,
+        "sparse_percentage": 90.529,
+        "dense_percentage": 9.471,
+        "fully_sparse_time": 1865080.15,
+        "speedup": 1.482,
+        "max_theoretical_speedup_possible": 1.637,
+        "expected_sparse_time_ns": 1056619.4771573239,
+        "dense_if_sparse_time_ns": 808460.672842676,
+        "compile_time_split_s": 0.453509629,
+        "compile_time_sparse_s": 0.454725451,
+        "individual_dense_block_timings": {
+          "block_1": {
+            "time_ns": 119181.82,
+            "percentage_of_total_time": 9.47,
             "percentage_of_dense_time": 100.0,
             "percentage_of_total_nnz": 43.347,
             "percentage_of_dense_nnz": 100.0,

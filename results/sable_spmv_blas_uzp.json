@@ -1176,22 +1176,22 @@
         }
       },
       "8 thread": {
-        "sparse_time_ns": 660087.12,
-        "dense_time_ns": 61046.56,
-        "total_time_ns": 721133.68,
-        "sparse_percentage": 91.535,
-        "dense_percentage": 8.465,
-        "fully_sparse_time": 812479.4791666666,
-        "speedup": 1.127,
-        "compile_time_split_s": 2.322259285,
-        "compile_time_sparse_s": 2.225613404,
+        "sparse_time_ns": 659805.23,
+        "dense_time_ns": 60635.65,
+        "total_time_ns": 720440.89,
+        "sparse_percentage": 91.584,
+        "dense_percentage": 8.416,
+        "fully_sparse_time": 823737.1291666667,
+        "speedup": 1.143,
+        "compile_time_split_s": 2.260128165,
+        "compile_time_sparse_s": 2.204574748,
         "codegen_time_split_ms": 1,
         "codegen_time_sparse_ms": 0,
         "individual_dense_block_timings": {
           "block_1": {
-            "time_ns": 1972.61,
+            "time_ns": 1968.32,
             "percentage_of_total_time": 0.27,
-            "percentage_of_dense_time": 3.23,
+            "percentage_of_dense_time": 3.25,
             "percentage_of_total_nnz": 0.366,
             "percentage_of_dense_nnz": 2.939,
             "rows": 30,
@@ -1200,7 +1200,51 @@
             "nnz": 6020
           },
           "block_2": {
-            "time_ns": 1752.09,
+            "time_ns": 1736.55,
+            "percentage_of_total_time": 0.24,
+            "percentage_of_dense_time": 2.86,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_3": {
+            "time_ns": 1785.54,
+            "percentage_of_total_time": 0.25,
+            "percentage_of_dense_time": 2.94,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_4": {
+            "time_ns": 1782.07,
+            "percentage_of_total_time": 0.25,
+            "percentage_of_dense_time": 2.94,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_5": {
+            "time_ns": 1779.28,
+            "percentage_of_total_time": 0.25,
+            "percentage_of_dense_time": 2.93,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_6": {
+            "time_ns": 1739.69,
             "percentage_of_total_time": 0.24,
             "percentage_of_dense_time": 2.87,
             "percentage_of_total_nnz": 0.367,
@@ -1210,54 +1254,10 @@
             "density_percent": 83.667,
             "nnz": 6024
           },
-          "block_3": {
-            "time_ns": 1807.44,
-            "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.96,
-            "percentage_of_total_nnz": 0.367,
-            "percentage_of_dense_nnz": 2.941,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 83.667,
-            "nnz": 6024
-          },
-          "block_4": {
-            "time_ns": 1805.29,
-            "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.96,
-            "percentage_of_total_nnz": 0.367,
-            "percentage_of_dense_nnz": 2.941,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 83.667,
-            "nnz": 6024
-          },
-          "block_5": {
-            "time_ns": 1804.31,
-            "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.96,
-            "percentage_of_total_nnz": 0.367,
-            "percentage_of_dense_nnz": 2.941,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 83.667,
-            "nnz": 6024
-          },
-          "block_6": {
-            "time_ns": 1756.34,
-            "percentage_of_total_time": 0.24,
-            "percentage_of_dense_time": 2.88,
-            "percentage_of_total_nnz": 0.367,
-            "percentage_of_dense_nnz": 2.941,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 83.667,
-            "nnz": 6024
-          },
           "block_7": {
-            "time_ns": 1733.21,
+            "time_ns": 1718.55,
             "percentage_of_total_time": 0.24,
-            "percentage_of_dense_time": 2.84,
+            "percentage_of_dense_time": 2.83,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1266,9 +1266,9 @@
             "nnz": 6024
           },
           "block_8": {
-            "time_ns": 1782.45,
+            "time_ns": 1766.11,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.92,
+            "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1277,8 +1277,8 @@
             "nnz": 6024
           },
           "block_9": {
-            "time_ns": 1770.14,
-            "percentage_of_total_time": 0.25,
+            "time_ns": 1757.83,
+            "percentage_of_total_time": 0.24,
             "percentage_of_dense_time": 2.9,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
@@ -1288,7 +1288,7 @@
             "nnz": 6024
           },
           "block_10": {
-            "time_ns": 1762.56,
+            "time_ns": 1750.39,
             "percentage_of_total_time": 0.24,
             "percentage_of_dense_time": 2.89,
             "percentage_of_total_nnz": 0.367,
@@ -1299,18 +1299,7 @@
             "nnz": 6024
           },
           "block_11": {
-            "time_ns": 1760.1,
-            "percentage_of_total_time": 0.24,
-            "percentage_of_dense_time": 2.88,
-            "percentage_of_total_nnz": 0.367,
-            "percentage_of_dense_nnz": 2.941,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 83.667,
-            "nnz": 6024
-          },
-          "block_12": {
-            "time_ns": 1751.39,
+            "time_ns": 1738.19,
             "percentage_of_total_time": 0.24,
             "percentage_of_dense_time": 2.87,
             "percentage_of_total_nnz": 0.367,
@@ -1320,10 +1309,21 @@
             "density_percent": 83.667,
             "nnz": 6024
           },
+          "block_12": {
+            "time_ns": 1716.22,
+            "percentage_of_total_time": 0.24,
+            "percentage_of_dense_time": 2.83,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
           "block_13": {
-            "time_ns": 1906.32,
+            "time_ns": 1884.32,
             "percentage_of_total_time": 0.26,
-            "percentage_of_dense_time": 3.12,
+            "percentage_of_dense_time": 3.11,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1332,9 +1332,9 @@
             "nnz": 6024
           },
           "block_14": {
-            "time_ns": 1767.48,
-            "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.9,
+            "time_ns": 1763.85,
+            "percentage_of_total_time": 0.24,
+            "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1343,9 +1343,9 @@
             "nnz": 6024
           },
           "block_15": {
-            "time_ns": 1763.33,
+            "time_ns": 1764.94,
             "percentage_of_total_time": 0.24,
-            "percentage_of_dense_time": 2.89,
+            "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1354,8 +1354,8 @@
             "nnz": 6024
           },
           "block_16": {
-            "time_ns": 1779.13,
-            "percentage_of_total_time": 0.25,
+            "time_ns": 1764.18,
+            "percentage_of_total_time": 0.24,
             "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
@@ -1365,9 +1365,9 @@
             "nnz": 6024
           },
           "block_17": {
-            "time_ns": 1781.18,
+            "time_ns": 1783.58,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.92,
+            "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1376,9 +1376,9 @@
             "nnz": 6024
           },
           "block_18": {
-            "time_ns": 1783.96,
+            "time_ns": 1774.43,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.92,
+            "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1387,9 +1387,9 @@
             "nnz": 6024
           },
           "block_19": {
-            "time_ns": 1797.98,
+            "time_ns": 1784.78,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.95,
+            "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1398,9 +1398,9 @@
             "nnz": 6024
           },
           "block_20": {
-            "time_ns": 1766.76,
+            "time_ns": 1746.56,
             "percentage_of_total_time": 0.24,
-            "percentage_of_dense_time": 2.89,
+            "percentage_of_dense_time": 2.88,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1409,9 +1409,9 @@
             "nnz": 6024
           },
           "block_21": {
-            "time_ns": 1809.32,
+            "time_ns": 1782.48,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.96,
+            "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1420,7 +1420,7 @@
             "nnz": 6024
           },
           "block_22": {
-            "time_ns": 1780.54,
+            "time_ns": 1768.8,
             "percentage_of_total_time": 0.25,
             "percentage_of_dense_time": 2.92,
             "percentage_of_total_nnz": 0.367,
@@ -1431,9 +1431,9 @@
             "nnz": 6024
           },
           "block_23": {
-            "time_ns": 1752.31,
+            "time_ns": 1746.93,
             "percentage_of_total_time": 0.24,
-            "percentage_of_dense_time": 2.87,
+            "percentage_of_dense_time": 2.88,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1442,9 +1442,9 @@
             "nnz": 6024
           },
           "block_24": {
-            "time_ns": 1813.41,
+            "time_ns": 1787.83,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.97,
+            "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1453,7 +1453,7 @@
             "nnz": 6024
           },
           "block_25": {
-            "time_ns": 1813.51,
+            "time_ns": 1802.12,
             "percentage_of_total_time": 0.25,
             "percentage_of_dense_time": 2.97,
             "percentage_of_total_nnz": 0.367,
@@ -1464,18 +1464,7 @@
             "nnz": 6024
           },
           "block_26": {
-            "time_ns": 1792.42,
-            "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.94,
-            "percentage_of_total_nnz": 0.367,
-            "percentage_of_dense_nnz": 2.941,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 83.667,
-            "nnz": 6024
-          },
-          "block_27": {
-            "time_ns": 1809.9,
+            "time_ns": 1794.5,
             "percentage_of_total_time": 0.25,
             "percentage_of_dense_time": 2.96,
             "percentage_of_total_nnz": 0.367,
@@ -1485,30 +1474,8 @@
             "density_percent": 83.667,
             "nnz": 6024
           },
-          "block_28": {
-            "time_ns": 1769.6,
-            "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.9,
-            "percentage_of_total_nnz": 0.367,
-            "percentage_of_dense_nnz": 2.941,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 83.667,
-            "nnz": 6024
-          },
-          "block_29": {
-            "time_ns": 1817.9,
-            "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.98,
-            "percentage_of_total_nnz": 0.367,
-            "percentage_of_dense_nnz": 2.941,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 83.667,
-            "nnz": 6024
-          },
-          "block_30": {
-            "time_ns": 1798.44,
+          "block_27": {
+            "time_ns": 1786.78,
             "percentage_of_total_time": 0.25,
             "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.367,
@@ -1518,8 +1485,19 @@
             "density_percent": 83.667,
             "nnz": 6024
           },
-          "block_31": {
-            "time_ns": 1810.0,
+          "block_28": {
+            "time_ns": 1753.5,
+            "percentage_of_total_time": 0.24,
+            "percentage_of_dense_time": 2.89,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_29": {
+            "time_ns": 1793.41,
             "percentage_of_total_time": 0.25,
             "percentage_of_dense_time": 2.96,
             "percentage_of_total_nnz": 0.367,
@@ -1529,10 +1507,32 @@
             "density_percent": 83.667,
             "nnz": 6024
           },
-          "block_32": {
-            "time_ns": 1796.09,
+          "block_30": {
+            "time_ns": 1798.9,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.94,
+            "percentage_of_dense_time": 2.97,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_31": {
+            "time_ns": 1803.07,
+            "percentage_of_total_time": 0.25,
+            "percentage_of_dense_time": 2.97,
+            "percentage_of_total_nnz": 0.367,
+            "percentage_of_dense_nnz": 2.941,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 83.667,
+            "nnz": 6024
+          },
+          "block_32": {
+            "time_ns": 1778.87,
+            "percentage_of_total_time": 0.25,
+            "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1541,9 +1541,9 @@
             "nnz": 6024
           },
           "block_33": {
-            "time_ns": 1833.83,
+            "time_ns": 1823.66,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 3.0,
+            "percentage_of_dense_time": 3.01,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -1552,9 +1552,9 @@
             "nnz": 6024
           },
           "block_34": {
-            "time_ns": 1825.78,
+            "time_ns": 1817.96,
             "percentage_of_total_time": 0.25,
-            "percentage_of_dense_time": 2.99,
+            "percentage_of_dense_time": 3.0,
             "percentage_of_total_nnz": 0.367,
             "percentage_of_dense_nnz": 2.941,
             "rows": 30,
@@ -3140,22 +3140,22 @@
         }
       },
       "8 thread": {
-        "sparse_time_ns": 954670.62,
-        "dense_time_ns": 61446.17,
-        "total_time_ns": 1016116.79,
-        "sparse_percentage": 93.953,
-        "dense_percentage": 6.047,
-        "fully_sparse_time": 1000164.1319444445,
-        "speedup": 0.984,
-        "compile_time_split_s": 2.314503135,
-        "compile_time_sparse_s": 2.223426646,
-        "codegen_time_split_ms": 1,
-        "codegen_time_sparse_ms": 0,
+        "sparse_time_ns": 943673.68,
+        "dense_time_ns": 60800.12,
+        "total_time_ns": 1004473.8,
+        "sparse_percentage": 93.947,
+        "dense_percentage": 6.053,
+        "fully_sparse_time": 1013065.9861111111,
+        "speedup": 1.009,
+        "compile_time_split_s": 2.223789594,
+        "compile_time_sparse_s": 2.190139853,
+        "codegen_time_split_ms": 2,
+        "codegen_time_sparse_ms": 1,
         "individual_dense_block_timings": {
           "block_1": {
-            "time_ns": 2062.02,
+            "time_ns": 2052.84,
             "percentage_of_total_time": 0.2,
-            "percentage_of_dense_time": 3.36,
+            "percentage_of_dense_time": 3.38,
             "percentage_of_total_nnz": 0.323,
             "percentage_of_dense_nnz": 2.844,
             "rows": 30,
@@ -3164,9 +3164,9 @@
             "nnz": 6186
           },
           "block_2": {
-            "time_ns": 1765.81,
+            "time_ns": 1753.34,
             "percentage_of_total_time": 0.17,
-            "percentage_of_dense_time": 2.87,
+            "percentage_of_dense_time": 2.88,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3175,9 +3175,9 @@
             "nnz": 6418
           },
           "block_3": {
-            "time_ns": 1801.28,
+            "time_ns": 1766.52,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.93,
+            "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3186,9 +3186,9 @@
             "nnz": 6390
           },
           "block_4": {
-            "time_ns": 1817.33,
+            "time_ns": 1792.63,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.96,
+            "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3197,7 +3197,7 @@
             "nnz": 6418
           },
           "block_5": {
-            "time_ns": 1818.3,
+            "time_ns": 1798.71,
             "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.96,
             "percentage_of_total_nnz": 0.333,
@@ -3208,7 +3208,7 @@
             "nnz": 6390
           },
           "block_6": {
-            "time_ns": 1798.29,
+            "time_ns": 1780.8,
             "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.335,
@@ -3219,9 +3219,9 @@
             "nnz": 6418
           },
           "block_7": {
-            "time_ns": 1757.69,
+            "time_ns": 1724.32,
             "percentage_of_total_time": 0.17,
-            "percentage_of_dense_time": 2.86,
+            "percentage_of_dense_time": 2.84,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3230,9 +3230,9 @@
             "nnz": 6390
           },
           "block_8": {
-            "time_ns": 1818.41,
+            "time_ns": 1792.65,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.96,
+            "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3241,9 +3241,9 @@
             "nnz": 6418
           },
           "block_9": {
-            "time_ns": 1776.45,
-            "percentage_of_total_time": 0.17,
-            "percentage_of_dense_time": 2.89,
+            "time_ns": 1761.1,
+            "percentage_of_total_time": 0.18,
+            "percentage_of_dense_time": 2.9,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3252,7 +3252,7 @@
             "nnz": 6390
           },
           "block_10": {
-            "time_ns": 1786.25,
+            "time_ns": 1771.59,
             "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.335,
@@ -3263,9 +3263,9 @@
             "nnz": 6418
           },
           "block_11": {
-            "time_ns": 1768.92,
+            "time_ns": 1739.49,
             "percentage_of_total_time": 0.17,
-            "percentage_of_dense_time": 2.88,
+            "percentage_of_dense_time": 2.86,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3274,9 +3274,9 @@
             "nnz": 6390
           },
           "block_12": {
-            "time_ns": 1768.42,
+            "time_ns": 1746.42,
             "percentage_of_total_time": 0.17,
-            "percentage_of_dense_time": 2.88,
+            "percentage_of_dense_time": 2.87,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3285,9 +3285,9 @@
             "nnz": 6418
           },
           "block_13": {
-            "time_ns": 1898.56,
+            "time_ns": 1896.37,
             "percentage_of_total_time": 0.19,
-            "percentage_of_dense_time": 3.09,
+            "percentage_of_dense_time": 3.12,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3296,7 +3296,7 @@
             "nnz": 6390
           },
           "block_14": {
-            "time_ns": 1798.43,
+            "time_ns": 1782.66,
             "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.335,
@@ -3307,9 +3307,9 @@
             "nnz": 6418
           },
           "block_15": {
-            "time_ns": 1775.72,
+            "time_ns": 1747.79,
             "percentage_of_total_time": 0.17,
-            "percentage_of_dense_time": 2.89,
+            "percentage_of_dense_time": 2.87,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3318,9 +3318,9 @@
             "nnz": 6390
           },
           "block_16": {
-            "time_ns": 1805.26,
+            "time_ns": 1780.95,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.94,
+            "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3329,8 +3329,8 @@
             "nnz": 6418
           },
           "block_17": {
-            "time_ns": 1775.5,
-            "percentage_of_total_time": 0.17,
+            "time_ns": 1758.48,
+            "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.89,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
@@ -3340,9 +3340,9 @@
             "nnz": 6390
           },
           "block_18": {
-            "time_ns": 1793.87,
+            "time_ns": 1779.39,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.92,
+            "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3351,9 +3351,9 @@
             "nnz": 6418
           },
           "block_19": {
-            "time_ns": 1799.09,
+            "time_ns": 1770.96,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.93,
+            "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3362,9 +3362,9 @@
             "nnz": 6390
           },
           "block_20": {
-            "time_ns": 1779.59,
-            "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.9,
+            "time_ns": 1754.48,
+            "percentage_of_total_time": 0.17,
+            "percentage_of_dense_time": 2.89,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3373,7 +3373,7 @@
             "nnz": 6418
           },
           "block_21": {
-            "time_ns": 1809.35,
+            "time_ns": 1785.71,
             "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.333,
@@ -3384,9 +3384,9 @@
             "nnz": 6390
           },
           "block_22": {
-            "time_ns": 1807.81,
+            "time_ns": 1791.24,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.94,
+            "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3395,9 +3395,9 @@
             "nnz": 6418
           },
           "block_23": {
-            "time_ns": 1764.29,
+            "time_ns": 1733.51,
             "percentage_of_total_time": 0.17,
-            "percentage_of_dense_time": 2.87,
+            "percentage_of_dense_time": 2.85,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3406,7 +3406,7 @@
             "nnz": 6390
           },
           "block_24": {
-            "time_ns": 1832.05,
+            "time_ns": 1811.02,
             "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.98,
             "percentage_of_total_nnz": 0.335,
@@ -3417,9 +3417,9 @@
             "nnz": 6418
           },
           "block_25": {
-            "time_ns": 1794.62,
+            "time_ns": 1783.79,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.92,
+            "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3428,9 +3428,9 @@
             "nnz": 6390
           },
           "block_26": {
-            "time_ns": 1804.89,
+            "time_ns": 1797.85,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.94,
+            "percentage_of_dense_time": 2.96,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -3439,7 +3439,51 @@
             "nnz": 6418
           },
           "block_27": {
-            "time_ns": 1789.94,
+            "time_ns": 1765.72,
+            "percentage_of_total_time": 0.18,
+            "percentage_of_dense_time": 2.9,
+            "percentage_of_total_nnz": 0.333,
+            "percentage_of_dense_nnz": 2.937,
+            "rows": 30,
+            "cols": 239,
+            "density_percent": 89.121,
+            "nnz": 6390
+          },
+          "block_28": {
+            "time_ns": 1752.3,
+            "percentage_of_total_time": 0.17,
+            "percentage_of_dense_time": 2.88,
+            "percentage_of_total_nnz": 0.335,
+            "percentage_of_dense_nnz": 2.95,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 89.139,
+            "nnz": 6418
+          },
+          "block_29": {
+            "time_ns": 1782.24,
+            "percentage_of_total_time": 0.18,
+            "percentage_of_dense_time": 2.93,
+            "percentage_of_total_nnz": 0.333,
+            "percentage_of_dense_nnz": 2.937,
+            "rows": 30,
+            "cols": 239,
+            "density_percent": 89.121,
+            "nnz": 6390
+          },
+          "block_30": {
+            "time_ns": 1791.37,
+            "percentage_of_total_time": 0.18,
+            "percentage_of_dense_time": 2.95,
+            "percentage_of_total_nnz": 0.335,
+            "percentage_of_dense_nnz": 2.95,
+            "rows": 30,
+            "cols": 240,
+            "density_percent": 89.139,
+            "nnz": 6418
+          },
+          "block_31": {
+            "time_ns": 1771.36,
             "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.333,
@@ -3449,52 +3493,8 @@
             "density_percent": 89.121,
             "nnz": 6390
           },
-          "block_28": {
-            "time_ns": 1780.33,
-            "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.9,
-            "percentage_of_total_nnz": 0.335,
-            "percentage_of_dense_nnz": 2.95,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 89.139,
-            "nnz": 6418
-          },
-          "block_29": {
-            "time_ns": 1793.11,
-            "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.92,
-            "percentage_of_total_nnz": 0.333,
-            "percentage_of_dense_nnz": 2.937,
-            "rows": 30,
-            "cols": 239,
-            "density_percent": 89.121,
-            "nnz": 6390
-          },
-          "block_30": {
-            "time_ns": 1803.35,
-            "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.93,
-            "percentage_of_total_nnz": 0.335,
-            "percentage_of_dense_nnz": 2.95,
-            "rows": 30,
-            "cols": 240,
-            "density_percent": 89.139,
-            "nnz": 6418
-          },
-          "block_31": {
-            "time_ns": 1800.9,
-            "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.93,
-            "percentage_of_total_nnz": 0.333,
-            "percentage_of_dense_nnz": 2.937,
-            "rows": 30,
-            "cols": 239,
-            "density_percent": 89.121,
-            "nnz": 6390
-          },
           "block_32": {
-            "time_ns": 1813.49,
+            "time_ns": 1792.3,
             "percentage_of_total_time": 0.18,
             "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.335,
@@ -3505,9 +3505,9 @@
             "nnz": 6418
           },
           "block_33": {
-            "time_ns": 1806.56,
+            "time_ns": 1783.09,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.94,
+            "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.333,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -3516,9 +3516,9 @@
             "nnz": 6390
           },
           "block_34": {
-            "time_ns": 1795.67,
+            "time_ns": 1789.46,
             "percentage_of_total_time": 0.18,
-            "percentage_of_dense_time": 2.92,
+            "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.335,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5104,20 +5104,20 @@
         }
       },
       "8 thread": {
-        "sparse_time_ns": 740937.87,
-        "dense_time_ns": 61477.77,
-        "total_time_ns": 802415.64,
-        "sparse_percentage": 92.338,
-        "dense_percentage": 7.662,
-        "fully_sparse_time": 720081.6324549237,
-        "speedup": 0.897,
-        "compile_time_split_s": 2.31131031,
-        "compile_time_sparse_s": 2.206717526,
-        "codegen_time_split_ms": 1,
+        "sparse_time_ns": 734944.56,
+        "dense_time_ns": 60773.96,
+        "total_time_ns": 795718.52,
+        "sparse_percentage": 92.362,
+        "dense_percentage": 7.638,
+        "fully_sparse_time": 718454.5638888889,
+        "speedup": 0.903,
+        "compile_time_split_s": 2.2804794,
+        "compile_time_sparse_s": 2.206234411,
+        "codegen_time_split_ms": 2,
         "codegen_time_sparse_ms": 0,
         "individual_dense_block_timings": {
           "block_1": {
-            "time_ns": 2034.14,
+            "time_ns": 2010.88,
             "percentage_of_total_time": 0.25,
             "percentage_of_dense_time": 3.31,
             "percentage_of_total_nnz": 0.362,
@@ -5128,7 +5128,7 @@
             "nnz": 6192
           },
           "block_2": {
-            "time_ns": 1764.95,
+            "time_ns": 1743.05,
             "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.87,
             "percentage_of_total_nnz": 0.375,
@@ -5139,7 +5139,7 @@
             "nnz": 6418
           },
           "block_3": {
-            "time_ns": 1844.86,
+            "time_ns": 1822.48,
             "percentage_of_total_time": 0.23,
             "percentage_of_dense_time": 3.0,
             "percentage_of_total_nnz": 0.373,
@@ -5150,9 +5150,9 @@
             "nnz": 6390
           },
           "block_4": {
-            "time_ns": 1834.52,
+            "time_ns": 1821.79,
             "percentage_of_total_time": 0.23,
-            "percentage_of_dense_time": 2.98,
+            "percentage_of_dense_time": 3.0,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5161,9 +5161,9 @@
             "nnz": 6418
           },
           "block_5": {
-            "time_ns": 1830.83,
-            "percentage_of_total_time": 0.23,
-            "percentage_of_dense_time": 2.98,
+            "time_ns": 1788.59,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5172,9 +5172,9 @@
             "nnz": 6390
           },
           "block_6": {
-            "time_ns": 1796.03,
+            "time_ns": 1766.95,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.92,
+            "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5183,7 +5183,7 @@
             "nnz": 6418
           },
           "block_7": {
-            "time_ns": 1754.04,
+            "time_ns": 1733.67,
             "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.85,
             "percentage_of_total_nnz": 0.373,
@@ -5194,8 +5194,8 @@
             "nnz": 6390
           },
           "block_8": {
-            "time_ns": 1809.64,
-            "percentage_of_total_time": 0.23,
+            "time_ns": 1786.6,
+            "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
@@ -5205,7 +5205,7 @@
             "nnz": 6418
           },
           "block_9": {
-            "time_ns": 1768.38,
+            "time_ns": 1748.89,
             "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.88,
             "percentage_of_total_nnz": 0.373,
@@ -5216,9 +5216,9 @@
             "nnz": 6390
           },
           "block_10": {
-            "time_ns": 1788.88,
+            "time_ns": 1764.03,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.91,
+            "percentage_of_dense_time": 2.9,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5227,9 +5227,9 @@
             "nnz": 6418
           },
           "block_11": {
-            "time_ns": 1763.5,
+            "time_ns": 1737.15,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.87,
+            "percentage_of_dense_time": 2.86,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5238,9 +5238,9 @@
             "nnz": 6390
           },
           "block_12": {
-            "time_ns": 1768.72,
+            "time_ns": 1754.42,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.88,
+            "percentage_of_dense_time": 2.89,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5249,7 +5249,7 @@
             "nnz": 6418
           },
           "block_13": {
-            "time_ns": 1903.96,
+            "time_ns": 1884.46,
             "percentage_of_total_time": 0.24,
             "percentage_of_dense_time": 3.1,
             "percentage_of_total_nnz": 0.373,
@@ -5260,9 +5260,9 @@
             "nnz": 6390
           },
           "block_14": {
-            "time_ns": 1789.4,
+            "time_ns": 1765.06,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.91,
+            "percentage_of_dense_time": 2.9,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5271,9 +5271,9 @@
             "nnz": 6418
           },
           "block_15": {
-            "time_ns": 1762.92,
+            "time_ns": 1748.06,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.87,
+            "percentage_of_dense_time": 2.88,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5282,7 +5282,7 @@
             "nnz": 6390
           },
           "block_16": {
-            "time_ns": 1789.21,
+            "time_ns": 1768.8,
             "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.375,
@@ -5293,9 +5293,9 @@
             "nnz": 6418
           },
           "block_17": {
-            "time_ns": 1756.68,
+            "time_ns": 1748.29,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.86,
+            "percentage_of_dense_time": 2.88,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5304,7 +5304,7 @@
             "nnz": 6390
           },
           "block_18": {
-            "time_ns": 1798.88,
+            "time_ns": 1779.96,
             "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.93,
             "percentage_of_total_nnz": 0.375,
@@ -5315,9 +5315,9 @@
             "nnz": 6418
           },
           "block_19": {
-            "time_ns": 1788.45,
+            "time_ns": 1759.36,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.91,
+            "percentage_of_dense_time": 2.89,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5326,9 +5326,9 @@
             "nnz": 6390
           },
           "block_20": {
-            "time_ns": 1784.07,
+            "time_ns": 1768.49,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.9,
+            "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5337,7 +5337,7 @@
             "nnz": 6418
           },
           "block_21": {
-            "time_ns": 1797.2,
+            "time_ns": 1773.8,
             "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.92,
             "percentage_of_total_nnz": 0.373,
@@ -5348,9 +5348,9 @@
             "nnz": 6390
           },
           "block_22": {
-            "time_ns": 1806.77,
-            "percentage_of_total_time": 0.23,
-            "percentage_of_dense_time": 2.94,
+            "time_ns": 1771.54,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 2.91,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5359,9 +5359,9 @@
             "nnz": 6418
           },
           "block_23": {
-            "time_ns": 1764.03,
+            "time_ns": 1735.99,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.87,
+            "percentage_of_dense_time": 2.86,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5370,7 +5370,7 @@
             "nnz": 6390
           },
           "block_24": {
-            "time_ns": 1827.82,
+            "time_ns": 1805.4,
             "percentage_of_total_time": 0.23,
             "percentage_of_dense_time": 2.97,
             "percentage_of_total_nnz": 0.375,
@@ -5381,9 +5381,9 @@
             "nnz": 6418
           },
           "block_25": {
-            "time_ns": 1797.75,
+            "time_ns": 1784.96,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.92,
+            "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5392,7 +5392,7 @@
             "nnz": 6390
           },
           "block_26": {
-            "time_ns": 1817.51,
+            "time_ns": 1801.31,
             "percentage_of_total_time": 0.23,
             "percentage_of_dense_time": 2.96,
             "percentage_of_total_nnz": 0.375,
@@ -5403,9 +5403,9 @@
             "nnz": 6418
           },
           "block_27": {
-            "time_ns": 1787.82,
+            "time_ns": 1757.9,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.91,
+            "percentage_of_dense_time": 2.89,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5414,9 +5414,9 @@
             "nnz": 6390
           },
           "block_28": {
-            "time_ns": 1788.49,
+            "time_ns": 1774.17,
             "percentage_of_total_time": 0.22,
-            "percentage_of_dense_time": 2.91,
+            "percentage_of_dense_time": 2.92,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -5425,7 +5425,7 @@
             "nnz": 6418
           },
           "block_29": {
-            "time_ns": 1813.87,
+            "time_ns": 1794.49,
             "percentage_of_total_time": 0.23,
             "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.373,
@@ -5436,8 +5436,8 @@
             "nnz": 6390
           },
           "block_30": {
-            "time_ns": 1810.13,
-            "percentage_of_total_time": 0.23,
+            "time_ns": 1786.64,
+            "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
@@ -5447,8 +5447,8 @@
             "nnz": 6418
           },
           "block_31": {
-            "time_ns": 1809.54,
-            "percentage_of_total_time": 0.23,
+            "time_ns": 1787.69,
+            "percentage_of_total_time": 0.22,
             "percentage_of_dense_time": 2.94,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
@@ -5458,7 +5458,7 @@
             "nnz": 6390
           },
           "block_32": {
-            "time_ns": 1815.06,
+            "time_ns": 1792.75,
             "percentage_of_total_time": 0.23,
             "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.375,
@@ -5469,9 +5469,9 @@
             "nnz": 6418
           },
           "block_33": {
-            "time_ns": 1806.99,
-            "percentage_of_total_time": 0.23,
-            "percentage_of_dense_time": 2.94,
+            "time_ns": 1790.27,
+            "percentage_of_total_time": 0.22,
+            "percentage_of_dense_time": 2.95,
             "percentage_of_total_nnz": 0.373,
             "percentage_of_dense_nnz": 2.937,
             "rows": 30,
@@ -5480,9 +5480,9 @@
             "nnz": 6390
           },
           "block_34": {
-            "time_ns": 1818.38,
+            "time_ns": 1810.29,
             "percentage_of_total_time": 0.23,
-            "percentage_of_dense_time": 2.96,
+            "percentage_of_dense_time": 2.98,
             "percentage_of_total_nnz": 0.375,
             "percentage_of_dense_nnz": 2.95,
             "rows": 30,
@@ -15072,22 +15072,22 @@
         }
       },
       "8 thread": {
-        "sparse_time_ns": 542570.31,
-        "dense_time_ns": 49117.98,
-        "total_time_ns": 591688.29,
-        "sparse_percentage": 91.699,
-        "dense_percentage": 8.301,
-        "fully_sparse_time": 633750.9902777778,
-        "speedup": 1.071,
-        "compile_time_split_s": 2.280303054,
-        "compile_time_sparse_s": 2.185281806,
-        "codegen_time_split_ms": 0,
+        "sparse_time_ns": 544756.97,
+        "dense_time_ns": 49020.03,
+        "total_time_ns": 593777.0,
+        "sparse_percentage": 91.744,
+        "dense_percentage": 8.256,
+        "fully_sparse_time": 630740.2722222222,
+        "speedup": 1.062,
+        "compile_time_split_s": 2.23638983,
+        "compile_time_sparse_s": 2.17036786,
+        "codegen_time_split_ms": 1,
         "codegen_time_sparse_ms": 0,
         "individual_dense_block_timings": {
           "block_1": {
-            "time_ns": 2008.32,
+            "time_ns": 2022.51,
             "percentage_of_total_time": 0.34,
-            "percentage_of_dense_time": 4.09,
+            "percentage_of_dense_time": 4.13,
             "percentage_of_total_nnz": 0.411,
             "percentage_of_dense_nnz": 3.512,
             "rows": 30,
@@ -15096,9 +15096,9 @@
             "nnz": 5989
           },
           "block_2": {
-            "time_ns": 1773.47,
+            "time_ns": 1772.17,
             "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.61,
+            "percentage_of_dense_time": 3.62,
             "percentage_of_total_nnz": 0.414,
             "percentage_of_dense_nnz": 3.532,
             "rows": 30,
@@ -15107,7 +15107,7 @@
             "nnz": 6024
           },
           "block_3": {
-            "time_ns": 1787.75,
+            "time_ns": 1786.56,
             "percentage_of_total_time": 0.3,
             "percentage_of_dense_time": 3.64,
             "percentage_of_total_nnz": 0.439,
@@ -15118,9 +15118,9 @@
             "nnz": 6390
           },
           "block_4": {
-            "time_ns": 1822.51,
+            "time_ns": 1813.33,
             "percentage_of_total_time": 0.31,
-            "percentage_of_dense_time": 3.71,
+            "percentage_of_dense_time": 3.7,
             "percentage_of_total_nnz": 0.427,
             "percentage_of_dense_nnz": 3.648,
             "rows": 30,
@@ -15129,9 +15129,9 @@
             "nnz": 6221
           },
           "block_5": {
-            "time_ns": 1824.85,
+            "time_ns": 1816.69,
             "percentage_of_total_time": 0.31,
-            "percentage_of_dense_time": 3.72,
+            "percentage_of_dense_time": 3.71,
             "percentage_of_total_nnz": 0.439,
             "percentage_of_dense_nnz": 3.747,
             "rows": 30,
@@ -15140,9 +15140,9 @@
             "nnz": 6390
           },
           "block_6": {
-            "time_ns": 1814.79,
-            "percentage_of_total_time": 0.31,
-            "percentage_of_dense_time": 3.69,
+            "time_ns": 1806.21,
+            "percentage_of_total_time": 0.3,
+            "percentage_of_dense_time": 3.68,
             "percentage_of_total_nnz": 0.441,
             "percentage_of_dense_nnz": 3.763,
             "rows": 30,
@@ -15151,9 +15151,9 @@
             "nnz": 6418
           },
           "block_7": {
-            "time_ns": 1773.84,
+            "time_ns": 1783.77,
             "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.61,
+            "percentage_of_dense_time": 3.64,
             "percentage_of_total_nnz": 0.424,
             "percentage_of_dense_nnz": 3.617,
             "rows": 30,
@@ -15162,9 +15162,9 @@
             "nnz": 6169
           },
           "block_8": {
-            "time_ns": 1879.06,
+            "time_ns": 1872.75,
             "percentage_of_total_time": 0.32,
-            "percentage_of_dense_time": 3.83,
+            "percentage_of_dense_time": 3.82,
             "percentage_of_total_nnz": 0.441,
             "percentage_of_dense_nnz": 3.763,
             "rows": 30,
@@ -15173,9 +15173,9 @@
             "nnz": 6418
           },
           "block_9": {
-            "time_ns": 1761.26,
-            "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.59,
+            "time_ns": 1750.15,
+            "percentage_of_total_time": 0.29,
+            "percentage_of_dense_time": 3.57,
             "percentage_of_total_nnz": 0.441,
             "percentage_of_dense_nnz": 3.763,
             "rows": 30,
@@ -15184,9 +15184,9 @@
             "nnz": 6418
           },
           "block_10": {
-            "time_ns": 1802.99,
+            "time_ns": 1795.27,
             "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.67,
+            "percentage_of_dense_time": 3.66,
             "percentage_of_total_nnz": 0.427,
             "percentage_of_dense_nnz": 3.649,
             "rows": 30,
@@ -15195,9 +15195,9 @@
             "nnz": 6222
           },
           "block_11": {
-            "time_ns": 1745.07,
+            "time_ns": 1742.66,
             "percentage_of_total_time": 0.29,
-            "percentage_of_dense_time": 3.55,
+            "percentage_of_dense_time": 3.56,
             "percentage_of_total_nnz": 0.439,
             "percentage_of_dense_nnz": 3.747,
             "rows": 30,
@@ -15206,7 +15206,7 @@
             "nnz": 6390
           },
           "block_12": {
-            "time_ns": 1821.96,
+            "time_ns": 1820.33,
             "percentage_of_total_time": 0.31,
             "percentage_of_dense_time": 3.71,
             "percentage_of_total_nnz": 0.427,
@@ -15217,9 +15217,9 @@
             "nnz": 6222
           },
           "block_13": {
-            "time_ns": 1809.68,
-            "percentage_of_total_time": 0.31,
-            "percentage_of_dense_time": 3.68,
+            "time_ns": 1794.83,
+            "percentage_of_total_time": 0.3,
+            "percentage_of_dense_time": 3.66,
             "percentage_of_total_nnz": 0.439,
             "percentage_of_dense_nnz": 3.747,
             "rows": 30,
@@ -15228,9 +15228,9 @@
             "nnz": 6390
           },
           "block_14": {
-            "time_ns": 1804.36,
+            "time_ns": 1795.07,
             "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.67,
+            "percentage_of_dense_time": 3.66,
             "percentage_of_total_nnz": 0.441,
             "percentage_of_dense_nnz": 3.763,
             "rows": 30,
@@ -15239,9 +15239,9 @@
             "nnz": 6418
           },
           "block_15": {
-            "time_ns": 1781.72,
+            "time_ns": 1783.65,
             "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.63,
+            "percentage_of_dense_time": 3.64,
             "percentage_of_total_nnz": 0.439,
             "percentage_of_dense_nnz": 3.747,
             "rows": 30,
@@ -15250,7 +15250,7 @@
             "nnz": 6390
           },
           "block_16": {
-            "time_ns": 1762.97,
+            "time_ns": 1759.82,
             "percentage_of_total_time": 0.3,
             "percentage_of_dense_time": 3.59,
             "percentage_of_total_nnz": 0.427,
@@ -15261,9 +15261,9 @@
             "nnz": 6222
           },
           "block_17": {
-            "time_ns": 1790.92,
+            "time_ns": 1775.82,
             "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.65,
+            "percentage_of_dense_time": 3.62,
             "percentage_of_total_nnz": 0.439,
             "percentage_of_dense_nnz": 3.747,
             "rows": 30,
@@ -15272,7 +15272,7 @@
             "nnz": 6390
           },
           "block_18": {
-            "time_ns": 1817.03,
+            "time_ns": 1814.58,
             "percentage_of_total_time": 0.31,
             "percentage_of_dense_time": 3.7,
             "percentage_of_total_nnz": 0.427,
@@ -15283,7 +15283,7 @@
             "nnz": 6222
           },
           "block_19": {
-            "time_ns": 1788.96,
+            "time_ns": 1784.77,
             "percentage_of_total_time": 0.3,
             "percentage_of_dense_time": 3.64,
             "percentage_of_total_nnz": 0.439,
@@ -15294,7 +15294,7 @@
             "nnz": 6390
           },
           "block_20": {
-            "time_ns": 1824.38,
+            "time_ns": 1817.33,
             "percentage_of_total_time": 0.31,
             "percentage_of_dense_time": 3.71,
             "percentage_of_total_nnz": 0.427,
@@ -15305,9 +15305,9 @@
             "nnz": 6222
           },
           "block_21": {
-            "time_ns": 1814.6,
-            "percentage_of_total_time": 0.31,
-            "percentage_of_dense_time": 3.69,
+            "time_ns": 1796.55,
+            "percentage_of_total_time": 0.3,
+            "percentage_of_dense_time": 3.66,
             "percentage_of_total_nnz": 0.425,
             "percentage_of_dense_nnz": 3.632,
             "rows": 30,
@@ -15316,9 +15316,9 @@
             "nnz": 6194
           },
           "block_22": {
-            "time_ns": 1936.05,
-            "percentage_of_total_time": 0.33,
-            "percentage_of_dense_time": 3.94,
+            "time_ns": 1928.1,
+            "percentage_of_total_time": 0.32,
+            "percentage_of_dense_time": 3.93,
             "percentage_of_total_nnz": 0.441,
             "percentage_of_dense_nnz": 3.763,
             "rows": 30,
@@ -15327,9 +15327,9 @@
             "nnz": 6418
           },
           "block_23": {
-            "time_ns": 1785.73,
+            "time_ns": 1794.99,
             "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.64,
+            "percentage_of_dense_time": 3.66,
             "percentage_of_total_nnz": 0.439,
             "percentage_of_dense_nnz": 3.747,
             "rows": 30,
@@ -15338,9 +15338,9 @@
             "nnz": 6390
           },
           "block_24": {
-            "time_ns": 1835.37,
+            "time_ns": 1830.6,
             "percentage_of_total_time": 0.31,
-            "percentage_of_dense_time": 3.74,
+            "percentage_of_dense_time": 3.73,
             "percentage_of_total_nnz": 0.441,
             "percentage_of_dense_nnz": 3.763,
             "rows": 30,
@@ -15349,9 +15349,9 @@
             "nnz": 6418
           },
           "block_25": {
-            "time_ns": 1849.46,
+            "time_ns": 1833.63,
             "percentage_of_total_time": 0.31,
-            "percentage_of_dense_time": 3.77,
+            "percentage_of_dense_time": 3.74,
             "percentage_of_total_nnz": 0.439,
             "percentage_of_dense_nnz": 3.747,
             "rows": 30,
@@ -15360,9 +15360,9 @@
             "nnz": 6390
           },
           "block_26": {
-            "time_ns": 1845.86,
+            "time_ns": 1848.91,
             "percentage_of_total_time": 0.31,
-            "percentage_of_dense_time": 3.76,
+            "percentage_of_dense_time": 3.77,
             "percentage_of_total_nnz": 0.441,
             "percentage_of_dense_nnz": 3.763,
             "rows": 30,
@@ -15371,9 +15371,9 @@
             "nnz": 6418
           },
           "block_27": {
-            "time_ns": 1793.24,
+            "time_ns": 1799.68,
             "percentage_of_total_time": 0.3,
-            "percentage_of_dense_time": 3.65,
+            "percentage_of_dense_time": 3.67,
             "percentage_of_total_nnz": 0.439,
             "percentage_of_dense_nnz": 3.747,
             "rows": 30,

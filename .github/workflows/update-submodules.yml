@@ -1,0 +1,45 @@
+name: Update Submodules
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-submodules:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      with:
+        submodules: recursive
+        fetch-depth: 0
+
+    - name: Update submodules to latest on their branches
+      run: git submodule update --remote
+
+    - name: Check for changes
+      id: check
+      run: |
+        if git diff --quiet; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "All submodules are up to date."
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "Submodules updated:"
+          git diff --name-only
+        fi
+
+    - name: Commit and push
+      if: steps.check.outputs.changed == 'true'
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add -A
+        git commit -m "Update submodules to latest commits"
+        git push

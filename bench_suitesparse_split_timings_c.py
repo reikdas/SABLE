@@ -36,7 +36,7 @@ from src.codegen import (
     gen_single_threaded_spmv_blas_spv8, gen_single_threaded_spmv_blas_mkl, gen_single_threaded_spmv_blas_naive,
     gen_single_threaded_spmv_naive_uzp, gen_single_threaded_spmv_blas_uzp
 )
-from src.consts import CFLAGS, MKL_FLAGS
+from src.consts import Backend, DenseKernel, CFLAGS, MKL_FLAGS, BACKEND_FLAGS, BACKEND_EXTRA_SOURCES
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file, analyze_dense_blocks
 from utils.fileio import parse_yaml_blocks, write_dense_vector
 from utils.utils import remove_outliers_deciles, set_ulimit
@@ -64,9 +64,22 @@ GENERATED_SPMV_UZP_DIR = FILEPATH / "Generated_SpMV_C_uzp"
 GENERATED_SPARSE_MTX_DIR = FILEPATH / "Generated_sparse_mtx"
 
 
-def compile_c_program(c_file_path: str, output_dir: str, use_mkl: bool = False) -> Optional[Tuple[str, float]]:
+def compile_c_program(
+    c_file_path: str,
+    output_dir: str,
+    backend: Backend = Backend.NAIVE,
+    dense_kernel: DenseKernel = DenseKernel.NAIVE,
+) -> Optional[Tuple[str, float]]:
     """
     Compile the C program using gcc and return the executable path and compilation time.
+
+    Args:
+        c_file_path: Path to the generated C file.
+        output_dir: Directory for the compiled binary.
+        backend: Sparse backend (determines backend-specific sources/flags).
+        dense_kernel: Dense kernel variant (NAIVE or BLAS).  The BLAS variant
+            uses ``cblas_dgemv`` from MKL, so MKL flags are added automatically
+            even when the sparse backend is not MKL.
 
     Returns:
         Tuple of (executable_path, compile_time_ns) or None if compilation fails
@@ -75,43 +88,17 @@ def compile_c_program(c_file_path: str, output_dir: str, use_mkl: bool = False) 
     c_file = os.path.basename(c_file_path)
     output_name = os.path.splitext(c_file)[0]
     output_path = os.path.join(output_dir, output_name)
-    
-    # Detect optional backend-specific dependencies from generated C
-    needs_mkl = use_mkl
-    needs_uzp = False
-    if not needs_mkl and os.path.exists(c_file_path):
-        with open(c_file_path, 'r') as f:
-            content = f.read()
-            # Check for MKL includes or BLAS function calls
-            if '#include <mkl.h>' in content or 'cblas_dgemv' in content or 'mkl_set_num_threads' in content:
-                needs_mkl = True
-            # Check for UZP / SPF executor usage
-            if '#include <spf_structure.h>' in content or 'spf_executors_spf_matrix_dense_vector_product' in content:
-                needs_uzp = True
-    
-    # Compile with gcc, including MKL flags if needed
-    print(f"  Compiling generated C code: {c_file} (output: {output_path})")
-    # Optional UZP sources are compiled in along with the generated file.
-    uzp_genex_dir = FILEPATH / "uzp-artifact" / "spmv-executors" / "uzp-genex"
-    uzp_sources: List[str] = []
-    uzp_flags: List[str] = []
-    if needs_uzp:
-        uzp_sources = [
-            str(uzp_genex_dir / "polybench.c"),
-            str(uzp_genex_dir / "spf_structure.c"),
-            str(uzp_genex_dir / "spf_executors.c"),
-            str(uzp_genex_dir / "spf_executors_uninc.c"),
-        ]
-        uzp_flags = [
-            f"-I{uzp_genex_dir}",
-            "-DGEN_EXECUTOR_SPMV_ORIGINAL",
-            "-lm",
-        ]
 
-    if needs_mkl:
-        compile_cmd = ["gcc", c_file_path] + uzp_sources + ["-o", output_path] + CFLAGS + MKL_FLAGS + uzp_flags
-    else:
-        compile_cmd = ["gcc", c_file_path] + uzp_sources + ["-o", output_path] + CFLAGS + uzp_flags
+    extra_sources = list(BACKEND_EXTRA_SOURCES[backend])
+    extra_flags = list(BACKEND_FLAGS[backend])
+
+    # The "blas" dense kernel uses cblas_dgemv which lives in MKL, so we need
+    # MKL flags even when the sparse backend itself is not MKL.
+    if dense_kernel == DenseKernel.BLAS and backend != Backend.MKL:
+        extra_flags += MKL_FLAGS
+
+    print(f"  Compiling generated C code: {c_file} (output: {output_path})")
+    compile_cmd = ["gcc", c_file_path] + extra_sources + ["-o", output_path] + CFLAGS + extra_flags
 
     try:
         start_time = time.time_ns()
@@ -134,6 +121,8 @@ def eval_single_file_split_timings(
     fname: str,
     codegen_dir: str,
     bench_freq: int,
+    backend: Backend,
+    dense_kernel: DenseKernel = DenseKernel.NAIVE,
     threads: int = 1,
     extract_indiv_blocks: bool = True
 ) -> Tuple[float, float, Dict[int, float], float]:
@@ -151,10 +140,9 @@ def eval_single_file_split_timings(
     
     # First, compile the C program
     c_file_path = os.path.join(codegen_dir, f"{fname}.c")
-    
-    # Determine if this is MKL based on directory name
-    use_mkl = "mkl" in codegen_dir.lower()
-    compile_result = compile_c_program(c_file_path, codegen_dir, use_mkl=use_mkl)
+    compile_result = compile_c_program(
+        c_file_path, codegen_dir, backend=backend, dense_kernel=dense_kernel,
+    )
 
     if compile_result is None:
         print(f"Failed to compile {fname}, skipping evaluation")
@@ -383,7 +371,7 @@ def process_and_benchmark_matrix(
     matrix_nnz: int,
     bench_iterations: int,
     use_mkl: bool = False,
-    dense_kernel: str = "naive",
+    dense_kernel: DenseKernel = DenseKernel.NAIVE,
     threads: int = 1
 ) -> Optional[Dict[str, Any]]:
     """
@@ -396,23 +384,24 @@ def process_and_benchmark_matrix(
         matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
         bench_iterations: Number of benchmark iterations
         use_mkl: Whether to use MKL (True) or SpV8 (False) for sparse kernel
-        dense_kernel: Which dense kernel to use: "naive" (handwritten) or "blas" (cblas_dgemv)
+        dense_kernel: Which dense kernel to use (NAIVE or BLAS)
         threads: Number of threads for parallelization (default: 1)
 
     Returns:
         Dictionary with benchmark results
     """
     sparse_variant = "mkl" if use_mkl else "spv8"
+    backend = Backend.MKL if use_mkl else Backend.SPV8
     variant_name = f"{sparse_variant}_{dense_kernel}"
 
     # Select directories and functions based on sparse variant and dense kernel
     if use_mkl:
-        if dense_kernel == "blas":
+        if dense_kernel == DenseKernel.BLAS:
             gen_function = gen_single_threaded_spmv_blas_mkl
         else:
             gen_function = gen_single_threaded_spmv_naive_mkl
     else:
-        if dense_kernel == "blas":
+        if dense_kernel == DenseKernel.BLAS:
             gen_function = gen_single_threaded_spmv_blas_spv8
         else:
             gen_function = gen_single_threaded_spmv_naive_spv8
@@ -464,7 +453,8 @@ def process_and_benchmark_matrix(
     # Evaluate split version (compile + run)
     print(f"  [{variant_name}] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations,
+                                       backend=backend, dense_kernel=dense_kernel, threads=threads)
     
     # Generate C code for sparse version (codegen time)
     print(f"  [{variant_name}] Generating C code (fully sparse)...")
@@ -481,7 +471,8 @@ def process_and_benchmark_matrix(
     # Evaluate fully sparse version (compile + run)
     print(f"  [{variant_name}] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
+        matrix_name, codegen_dir_sparse, bench_iterations,
+        backend=backend, dense_kernel=dense_kernel, threads=threads
     )
     
     # Calculate percentages
@@ -572,7 +563,7 @@ def process_and_benchmark_matrix_naive(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
-    dense_kernel: str = "naive",
+    dense_kernel: DenseKernel = DenseKernel.NAIVE,
     threads: int = 1
 ) -> Optional[Dict[str, Any]]:
     """
@@ -584,13 +575,13 @@ def process_and_benchmark_matrix_naive(
         sparse_vbrc_data: Pre-converted VBRC data without dense blocks
         matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
         bench_iterations: Number of benchmark iterations
-        dense_kernel: Which dense kernel to use: "naive" (handwritten) or "blas" (cblas_dgemv)
+        dense_kernel: Which dense kernel to use (NAIVE or BLAS)
 
     Returns:
         Dictionary with benchmark results
     """
     # Select codegen function based on dense kernel
-    if dense_kernel == "blas":
+    if dense_kernel == DenseKernel.BLAS:
         gen_function = gen_single_threaded_spmv_blas_naive
     else:
         gen_function = gen_single_threaded_spmv_naive_naive
@@ -642,7 +633,8 @@ def process_and_benchmark_matrix_naive(
     # Evaluate split version (compile + run)
     print(f"  [naive_{dense_kernel}] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = \
-        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations, threads=threads)
+        eval_single_file_split_timings(matrix_name, codegen_dir_split, bench_iterations,
+                                       backend=Backend.NAIVE, dense_kernel=dense_kernel, threads=threads)
 
     # Generate C code for sparse version (codegen time)
     print(f"  [naive_{dense_kernel}] Generating C code (fully sparse)...")
@@ -659,7 +651,8 @@ def process_and_benchmark_matrix_naive(
     # Evaluate fully sparse version (compile + run)
     print(f"  [naive] Evaluating fully sparse version...")
     sparse_avg_sparse_time, sparse_avg_dense_time, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
+        matrix_name, codegen_dir_sparse, bench_iterations,
+        backend=Backend.NAIVE, dense_kernel=dense_kernel, threads=threads
     )
     
     # Calculate percentages
@@ -750,7 +743,7 @@ def process_and_benchmark_matrix_uzp(
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
-    dense_kernel: str = "naive",
+    dense_kernel: DenseKernel = DenseKernel.NAIVE,
     threads: int = 1
 ) -> Optional[Dict[str, Any]]:
     """Run benchmarks using UZP sparse dispatch for the sparse kernel.
@@ -758,10 +751,6 @@ def process_and_benchmark_matrix_uzp(
     UZP performs pattern mining outside the timing loop; only the UZP kernel
     execution is timed (see generated code).
     """
-    if dense_kernel not in ("naive", "blas"):
-        print(f"  [uzp] Dense kernel '{dense_kernel}' not supported")
-        return None
-
     variant_name = f"uzp_{dense_kernel}"
 
     base_codegen_dir = FILEPATH / f"Generated_SpMV_C_{dense_kernel}_uzp"
@@ -800,7 +789,7 @@ def process_and_benchmark_matrix_uzp(
     sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
     sparse_sparse_mtx_path = sparse_vbrc_data.get("sparse_mtx_path", "")
 
-    gen_uzp = gen_single_threaded_spmv_blas_uzp if dense_kernel == "blas" else gen_single_threaded_spmv_naive_uzp
+    gen_uzp = gen_single_threaded_spmv_blas_uzp if dense_kernel == DenseKernel.BLAS else gen_single_threaded_spmv_naive_uzp
 
     print(f"  [{variant_name}] Generating C code (split)...")
     codegen_time_split_ns = gen_uzp(
@@ -825,7 +814,8 @@ def process_and_benchmark_matrix_uzp(
 
     print(f"  [{variant_name}] Evaluating split version...")
     avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_split, bench_iterations, threads=threads
+        matrix_name, codegen_dir_split, bench_iterations,
+        backend=Backend.UZP, dense_kernel=dense_kernel, threads=threads
     )
 
     print(f"  [{variant_name}] Generating C code (fully sparse)...")
@@ -851,7 +841,8 @@ def process_and_benchmark_matrix_uzp(
 
     print(f"  [{variant_name}] Evaluating fully sparse version...")
     sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_single_file_split_timings(
-        matrix_name, codegen_dir_sparse, bench_iterations, threads=threads
+        matrix_name, codegen_dir_sparse, bench_iterations,
+        backend=Backend.UZP, dense_kernel=dense_kernel, threads=threads
     )
 
     total_time = avg_sparse_time + avg_dense_time
@@ -953,24 +944,26 @@ def main():
     thread_counts = [int(t.strip()) for t in args.threads.split(",")]
 
     # Determine which sparse and dense kernels to run (supports comma-separated values)
-    valid_sparse = {"naive", "spv8", "mkl", "uzp"}
-    valid_dense = {"naive", "blas"}
+    valid_sparse = {b.value for b in Backend}
+    valid_dense = {dk.value for dk in DenseKernel}
 
     if args.sparse == "all":
-        sparse_kernels = ["naive", "spv8", "mkl", "uzp"]
+        sparse_kernels = list(Backend)
     else:
-        sparse_kernels = [k.strip() for k in args.sparse.split(",")]
-        invalid = set(sparse_kernels) - valid_sparse
+        sparse_kernels_raw = [k.strip() for k in args.sparse.split(",")]
+        invalid = set(sparse_kernels_raw) - valid_sparse
         if invalid:
             parser.error(f"Invalid sparse kernel(s): {invalid}. Valid options: {valid_sparse}")
+        sparse_kernels = [Backend(k) for k in sparse_kernels_raw]
 
     if args.dense == "all":
-        dense_kernels = ["naive", "blas"]
+        dense_kernels = list(DenseKernel)
     else:
-        dense_kernels = [k.strip() for k in args.dense.split(",")]
-        invalid = set(dense_kernels) - valid_dense
+        dense_kernels_raw = [k.strip() for k in args.dense.split(",")]
+        invalid = set(dense_kernels_raw) - valid_dense
         if invalid:
             parser.error(f"Invalid dense kernel(s): {invalid}. Valid options: {valid_dense}")
+        dense_kernels = [DenseKernel(k) for k in dense_kernels_raw]
 
     # Get matrices to process - merge positional arguments and --matrices flag, or use all
     matrices = args.matrices or args.matrices_flag
@@ -1050,25 +1043,25 @@ def main():
                         print(f"\n  === Running {results_key} benchmark (threads={num_threads}) ===")
 
                         # Select the appropriate benchmark function based on sparse kernel
-                        if sparse_kernel == "naive":
+                        if sparse_kernel == Backend.NAIVE:
                             result = process_and_benchmark_matrix_naive(
                                 matrix_name, split_vbrc_data, sparse_vbrc_data,
                                 matrix_rows, matrix_cols, matrix_nnz,
                                 args.bench, dense_kernel=dense_kernel, threads=num_threads
                             )
-                        elif sparse_kernel == "spv8":
+                        elif sparse_kernel == Backend.SPV8:
                             result = process_and_benchmark_matrix(
                                 matrix_name, split_vbrc_data, sparse_vbrc_data,
                                 matrix_rows, matrix_cols, matrix_nnz,
                                 args.bench, use_mkl=False, dense_kernel=dense_kernel, threads=num_threads
                             )
-                        elif sparse_kernel == "mkl":
+                        elif sparse_kernel == Backend.MKL:
                             result = process_and_benchmark_matrix(
                                 matrix_name, split_vbrc_data, sparse_vbrc_data,
                                 matrix_rows, matrix_cols, matrix_nnz,
                                 args.bench, use_mkl=True, dense_kernel=dense_kernel, threads=num_threads
                             )
-                        elif sparse_kernel == "uzp":
+                        elif sparse_kernel == Backend.UZP:
                             result = process_and_benchmark_matrix_uzp(
                                 matrix_name, split_vbrc_data, sparse_vbrc_data,
                                 matrix_rows, matrix_cols, matrix_nnz,

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # uzp_prepare.sh - Prepare UZP files from a sparse .mtx file
 #

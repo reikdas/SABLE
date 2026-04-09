@@ -36,7 +36,7 @@ from src.codegen import (
     gen_single_threaded_spmv_blas_spv8, gen_single_threaded_spmv_blas_mkl, gen_single_threaded_spmv_blas_naive,
     gen_single_threaded_spmv_naive_uzp, gen_single_threaded_spmv_blas_uzp
 )
-from src.consts import Backend, DenseKernel, CFLAGS, MKL_FLAGS, BACKEND_FLAGS, BACKEND_EXTRA_SOURCES
+from src.consts import Backend, DenseKernel, CFLAGS, MKL_FLAGS, BACKEND_FLAGS, BACKEND_EXTRA_SOURCES, build_compile_command
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file, analyze_dense_blocks
 from utils.fileio import parse_yaml_blocks, write_dense_vector
 from utils.utils import remove_outliers_deciles, set_ulimit
@@ -89,17 +89,9 @@ def compile_c_program(
     output_name = os.path.splitext(c_file)[0]
     output_path = os.path.join(output_dir, output_name)
 
-    extra_sources = list(BACKEND_EXTRA_SOURCES[backend])
-    extra_flags = list(BACKEND_FLAGS[backend])
-
-    # The "blas" dense kernel uses cblas_dgemv which lives in MKL, so we need
-    # MKL flags even when the sparse backend itself is not MKL.
-    if dense_kernel == DenseKernel.BLAS and backend != Backend.MKL:
-        extra_flags += MKL_FLAGS
+    compile_cmd = build_compile_command(c_file_path, output_path, backend, dense_kernel)
 
     print(f"  Compiling generated C code: {c_file} (output: {output_path})")
-    compile_cmd = ["gcc", c_file_path] + extra_sources + ["-o", output_path] + CFLAGS + extra_flags
-
     try:
         start_time = time.time_ns()
         result = subprocess.run(compile_cmd, cwd=output_dir, capture_output=True, text=True, timeout=COMPILE_TIMEOUT)

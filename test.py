@@ -1,6 +1,7 @@
 import glob
 import os
 import pathlib
+import shutil
 import subprocess
 
 import numpy
@@ -722,6 +723,12 @@ def test_spmv_uzp_sparse_dispatch():
     if not _uzp_available():
         pytest.skip("UZP toolchain not available; skipping UZP dispatch test")
 
+    # Clear stale cached UZP files to ensure a fresh run
+    filename = "example3_uzp"
+    uzp_cache = os.path.join(BASE_PATH, "Generated_UZP_tmp", filename)
+    if os.path.isdir(uzp_cache):
+        shutil.rmtree(uzp_cache)
+
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)
@@ -736,7 +743,6 @@ def test_spmv_uzp_sparse_dispatch():
 
     # Write VBRC file (required by generated code)
     vbr_dir = os.path.join("tests")
-    filename = "example3_uzp"
     _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
 
     # Generate .mtx from the sparse CSR part (offline step)
@@ -804,6 +810,12 @@ def test_spmv_uzp_sparse_dispatch_blas():
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available; skipping BLAS dense test")
 
+    # Clear stale cached UZP files to ensure a fresh run
+    filename = "example3_uzp_blas"
+    uzp_cache = os.path.join(BASE_PATH, "Generated_UZP_tmp", filename)
+    if os.path.isdir(uzp_cache):
+        shutil.rmtree(uzp_cache)
+
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)
     A = scipy.sparse.csc_matrix(mtx, copy=False)
@@ -815,7 +827,6 @@ def test_spmv_uzp_sparse_dispatch_blas():
     assert len(ublocks) > 0, "Expected sparse remainder to exist (ublocks should be non-empty)"
 
     vbr_dir = os.path.join("tests")
-    filename = "example3_uzp_blas"
     _write_vbrc_file(filename, vbr_dir, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val)
     write_dense_vector(1.0, cols)
 

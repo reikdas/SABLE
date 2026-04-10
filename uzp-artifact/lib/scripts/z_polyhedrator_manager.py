@@ -45,74 +45,79 @@ class ZPolyhedratorManager:
 
         print(f"{SCRIPT_TAG} Generating UZP with {input_matrix_file} and {pattern_file}")
 
-        rustup_home = "/tmp/rustup"
-        cargo_home = "/tmp/.cargo_pldi25_artifact"
-        cargo_bin = f"{cargo_home}/bin"
-
         env = os.environ.copy()
         env["PATH"] = self._sanitize_path(env.get("PATH", ""))
-        
-        # Check for rustup in various locations, including sourcing bashrc
-        rustup_found = False
-        rustup_path = None
-        
-        # Check in custom location
-        if os.path.exists(f"{cargo_bin}/rustup"):
-            rustup_found = True
-            rustup_path = f"{cargo_bin}/rustup"
-        else:
-            # Check in PATH (may need to source bashrc)
-            check_cmd = 'bash -c "source ~/.bashrc 2>/dev/null; which rustup"'
-            result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
-            if result.returncode == 0 and result.stdout.strip():
-                rustup_found = True
-                rustup_path = result.stdout.strip()
-            else:
-                # Check common locations
-                common_paths = [
-                    os.path.expanduser("~/.cargo/bin/rustup"),
-                    "/usr/local/bin/rustup",
-                    "/usr/bin/rustup"
-                ]
-                for path in common_paths:
-                    if os.path.exists(path):
-                        rustup_found = True
-                        rustup_path = path
-                        break
-        
-        # If rustup doesn't exist, install it first
-        if not rustup_found:
-            print(f"{SCRIPT_TAG} Installing rustup...")
-            install_rustup_cmd = f"""
-            export RUSTUP_HOME="{rustup_home}" && \
-            export CARGO_HOME="{cargo_home}" && \
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
-            """
-            subprocess.run(install_rustup_cmd, shell=True, check=True, executable="bash", env=env)
-            env["RUSTUP_HOME"] = rustup_home
-            env["CARGO_HOME"] = cargo_home
-            env["PATH"] = self._sanitize_path(f"{cargo_bin}{os.pathsep}{env.get('PATH', '')}")
-        elif rustup_path and os.path.dirname(rustup_path) != cargo_bin:
-            # Use system rustup - don't override RUSTUP_HOME/CARGO_HOME
-            # Let rustup use its default locations from the environment
-            rustup_dir = os.path.dirname(rustup_path)
-            env["PATH"] = self._sanitize_path(f"{rustup_dir}{os.pathsep}{env.get('PATH', '')}")
-        else:
-            # Rustup is in custom location
-            if os.path.exists(cargo_bin):
-                env["PATH"] = self._sanitize_path(f"{cargo_bin}{os.pathsep}{env.get('PATH', '')}")
-            env["RUSTUP_HOME"] = rustup_home
-            env["CARGO_HOME"] = cargo_home
-        
-        rustflags = "-C opt-level=3 -C target-cpu=native"
-        env_with_rustflags = env.copy()
-        env_with_rustflags["RUSTFLAGS"] = rustflags
 
         zpoly_bin = os.path.join(self.Z_POLYHEDRAL_DIR, self.TARGET_DIR)
+        need_build = not (os.path.isfile(zpoly_bin) and os.access(zpoly_bin, os.X_OK))
+
+        if need_build:
+            rustup_home = "/tmp/rustup"
+            cargo_home = "/tmp/.cargo_pldi25_artifact"
+            cargo_bin = f"{cargo_home}/bin"
+
+            # Check for rustup in various locations, including sourcing bashrc
+            rustup_found = False
+            rustup_path = None
+            
+            # Check in custom location
+            if os.path.exists(f"{cargo_bin}/rustup"):
+                rustup_found = True
+                rustup_path = f"{cargo_bin}/rustup"
+            else:
+                # Check in PATH (may need to source bashrc)
+                check_cmd = 'bash -c "source ~/.bashrc 2>/dev/null; which rustup"'
+                result = subprocess.run(check_cmd, shell=True, capture_output=True, text=True)
+                if result.returncode == 0 and result.stdout.strip():
+                    rustup_found = True
+                    rustup_path = result.stdout.strip()
+                else:
+                    # Check common locations
+                    common_paths = [
+                        os.path.expanduser("~/.cargo/bin/rustup"),
+                        "/usr/local/bin/rustup",
+                        "/usr/bin/rustup"
+                    ]
+                    for path in common_paths:
+                        if os.path.exists(path):
+                            rustup_found = True
+                            rustup_path = path
+                            break
+            
+            # If rustup doesn't exist, install it first
+            if not rustup_found:
+                print(f"{SCRIPT_TAG} Installing rustup...")
+                install_rustup_cmd = f"""
+                export RUSTUP_HOME="{rustup_home}" && \
+                export CARGO_HOME="{cargo_home}" && \
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain none
+                """
+                subprocess.run(install_rustup_cmd, shell=True, check=True, executable="bash", env=env)
+                env["RUSTUP_HOME"] = rustup_home
+                env["CARGO_HOME"] = cargo_home
+                env["PATH"] = self._sanitize_path(f"{cargo_bin}{os.pathsep}{env.get('PATH', '')}")
+            elif rustup_path and os.path.dirname(rustup_path) != cargo_bin:
+                # Use system rustup - don't override RUSTUP_HOME/CARGO_HOME
+                rustup_dir = os.path.dirname(rustup_path)
+                env["PATH"] = self._sanitize_path(f"{rustup_dir}{os.pathsep}{env.get('PATH', '')}")
+            else:
+                # Rustup is in custom location
+                if os.path.exists(cargo_bin):
+                    env["PATH"] = self._sanitize_path(f"{cargo_bin}{os.pathsep}{env.get('PATH', '')}")
+                env["RUSTUP_HOME"] = rustup_home
+                env["CARGO_HOME"] = cargo_home
+            
+            rustflags = "-C opt-level=3 -C target-cpu=native"
+            env_with_rustflags = env.copy()
+            env_with_rustflags["RUSTFLAGS"] = rustflags
+        else:
+            print(f"{SCRIPT_TAG} Pre-built z_polyhedrator found, skipping build")
 
         try:
-            subprocess.run(["rustup", "install", "1.85.0"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env)
-            subprocess.run(["cargo", "build", "--release"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env_with_rustflags)
+            if need_build:
+                subprocess.run(["rustup", "install", "1.85.0"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env)
+                subprocess.run(["cargo", "build", "--release"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env_with_rustflags)
+
             subprocess.run(
                 [zpoly_bin, "search", pattern_file, input_matrix_file, "-w", output_file_name],
                 check=True,

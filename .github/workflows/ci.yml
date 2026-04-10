@@ -57,6 +57,17 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y cmake g++ libomp-dev intel-mkl
 
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    - name: Build z_polyhedrator
+      run: cargo build --release
+      working-directory: uzp-artifact/z_polyhedrator
+
+    - name: Build spf_aggregator
+      run: make spf_aggregator GCC=gcc GCC_OMP="gcc -fopenmp"
+      working-directory: uzp-artifact/uzp-tuners
+
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip

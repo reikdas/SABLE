@@ -79,34 +79,41 @@ void run_shape_o1d_float(s_spf_structure_t* restrict spf_matrix,
 
 
 
-#define loop_body_s1_gen(nbiters)			\
-  for (int i = 0; i < nbiters; i += 1)			\
-    {							\
-      /* Compute. */					\
-      y[idx_y] += data_vector[a_data_pos++] * x[idx_x];	\
-      idx_y += lattice_0;				\
-      idx_x += lattice_1;				\
+/* Origins may overlap on rows, so y[...] updates need atomic. */
+#define loop_body_s1_gen(nbiters)				\
+  for (int i = 0; i < nbiters; i += 1)				\
+    {								\
+      typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+      _Pragma("omp atomic")					\
+      y[idx_y] += _prod;					\
+      idx_y += lattice_0;					\
+      idx_x += lattice_1;					\
     }
 
 #define loop_body_s1_1x0(nbiters)				\
   for (int i = 0; i < nbiters; i += 1)				\
     {								\
-      /* Compute. */						\
-      y[idx_y++] += data_vector[a_data_pos++] * x[idx_x];	\
+      typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+      _Pragma("omp atomic")					\
+      y[idx_y] += _prod;					\
+      idx_y++;							\
     }
 
 #define loop_body_s1_0x1(nbiters)				\
   for (int i = 0; i < nbiters; i += 1)				\
     {								\
-      /* Compute. */						\
-      y[idx_y] += data_vector[a_data_pos++] * x[idx_x++];	\
+      typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x++]; \
+      _Pragma("omp atomic")					\
+      y[idx_y] += _prod;					\
     }
 
-#define loop_body_s1_1x1(nbiters)                                      \
-  for (int i = 0; i < nbiters; i += 1)                                 \
-    {                                                                  \
-      /* Compute. */                                                   \
-      y[idx_y++] += data_vector[a_data_pos++] * x[idx_x++];            \
+#define loop_body_s1_1x1(nbiters)				\
+  for (int i = 0; i < nbiters; i += 1)				\
+    {								\
+      typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x++]; \
+      _Pragma("omp atomic")					\
+      y[idx_y] += _prod;					\
+      idx_y++;							\
     }
 
 
@@ -128,33 +135,33 @@ void run_shape_o1d_float(s_spf_structure_t* restrict spf_matrix,
 #define loop_body_s1_1x0_mm(nbiters,datatype)		\
   for (int i = 0; i < nbiters; i += 1)			\
     {							\
-      /* Compute. */					\
       datatype A_val = data_vector[a_data_pos++];	\
       for (int j = Tj; j < TjUB; ++j)			\
-	((datatype*)C)[idx_y * nj + j] +=		\
-	  A_val * ((datatype*)B)[idx_x * nj + j];	\
+	{ datatype _prod = A_val * ((datatype*)B)[idx_x * nj + j]; \
+	_Pragma("omp atomic")				\
+	((datatype*)C)[idx_y * nj + j] += _prod; }	\
       idx_y++;						\
     }
 
 #define loop_body_s1_0x1_mm(nbiters,datatype)		\
   for (int i = 0; i < nbiters; i += 1)			\
     {							\
-      /* Compute. */					\
       datatype A_val = data_vector[a_data_pos++];	\
       for (int j = Tj; j < TjUB; ++j)			\
-	((datatype*)C)[idx_y * nj + j] +=		\
-	  A_val * ((datatype*)B)[idx_x * nj + j];	\
+	{ datatype _prod = A_val * ((datatype*)B)[idx_x * nj + j]; \
+	_Pragma("omp atomic")				\
+	((datatype*)C)[idx_y * nj + j] += _prod; }	\
       idx_x++;						\
     }
 
 #define loop_body_s1_1x1_mm(nbiters, datatype)		\
   for (int i = 0; i < nbiters; i += 1)			\
     {							\
-      /* Compute. */					\
       datatype A_val = data_vector[a_data_pos++];	\
       for (int j = Tj; j < TjUB; ++j)			\
-	((datatype*)C)[idx_y * nj + j] +=		\
-	  A_val * ((datatype*)B)[idx_x * nj + j];	\
+	{ datatype _prod = A_val * ((datatype*)B)[idx_x * nj + j]; \
+	_Pragma("omp atomic")				\
+	((datatype*)C)[idx_y * nj + j] += _prod; }	\
       idx_y++;						\
       idx_x++;						\
     }
@@ -285,8 +292,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                 {                                                         \
                   for (int i = 0; i <= loop_i_ub; i += 1)                 \
                   {                                                       \
-                      /* Compute. */                                      \
-                      y[idx_y] += data_vector[a_data_pos++] * x[idx_x];   \
+                      datatypename _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                      _Pragma("omp atomic")                               \
+                      y[idx_y] += _prod;                                  \
                       idx_y += offset_idx_y;                              \
                       idx_x += offset_idx_x;                              \
                   }                                                       \
@@ -296,8 +304,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                 {                                                         \
                     for (int i = 0; i <= loop_i_ub; i += 2)               \
                     {                                                     \
-                        /* Compute. */                                    \
-                        y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                        datatypename _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                        _Pragma("omp atomic")                             \
+                        y[idx_y] += _prod;                                \
                         idx_y += offset_idx_y;                            \
                         idx_x += offset_idx_x;                            \
                     }                                                     \
@@ -307,8 +316,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                 {                                                         \
                     for (int i = 0; i <= loop_i_ub; i += loop_i_stride)   \
                     {                                                     \
-                        /* Compute. */                                    \
-                        y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                        datatypename _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                        _Pragma("omp atomic")                             \
+                        y[idx_y] += _prod;                                \
                         idx_y += offset_idx_y;                            \
                         idx_x += offset_idx_x;                            \
                     }                                                     \
@@ -319,8 +329,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
             {                                                             \
                 for (int i = loop_i_lb; i <= loop_i_ub; i += loop_i_stride) \
                 {                                                         \
-                    /* Compute. */                                        \
-                    y[idx_y] += data_vector[a_data_pos++] * x[idx_x];     \
+                    datatypename _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                    _Pragma("omp atomic")                                 \
+                    y[idx_y] += _prod;                                    \
                     idx_y += offset_idx_y;                                \
                     idx_x += offset_idx_x;                                \
                 }                                                         \
@@ -357,7 +368,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                     for (int j = 0; j <= loop_j_ub; j += 1)               \
                     {                                                     \
                         /* Compute. */                                    \
-                        y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                        { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                        _Pragma("omp atomic") \
+                        y[idx_y] += _prod; } \
                         idx_y += offset_idx_y;                            \
                         idx_x += offset_idx_x;                            \
                     }                                                     \
@@ -373,7 +386,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                         for (int j = loop_j_lb; j <= loop_j_ub; j += loop_j_stride) \
                         {                                                 \
                             /* Compute. */                                \
-                            y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                            { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                            _Pragma("omp atomic") \
+                            y[idx_y] += _prod; } \
                             idx_y += offset_idx_y;                        \
                             idx_x += offset_idx_x;                        \
                         }                                                 \
@@ -404,7 +419,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                             + shape_reg.lattice[1][1] * j                 \
                             + shape_reg.lattice[2][1] * k;                \
                         /* Compute. */                                    \
-                        y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                        { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                        _Pragma("omp atomic") \
+                        y[idx_y] += _prod; } \
                     }                                                     \
                 }                                                         \
             }                                                             \
@@ -511,7 +528,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                     for (int i = 0; i <= loop_i_ub; ++i)                  \
                     {                                                     \
                       /* Compute. */                                      \
-                      y[idx_y] += data_vector[a_data_pos++] * x[idx_x++]; \
+                      { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x++]; \
+                      _Pragma("omp atomic") \
+                      y[idx_y] += _prod; } \
                     }                                                     \
                     return;                                               \
                   }                                                       \
@@ -527,7 +546,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                   for (int i = 0; i <= loop_i_ub; i += 1)                 \
                   {                                                       \
                       /* Compute. */                                      \
-                      y[idx_y] += data_vector[a_data_pos++] * x[idx_x];   \
+                      { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x];   \
+                      _Pragma("omp atomic")   \
+                      y[idx_y] += _prod; }   \
                       idx_y += offset_idx_y;                              \
                       idx_x += offset_idx_x;                              \
                   }                                                       \
@@ -538,7 +559,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                     for (int i = 0; i <= loop_i_ub; i += 2)               \
                     {                                                     \
                         /* Compute. */                                    \
-                        y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                        { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                        _Pragma("omp atomic") \
+                        y[idx_y] += _prod; } \
                         idx_y += offset_idx_y;                            \
                         idx_x += offset_idx_x;                            \
                     }                                                     \
@@ -549,7 +572,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                     for (int i = 0; i <= loop_i_ub; i += loop_i_stride)   \
                     {                                                     \
                         /* Compute. */                                    \
-                        y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                        { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                        _Pragma("omp atomic") \
+                        y[idx_y] += _prod; } \
                         idx_y += offset_idx_y;                            \
                         idx_x += offset_idx_x;                            \
                     }                                                     \
@@ -561,7 +586,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                 for (int i = loop_i_lb; i <= loop_i_ub; i += loop_i_stride) \
                 {                                                         \
                     /* Compute. */                                        \
-                    y[idx_y] += data_vector[a_data_pos++] * x[idx_x];     \
+                    { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x];     \
+                    _Pragma("omp atomic")     \
+                    y[idx_y] += _prod; }     \
                     idx_y += offset_idx_y;                                \
                     idx_x += offset_idx_x;                                \
                 }                                                         \
@@ -598,7 +625,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                     for (int j = 0; j <= loop_j_ub; j += 1)               \
                     {                                                     \
                         /* Compute. */                                    \
-                        y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                        { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                        _Pragma("omp atomic") \
+                        y[idx_y] += _prod; } \
                         idx_y += offset_idx_y;                            \
                         idx_x += offset_idx_x;                            \
                     }                                                     \
@@ -614,7 +643,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                         for (int j = loop_j_lb; j <= loop_j_ub; j += loop_j_stride) \
                         {                                                 \
                             /* Compute. */                                \
-                            y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                            { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                            _Pragma("omp atomic") \
+                            y[idx_y] += _prod; } \
                             idx_y += offset_idx_y;                        \
                             idx_x += offset_idx_x;                        \
                         }                                                 \
@@ -645,7 +676,9 @@ void run_shape_o2d_##datatypename(s_spf_structure_t* restrict spf_matrix, \
                             + shape_reg.lattice[1][1] * j                 \
                             + shape_reg.lattice[2][1] * k;                \
                         /* Compute. */                                    \
-                        y[idx_y] += data_vector[a_data_pos++] * x[idx_x]; \
+                        { typeof(y[0]) _prod = data_vector[a_data_pos++] * x[idx_x]; \
+                        _Pragma("omp atomic") \
+                        y[idx_y] += _prod; } \
                     }                                                     \
                 }                                                         \
             }                                                             \
@@ -733,7 +766,9 @@ void run_shape_o2d_mm_##datatypename(s_spf_structure_t* restrict spf_matrix, \
 	       {							\
 		 datatypename A_val = data_vector[a_data_pos++];	\
 		 for (int j = Tj; j < TjUB; ++j)			\
-		   ((datatypename*)C)[idx_y * nj + j] += A_val * ((datatypename*)B)[idx_x * nj + j]; \
+		   { datatypename _prod = A_val * ((datatypename*)B)[idx_x * nj + j]; \
+		   _Pragma("omp atomic") \
+		   ((datatypename*)C)[idx_y * nj + j] += _prod; } \
 		idx_y += offset_idx_y;					\
 		idx_x += offset_idx_x;					\
 	       }							\
@@ -746,7 +781,9 @@ void run_shape_o2d_mm_##datatypename(s_spf_structure_t* restrict spf_matrix, \
 		/* Compute. */						\
 		 datatypename A_val = data_vector[a_data_pos++];	\
 		 for (int j = Tj; j < TjUB; ++j)			\
-		   ((datatypename*)C)[idx_y * nj + j] += A_val * ((datatypename*)B)[idx_x * nj + j]; \
+		   { datatypename _prod = A_val * ((datatypename*)B)[idx_x * nj + j]; \
+		   _Pragma("omp atomic") \
+		   ((datatypename*)C)[idx_y * nj + j] += _prod; } \
 		idx_y += offset_idx_y;					\
 		idx_x += offset_idx_x;					\
 	        }							\
@@ -784,7 +821,9 @@ void run_shape_o2d_mm_##datatypename(s_spf_structure_t* restrict spf_matrix, \
 			  /* Compute. */				\
 			  datatypename A_val = data_vector[a_data_pos++]; \
 			  for (int k = Tj; k < TjUB; ++k)		\
-			    ((datatypename*)C)[idx_y * nj + k] += A_val * ((datatypename*)B)[idx_x * nj + k]; \
+			    { datatypename _prod = A_val * ((datatypename*)B)[idx_x * nj + k]; \
+			    _Pragma("omp atomic") \
+			    ((datatypename*)C)[idx_y * nj + k] += _prod; } \
 			  idx_y += offset_idx_y;			\
 			  idx_x += offset_idx_x;			\
 			}						\
@@ -802,7 +841,9 @@ void run_shape_o2d_mm_##datatypename(s_spf_structure_t* restrict spf_matrix, \
 			  /* Compute. */				\
 			    datatypename A_val = data_vector[a_data_pos++]; \
 			    for (int k = Tj; k < TjUB; ++k)		\
-			    ((datatypename*)C)[idx_y * nj + k] += A_val * ((datatypename*)B)[idx_x * nj + k]; \
+			    { datatypename _prod = A_val * ((datatypename*)B)[idx_x * nj + k]; \
+			    _Pragma("omp atomic") \
+			    ((datatypename*)C)[idx_y * nj + k] += _prod; } \
 			    idx_y += offset_idx_y;			\
 			    idx_x += offset_idx_x;			\
 			  }						\

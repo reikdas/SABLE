@@ -65,7 +65,7 @@ spf_executors_spf_matrix_dense_vector_product_uninc
 			   ++j)
 			{
 			  ((float*)y)[i] +=
-			    ((float*)spf_matrix->data)[pos_data++] *
+			    ((float*)spf_matrix->data)[pos_data + j] *
 			    ((float*)x)[spf_matrix->unincorporated_points
 					.colidx[j]];
 			}
@@ -82,7 +82,7 @@ spf_executors_spf_matrix_dense_vector_product_uninc
 			   ++j)
 			{
 			  ((double*)y)[i] +=
-			    ((double*)spf_matrix->data)[pos_data++] *
+			    ((double*)spf_matrix->data)[pos_data + j] *
 			    ((double*)x)[spf_matrix->unincorporated_points
 					 .colidx[j]];
 			}
@@ -96,7 +96,7 @@ spf_executors_spf_matrix_dense_vector_product_uninc
 	    {
 	      if (data_is_float)
 		{
-		  // COO.
+		  // COO: multiple entries may share a row, so atomic update needed.
 		  int uninc_nnz =
 		    spf_matrix->matrix_description.nnz -
 		    spf_matrix->matrix_description.inc_nnz;
@@ -105,14 +105,16 @@ spf_executors_spf_matrix_dense_vector_product_uninc
 		    {
 		      long long idx_y = spf_matrix->unincorporated_points.rowptr[i];
 		      long long idx_x = spf_matrix->unincorporated_points.colidx[i];
-		      ((float*)y)[idx_y] +=
-			((float*)spf_matrix->data)[pos_data++] *
+		      float prod =
+			((float*)spf_matrix->data)[pos_data + i] *
 			((float*)x)[idx_x];
+#pragma omp atomic
+		      ((float*)y)[idx_y] += prod;
 		    }
 		}
 	      else
 		{
-		  // COO.
+		  // COO: multiple entries may share a row, so atomic update needed.
 		  int uninc_nnz =
 		    spf_matrix->matrix_description.nnz -
 		    spf_matrix->matrix_description.inc_nnz;
@@ -121,9 +123,11 @@ spf_executors_spf_matrix_dense_vector_product_uninc
 		    {
 		      long long idx_y = spf_matrix->unincorporated_points.rowptr[i];
 		      long long idx_x = spf_matrix->unincorporated_points.colidx[i];
-		      ((double*)y)[idx_y] +=
-			((double*)spf_matrix->data)[pos_data++] *
+		      double prod =
+			((double*)spf_matrix->data)[pos_data + i] *
 			((double*)x)[idx_x];
+#pragma omp atomic
+		      ((double*)y)[idx_y] += prod;
 		    }
 		}
 	    }
@@ -269,28 +273,36 @@ spf_executors_spf_matrix_dense_matrix_product_uninc
 	    spf_matrix->matrix_description.inc_nnz;
 	  if (data_is_float)
 	    {
+      // COO SpMM: multiple entries may share a row, so atomic update needed.
       #pragma omp parallel for						
 	      for (int i = 0; i < uninc_nnz; ++i)
 		{
 		  long long idx_i = spf_matrix->unincorporated_points.rowptr[i];
 		  long long idx_j = spf_matrix->unincorporated_points.colidx[i];
-		  float A_val = ((float*)spf_matrix->data)[pos_data++];
+		  float A_val = ((float*)spf_matrix->data)[pos_data + i];
 		  for (int j = 0; j < nj; ++j)
-		    ((float*)C)[idx_i * nj + j] += A_val *
-		      ((float*)B)[idx_j * nj + j];
+		    {
+		      float prod = A_val * ((float*)B)[idx_j * nj + j];
+#pragma omp atomic
+		      ((float*)C)[idx_i * nj + j] += prod;
+		    }
 		}
 	    }
 	  else
 	    {
+      // COO SpMM: multiple entries may share a row, so atomic update needed.
       #pragma omp parallel for						
 	      for (int i = 0; i < uninc_nnz; ++i)
 		{
 		  long long idx_i = spf_matrix->unincorporated_points.rowptr[i];
 		  long long idx_j = spf_matrix->unincorporated_points.colidx[i];
-		  double A_val = ((double*)spf_matrix->data)[pos_data++];
+		  double A_val = ((double*)spf_matrix->data)[pos_data + i];
 		  for (int j = 0; j < nj; ++j)
-		    ((double*)C)[idx_i * nj + j] += A_val *
-		      ((double*)B)[idx_j * nj + j];
+		    {
+		      double prod = A_val * ((double*)B)[idx_j * nj + j];
+#pragma omp atomic
+		      ((double*)C)[idx_i * nj + j] += prod;
+		    }
 		}
 	    }
 	}

@@ -2,6 +2,7 @@ import copy
 import os
 import pathlib
 import time
+from typing import Tuple
 
 from utils.fileio import read_vbrc
 
@@ -32,41 +33,24 @@ def split_chunks(values, num_chunks):
 
     return chunks
 
-# Thresholds for MKL vs naive dispatch for dense blocks
-# Based on empirical analysis: MKL struggles with thin/vector-like blocks
-MKL_MIN_DIM_THRESHOLD = 8       # Minimum dimension for MKL to be beneficial
-MKL_MAX_ASPECT_RATIO = 100      # Maximum aspect ratio for MKL to be beneficial
-
-
 def should_use_mkl_for_block(rows: int, cols: int) -> bool:
-    """Determine whether to use MKL or naive kernel for a dense block.
-    
-    MKL (cblas_dgemm) is better for "chunky" blocks where both dimensions
-    are reasonably sized. For thin/vector-like blocks (one dimension very small)
-    or blocks with extreme aspect ratios, the naive handwritten kernel has
-    less overhead and performs better.
-    
+    """Determine whether to use MKL or naive kernel for a dense SpMM block.
+
+    Based on ablation study (bench_dense_dispatch/results/):
+    - rows=1: handwritten spmm_kernel_2 beats the loop on all 47 shapes
+      (median 1.09x) and matches or beats cblas_dgemm on 42/47.
+    - rows=2-3: the auto-vectorized loop beats cblas_dgemm by 25-30%
+      because MKL's tiling machinery adds overhead for narrow M.
+    - rows>=4: cblas_dgemm wins uniformly (median 5.85x, max 16.47x).
+
     Args:
         rows: Number of rows in the dense block
         cols: Number of columns in the dense block
-        
+
     Returns:
         True if MKL should be used, False if naive kernel should be used
     """
-    min_dim = min(rows, cols)
-    max_dim = max(rows, cols)
-    
-    # Use naive for thin blocks (vector-like)
-    if min_dim < MKL_MIN_DIM_THRESHOLD:
-        return False
-    
-    # Use naive for extreme aspect ratios
-    aspect_ratio = max_dim / min_dim if min_dim > 0 else float('inf')
-    if aspect_ratio > MKL_MAX_ASPECT_RATIO:
-        return False
-    
-    # Use MKL for chunky blocks
-    return True
+    return rows >= 4
 
 
 def get_best_naive_spmm_kernel_call(num_rows: int, num_cols: int, i_start: int, i_end: int, 
@@ -162,6 +146,46 @@ void spmv_kernel_blas(double *restrict y, const double *restrict x, const double
 
 """
     return code
+
+def spmv_kernel_parallel():
+    """SpMV kernel with intra-block parallelism on the i-loop (output rows)."""
+    code = []
+    code.append("void spmv_kernel_parallel(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int j_end, const int val_offset) {\n")
+    code.append("\t#pragma omp parallel for schedule(static)\n")
+    code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
+    code.append("\t\tdouble sum = 0.0;\n")
+    code.append("\t\tfor (int j = j_start; j < j_end; j++) {\n")
+    code.append("\t\t\tsum += (&val[val_offset])[((j-j_start)*(i_end-i_start)) + (i-i_start)] * x[j];\n")
+    code.append("\t\t}\n")
+    code.append("\t\ty[i] += sum;\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    return "".join(code)
+
+def spmv_kernel_2_parallel():
+    """SpMV kernel for single-row blocks with intra-block parallelism (reduction on j-loop)."""
+    code = []
+    code.append("void spmv_kernel_2_parallel(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int j_start, const int j_end, const int val_offset) {\n")
+    code.append("\tdouble sum = 0.0;\n")
+    code.append("\t#pragma omp parallel for reduction(+:sum) schedule(static)\n")
+    code.append("\tfor (int j = j_start; j < j_end; j++) {\n")
+    code.append("\t\tsum += (&val[val_offset])[(j-j_start)] * x[j];\n")
+    code.append("\t}\n")
+    code.append("\ty[i_start] += sum;\n")
+    code.append("}\n\n")
+    return "".join(code)
+
+def spmv_kernel_3_parallel():
+    """SpMV kernel for single-col blocks with intra-block parallelism on i-loop."""
+    code = []
+    code.append("void spmv_kernel_3_parallel(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int val_offset) {\n")
+    code.append("\tdouble xj = x[j_start];\n")
+    code.append("\t#pragma omp parallel for schedule(static)\n")
+    code.append("\tfor (int i = i_start; i < i_end; i++) {\n")
+    code.append("\t\ty[i] += (&val[val_offset])[(i-i_start)] * xj;\n")
+    code.append("\t}\n")
+    code.append("}\n\n")
+    return "".join(code)
 
 def spmv_sparse():
     code = []
@@ -377,6 +401,144 @@ void spmm_kernel_5(
                 for (int k = 0; k < 512; k++) {
                     y_row[k] += a * x_row[k];
                 }
+            }
+        }
+    }
+}
+"""
+    return code
+
+def spmm_kernel_parallel():
+    """SpMM kernel with intra-block parallelism on i-loop (output rows)."""
+    code = """
+void spmm_kernel_parallel(
+    double *restrict Y,
+    const double *restrict X,
+    const double *restrict val,
+    const int i_start, const int i_end,
+    const int j_start, const int j_end,
+    const int val_offset)
+{
+    #pragma omp parallel for schedule(static)
+    for (int i = i_start; i < i_end; i++) {
+        for (int j = j_start; j < j_end; j++) {
+            double a = (&val[val_offset])[
+                ((j - j_start) * (i_end - i_start)) + (i - i_start)
+            ];
+            double *y_row = &Y[i * 512];
+            const double *x_row = &X[j * 512];
+            for (int k = 0; k < 512; k++) {
+                y_row[k] += a * x_row[k];
+            }
+        }
+    }
+}
+"""
+    return code
+
+def spmm_kernel_2_parallel():
+    """SpMM kernel for single-row blocks with intra-block parallelism on k-loop."""
+    code = """
+void spmm_kernel_2_parallel(
+    double *restrict Y,
+    const double *restrict X,
+    const double *restrict val,
+    const int i_start,
+    const int j_start, const int j_end,
+    const int val_offset)
+{
+    double *y_row = &Y[i_start * 512];
+    const double *block_val = &val[val_offset];
+
+    for (int j = j_start; j < j_end; j++) {
+        double a = block_val[j - j_start];
+        const double *x_row = &X[j * 512];
+
+        #pragma omp parallel for schedule(static)
+        for (int k = 0; k < 512; k++) {
+            y_row[k] += a * x_row[k];
+        }
+    }
+}
+"""
+    return code
+
+def spmm_kernel_3_parallel():
+    """SpMM kernel for single-col blocks with intra-block parallelism on i-loop."""
+    code = """
+void spmm_kernel_3_parallel(
+    double *restrict Y,
+    const double *restrict X,
+    const double *restrict val,
+    const int i_start, const int i_end,
+    const int j_start,
+    const int val_offset)
+{
+    const double *x_row = &X[j_start * 512];
+    const double *block_val = &val[val_offset];
+
+    #pragma omp parallel for schedule(static)
+    for (int i = i_start; i < i_end; i++) {
+        double a = block_val[i - i_start];
+        double *y_row = &Y[i * 512];
+        for (int k = 0; k < 512; k++) {
+            y_row[k] += a * x_row[k];
+        }
+    }
+}
+"""
+    return code
+
+def spmm_kernel_4_parallel():
+    """SpMM kernel for few-cols blocks with intra-block parallelism on i-loop."""
+    code = """
+void spmm_kernel_4_parallel(
+    double *restrict Y,
+    const double *restrict X,
+    const double *restrict val,
+    const int i_start, const int i_end,
+    const int j_start, const int j_end,
+    const int val_offset)
+{
+    #pragma omp parallel for schedule(static)
+    for (int i = i_start; i < i_end; i++) {
+        for (int j = j_start; j < j_end; j++) {
+            double a = (&val[val_offset])[
+                ((j - j_start) * (i_end - i_start)) + (i - i_start)
+            ];
+            double *y_row = &Y[i * 512];
+            const double *x_row = &X[j * 512];
+            for (int k = 0; k < 512; k++) {
+                y_row[k] += a * x_row[k];
+            }
+        }
+    }
+}
+"""
+    return code
+
+def spmm_kernel_5_parallel():
+    """SpMM kernel for few-rows blocks with intra-block parallelism on k-loop."""
+    code = """
+void spmm_kernel_5_parallel(
+    double *restrict Y,
+    const double *restrict X,
+    const double *restrict val,
+    const int i_start, const int i_end,
+    const int j_start, const int j_end,
+    const int val_offset)
+{
+    for (int i = i_start; i < i_end; i++) {
+        for (int j = j_start; j < j_end; j++) {
+            double a = (&val[val_offset])[
+                ((j - j_start) * (i_end - i_start)) + (i - i_start)
+            ];
+            double *y_row = &Y[i * 512];
+            const double *x_row = &X[j * 512];
+
+            #pragma omp parallel for schedule(static)
+            for (int k = 0; k < 512; k++) {
+                y_row[k] += a * x_row[k];
             }
         }
     }
@@ -1383,26 +1545,20 @@ def _gen_single_threaded_spmv_common_blas(val, indx, bindx, rpntr, cpntr, bpntrb
                 if b in valid_cols:
                     if nnz_block not in ublocks:
                         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-                        # Threshold-based dispatch: use BLAS only for large, reasonably-shaped blocks
-                        # Based on benchmarks: handwritten kernels are faster for small-to-medium
-                        # square blocks (up to ~100x100), while BLAS wins for larger blocks.
-                        # CRITICAL: Skinny blocks (e.g., 2xN or Nx2) should NEVER use BLAS -
-                        # BLAS has too much call overhead for these, handwritten kernels are 2-3x faster.
+                        # Dispatch decision based on ablation study (bench_dense_dispatch/results/):
+                        # - 1-col blocks: handwritten spmv_kernel_3 (broadcast)
+                        # - 1-row blocks: handwritten spmv_kernel_2 (dot product), 10-13x faster than BLAS
+                        # - Tall-thin (cols<=15, rows>=100): auto-vectorized loop, 3-16% faster than BLAS
+                        # - All other blocks: cblas_dgemv (median 1.19x over loop)
                         rows = rpntr[a+1] - rpntr[a]
                         cols = cpntr[b+1] - cpntr[b]
-                        BLAS_AREA_THRESHOLD = 10000  # Use BLAS for blocks with area >= 10000 (~100x100)
-                        MIN_DIM_FOR_BLAS = 16  # Minimum dimension to consider BLAS (avoids skinny blocks)
                         if cols == 1:
-                            # Nx1 (single column) - use kernel_3
                             code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
                         elif rows == 1:
-                            # 1xM (single row) - use kernel_2 (dot product)
                             code.append(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
-                        elif rows * cols < BLAS_AREA_THRESHOLD or min(rows, cols) < MIN_DIM_FOR_BLAS:
-                            # Small/medium block OR skinny block - use general naive kernel (faster due to lower overhead)
+                        elif cols <= 15 and rows >= 100:
                             code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                         else:
-                            # Large block with reasonable aspect ratio - use BLAS dgemv
                             code.append(f"\t\tspmv_kernel_blas(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
                         code.append(f"\t\tdense_block_times[{count}][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
@@ -1819,12 +1975,13 @@ def gen_single_threaded_spmv_blas_uzp(
     sparse_mtx_path: str = "",
     threads: int = 1,
 ) -> int:
-    """UZP sparse dispatch + BLAS dense blocks (cblas_dgemv).
+    """UZP sparse dispatch + dense block dispatch (cblas_dgemv / handwritten / loop).
 
     UZP preparation (z_polyhedrator + spf_aggregator) runs ONCE via a shell
     script outside the timing loop.  Only the UZP kernel execution is timed.
-    Dense blocks use BLAS (``cblas_dgemv``) except Nx1 blocks which keep
-    ``spmv_kernel_3``.
+    Dense blocks use the same dispatch strategy as gen_single_threaded_spmv_blas:
+    cols=1 -> spmv_kernel_3, rows=1 -> spmv_kernel_2,
+    tall-thin (cols<=15, rows>=100) -> spmv_kernel (loop), else -> cblas_dgemv.
 
     Args:
         sparse_mtx_path: Absolute path to the .mtx file containing just the
@@ -1851,6 +2008,8 @@ def gen_single_threaded_spmv_blas_uzp(
     code.append("#include <spf_structure.h>\n")
     code.append("#include <spf_executors.h>\n\n")
 
+    code.append(spmv_kernel())
+    code.append(spmv_kernel_2())
     code.append(spmv_kernel_3())
     code.append("\n")
     code.append(spmv_kernel_blas())
@@ -1962,9 +2121,15 @@ def gen_single_threaded_spmv_blas_uzp(
         for b in range(len(cpntr) - 1):
             if b in valid_cols:
                 if nnz_block not in ublocks:
+                    rows = rpntr[a+1] - rpntr[a]
+                    cols = cpntr[b+1] - cpntr[b]
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-                    if (cpntr[b + 1] - cpntr[b]) == 1:
+                    if cols == 1:
                         code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[count]});\n")
+                    elif rows == 1:
+                        code.append(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
+                    elif cols <= 15 and rows >= 100:
+                        code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     else:
                         code.append(f"\t\tspmv_kernel_blas(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[count]});\n")
                     code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
@@ -2332,6 +2497,428 @@ def gen_multi_threaded_spmv(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpn
             f.write(f"\tfree(csr_val);\n")
         
         f.write("}\n")
+
+def compute_hybrid_thread_split(total_threads: int, num_blocks: int) -> Tuple[int, int]:
+    """Compute outer/inner thread split for hybrid parallelism.
+
+    Returns:
+        (outer_threads, inner_threads) where outer * inner <= total_threads
+    """
+    if num_blocks <= 0 or total_threads <= 1:
+        return 1, total_threads
+    outer = min(num_blocks, total_threads)
+    inner = max(1, total_threads // outer)
+    return outer, inner
+
+
+def _ablation_spmv_data_loading_code(vbr_path: str, vector_path: str, rpntr, cpntr, val, csr_val, ublocks, indptr, indices):
+    """Generate the data loading code shared by all SpMV ablation codegen functions."""
+    code = []
+    code.append(f"\tdouble *y = (double*)malloc({rpntr[-1]} * sizeof(double));\n")
+    code.append(f"\tdouble *x = (double*)malloc({cpntr[-1]} * sizeof(double));\n")
+    if len(val) > 0:
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
+    else:
+        code.append(f"\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
+    if len(ublocks) > 0 and len(indptr) > 0:
+        code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+        code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
+    code.append("\tstruct timespec t1, t2;\n")
+    # Count dense blocks for timing arrays
+    code.append(f"\tlong sparse_times[1];\n")
+    code.append(f"\tsparse_times[0] = 0;\n")
+    # Data loading
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append(f"\tmemset(y, 0, {rpntr[-1]} * sizeof(double));\n")
+    code.append(f"\tmemset(val, 0, {len(val) if len(val) > 0 else 1} * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\tmemset(csr_val, 0, {len(csr_val)} * sizeof(double));\n")
+        code.append(f"\tmemset(indptr, 0, {len(indptr)} * sizeof(int));\n")
+        code.append(f"\tmemset(indices, 0, {len(indices)} * sizeof(int));\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint x_size=0, val_size=0;\n")
+    code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
+    if (c != ']') {
+        ungetc(c, file1);
+        assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+        val_size++;
+        while (1) {
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {
+                assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+                val_size++;
+            } else if (c == ']') {
+                break;
+            } else {
+                assert(0);
+            }
+        }
+    }
+    assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
+    if len(ublocks) > 0:
+        code.append('''\tval_size=0;
+    assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');\n''')
+    if len(indptr) > 0:
+        code.append(f"""\tval_size=0;
+    assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    val_size=0;
+    assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');\n""")
+    code.append("\tfclose(file1);\n")
+    code.append('\twhile (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{\n'.format(cpntr[-1]))
+    code.append("\t\tx_size++;\n")
+    code.append("\t}\n")
+    code.append("\tfclose(file2);\n")
+    return code
+
+
+def _ablation_spmv_get_dense_block_info(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks, indx):
+    """Extract dense block info for ablation codegen. Returns list of (a, b, rpntr_a, rpntr_a1, cpntr_b, cpntr_b1, val_offset, num_rows, num_cols)."""
+    blocks = []
+    count = 0
+    for a in range(len(rpntr) - 1):
+        if bpntrb[a] == -1:
+            continue
+        ublocks_count = copy.copy(bpntrb[a])
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr) - 1):
+            if b in valid_cols:
+                if ublocks_count not in ublocks:
+                    blocks.append({
+                        'i_start': rpntr[a], 'i_end': rpntr[a+1],
+                        'j_start': cpntr[b], 'j_end': cpntr[b+1],
+                        'val_offset': indx[count],
+                        'num_rows': rpntr[a+1] - rpntr[a],
+                        'num_cols': cpntr[b+1] - cpntr[b],
+                    })
+                    count += 1
+                ublocks_count += 1
+    return blocks
+
+
+def gen_spmv_ablation_block_level(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=5):
+    """SpMV ablation: block-level parallelism (distribute blocks across threads)."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+
+    dense_blocks = _ablation_spmv_get_dense_block_info(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks, indx)
+    num_dense_blocks = len(dense_blocks)
+
+    # Compute work per block row for load balancing
+    work_per_br = [0] * (len(rpntr) - 1)
+    count = 0
+    for a in range(len(rpntr) - 1):
+        if bpntrb[a] == -1:
+            continue
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        ublocks_count = copy.copy(bpntrb[a])
+        for b in range(len(cpntr) - 1):
+            if b in valid_cols:
+                if ublocks_count not in ublocks:
+                    work_per_br[a] += (rpntr[a+1] - rpntr[a]) * (cpntr[b+1] - cpntr[b])
+                    count += 1
+                ublocks_count += 1
+    thread_br_map = split_chunks(work_per_br, threads)
+
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <omp.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append(spmv_kernel())
+    code.append(spmv_kernel_2())
+    code.append(spmv_kernel_3())
+    code.append(spmv_sparse_naive_parallel())
+    code.append("\nint main() {\n")
+    code.append(f"\tomp_set_num_threads({threads});\n\n")
+    code.extend(_ablation_spmv_data_loading_code(vbr_path, vector_path, rpntr, cpntr, val, csr_val, ublocks, indptr, indices))
+
+    # Sparse part
+    if len(ublocks) > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append(f"\tspmv_sparse_naive_parallel(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tsparse_times[0] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # Dense blocks: distribute across threads via omp parallel sections
+    if len(thread_br_map) > 0 and num_dense_blocks > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append("\t#pragma omp parallel sections\n")
+        code.append("\t{\n")
+        for br_list in thread_br_map:
+            code.append("\t#pragma omp section\n")
+            code.append("\t{\n")
+            for a in br_list:
+                if bpntrb[a] == -1:
+                    continue
+                ublocks_count = copy.copy(bpntrb[a])
+                valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                blk_count = 0
+                idx_offset = 0
+                for ub in ublocks:
+                    if ub < bpntrb[a]:
+                        idx_offset += 1
+                    if ub > bpntrb[a]:
+                        break
+                indx_start = bpntrb[a] - idx_offset
+                for b in range(len(cpntr) - 1):
+                    if b in valid_cols:
+                        if ublocks_count not in ublocks:
+                            if (rpntr[a+1] - rpntr[a]) == 1:
+                                code.append(f"\t\tspmv_kernel_2(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[blk_count]});\n")
+                            elif (cpntr[b+1] - cpntr[b]) == 1:
+                                code.append(f"\t\tspmv_kernel_3(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[blk_count]});\n")
+                            else:
+                                code.append(f"\t\tspmv_kernel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[indx_start+blk_count]});\n")
+                            blk_count += 1
+                        ublocks_count += 1
+            code.append("\t}\n")
+        code.append("\t}\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tlong dense_time = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+    else:
+        code.append("\tlong dense_time = 0;\n")
+
+    # Output
+    code.append('\tprintf("Sparse: %lu,\\n", sparse_times[0]);\n')
+    code.append('\tprintf("Dense: %lu,\\n", dense_time);\n')
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tprintf(\"%.2f\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("\tfree(y); free(x); free(val);\n")
+    if len(csr_val) > 0:
+        code.append("\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append("\tfree(indptr); free(indices);\n")
+    code.append("}\n")
+
+    with open(os.path.join(dir_name, filename + ".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2 - time1
+
+
+def gen_spmv_ablation_intra_block(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=5):
+    """SpMV ablation: intra-block parallelism (each block's loops parallelized)."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+
+    dense_blocks = _ablation_spmv_get_dense_block_info(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks, indx)
+
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <omp.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append(spmv_kernel_parallel())
+    code.append(spmv_kernel_2_parallel())
+    code.append(spmv_kernel_3_parallel())
+    code.append(spmv_sparse_naive_parallel())
+    code.append("\nint main() {\n")
+    code.append(f"\tomp_set_num_threads({threads});\n\n")
+    code.extend(_ablation_spmv_data_loading_code(vbr_path, vector_path, rpntr, cpntr, val, csr_val, ublocks, indptr, indices))
+
+    # Sparse part
+    if len(ublocks) > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append(f"\tspmv_sparse_naive_parallel(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tsparse_times[0] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # Dense blocks: sequential dispatch, each with intra-block parallel kernels
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+    for blk in dense_blocks:
+        if blk['num_rows'] == 1:
+            code.append(f"\tspmv_kernel_2_parallel(y, x, val, {blk['i_start']}, {blk['j_start']}, {blk['j_end']}, {blk['val_offset']});\n")
+        elif blk['num_cols'] == 1:
+            code.append(f"\tspmv_kernel_3_parallel(y, x, val, {blk['i_start']}, {blk['i_end']}, {blk['j_start']}, {blk['val_offset']});\n")
+        else:
+            code.append(f"\tspmv_kernel_parallel(y, x, val, {blk['i_start']}, {blk['i_end']}, {blk['j_start']}, {blk['j_end']}, {blk['val_offset']});\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tlong dense_time = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # Output
+    code.append('\tprintf("Sparse: %lu,\\n", sparse_times[0]);\n')
+    code.append('\tprintf("Dense: %lu,\\n", dense_time);\n')
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tprintf(\"%.2f\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("\tfree(y); free(x); free(val);\n")
+    if len(csr_val) > 0:
+        code.append("\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append("\tfree(indptr); free(indices);\n")
+    code.append("}\n")
+
+    with open(os.path.join(dir_name, filename + ".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2 - time1
+
+
+def gen_spmv_ablation_hybrid(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=5):
+    """SpMV ablation: hybrid parallelism (blocks across thread teams + intra-block)."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{cpntr[-1]}.vector")
+
+    dense_blocks = _ablation_spmv_get_dense_block_info(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks, indx)
+    num_dense_blocks = len(dense_blocks)
+    outer_threads, inner_threads = compute_hybrid_thread_split(threads, num_dense_blocks)
+
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <omp.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append(spmv_kernel_parallel())
+    code.append(spmv_kernel_2_parallel())
+    code.append(spmv_kernel_3_parallel())
+    code.append(spmv_sparse_naive_parallel())
+    code.append("\nint main() {\n")
+    code.append(f"\tomp_set_num_threads({threads});\n")
+    code.append(f"\tomp_set_max_active_levels(2);\n\n")
+    code.extend(_ablation_spmv_data_loading_code(vbr_path, vector_path, rpntr, cpntr, val, csr_val, ublocks, indptr, indices))
+
+    # Sparse part
+    if len(ublocks) > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append(f"\tspmv_sparse_naive_parallel(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tsparse_times[0] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # Dense blocks: outer sections distribute blocks, inner parallelism within each block
+    if num_dense_blocks > 0:
+        # Compute work per block row for load balancing
+        work_per_br = [0] * (len(rpntr) - 1)
+        for a in range(len(rpntr) - 1):
+            if bpntrb[a] == -1:
+                continue
+            valid_cols = bindx[bpntrb[a]:bpntre[a]]
+            ublocks_count = copy.copy(bpntrb[a])
+            for b in range(len(cpntr) - 1):
+                if b in valid_cols:
+                    if ublocks_count not in ublocks:
+                        work_per_br[a] += (rpntr[a+1] - rpntr[a]) * (cpntr[b+1] - cpntr[b])
+                    ublocks_count += 1
+        thread_br_map = split_chunks(work_per_br, outer_threads)
+
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append(f"\t#pragma omp parallel sections num_threads({outer_threads})\n")
+        code.append("\t{\n")
+        for br_list in thread_br_map:
+            code.append("\t#pragma omp section\n")
+            code.append("\t{\n")
+            code.append(f"\t\tomp_set_num_threads({inner_threads});\n")
+            for a in br_list:
+                if bpntrb[a] == -1:
+                    continue
+                ublocks_count = copy.copy(bpntrb[a])
+                valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                blk_count = 0
+                idx_offset = 0
+                for ub in ublocks:
+                    if ub < bpntrb[a]:
+                        idx_offset += 1
+                    if ub > bpntrb[a]:
+                        break
+                indx_start = bpntrb[a] - idx_offset
+                for b in range(len(cpntr) - 1):
+                    if b in valid_cols:
+                        if ublocks_count not in ublocks:
+                            if (rpntr[a+1] - rpntr[a]) == 1:
+                                code.append(f"\t\tspmv_kernel_2_parallel(y, x, val, {rpntr[a]}, {cpntr[b]}, {cpntr[b+1]}, {indx[blk_count]});\n")
+                            elif (cpntr[b+1] - cpntr[b]) == 1:
+                                code.append(f"\t\tspmv_kernel_3_parallel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {indx[blk_count]});\n")
+                            else:
+                                code.append(f"\t\tspmv_kernel_parallel(y, x, val, {rpntr[a]}, {rpntr[a+1]}, {cpntr[b]}, {cpntr[b+1]}, {indx[indx_start+blk_count]});\n")
+                            blk_count += 1
+                        ublocks_count += 1
+            code.append("\t}\n")
+        code.append("\t}\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tlong dense_time = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+    else:
+        code.append("\tlong dense_time = 0;\n")
+
+    # Output
+    code.append('\tprintf("Sparse: %lu,\\n", sparse_times[0]);\n')
+    code.append('\tprintf("Dense: %lu,\\n", dense_time);\n')
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]}; i++) {{\n")
+    code.append("\t\tprintf(\"%.2f\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("\tfree(y); free(x); free(val);\n")
+    if len(csr_val) > 0:
+        code.append("\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append("\tfree(indptr); free(indices);\n")
+    code.append("}\n")
+
+    with open(os.path.join(dir_name, filename + ".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2 - time1
+
 
 def vbr_spmv_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, mkl: bool, bench: int = 5)->int:
     vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
@@ -3555,6 +4142,405 @@ def gen_single_threaded_spmm_mkl_mkl(val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     # Log dispatch statistics
     print(f"  [mkl_mkl] Block dispatch: {mkl_blocks} MKL, {naive_blocks} naive (of {mkl_blocks + naive_blocks} total dense blocks)")
     return time2-time1
+
+
+def get_best_parallel_spmm_kernel_call(num_rows: int, num_cols: int, i_start: int, i_end: int,
+                                        j_start: int, j_end: int, val_offset: int) -> str:
+    """Select the best parallel SpMM kernel based on block shape."""
+    if num_rows == 1:
+        return f"spmm_kernel_2_parallel(y, x, val, {i_start}, {j_start}, {j_end}, {val_offset});"
+    elif num_cols == 1:
+        return f"spmm_kernel_3_parallel(y, x, val, {i_start}, {i_end}, {j_start}, {val_offset});"
+    elif num_cols < 16:
+        return f"spmm_kernel_4_parallel(y, x, val, {i_start}, {i_end}, {j_start}, {j_end}, {val_offset});"
+    elif num_rows < 16:
+        return f"spmm_kernel_5_parallel(y, x, val, {i_start}, {i_end}, {j_start}, {j_end}, {val_offset});"
+    else:
+        return f"spmm_kernel_parallel(y, x, val, {i_start}, {i_end}, {j_start}, {j_end}, {val_offset});"
+
+
+def _ablation_spmm_data_loading_code(vbr_path: str, vector_path: str, rpntr, cpntr, val, csr_val, ublocks, indptr, indices):
+    """Generate the data loading code shared by all SpMM ablation codegen functions."""
+    code = []
+    code.append(f"\tdouble *y = (double*)malloc({rpntr[-1] * 512} * sizeof(double));\n")
+    code.append(f"\tdouble *x = (double*)malloc({cpntr[-1] * 512} * sizeof(double));\n")
+    if len(val) > 0:
+        code.append(f"\tdouble *val = (double*)malloc({len(val)} * sizeof(double));\n")
+    else:
+        code.append(f"\tdouble *val = (double*)malloc(1 * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\tdouble *csr_val = (double*)malloc({len(csr_val)} * sizeof(double));\n")
+    if len(ublocks) > 0 and len(indptr) > 0:
+        code.append(f"\tint *indptr = (int*)malloc({len(indptr)} * sizeof(int));\n")
+        code.append(f"\tint *indices = (int*)malloc({len(indices)} * sizeof(int));\n")
+    code.append("\tstruct timespec t1, t2;\n")
+    code.append(f"\tlong sparse_times[1];\n")
+    code.append(f"\tsparse_times[0] = 0;\n")
+    # Data loading
+    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
+    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
+    code.append(f"\tFILE *file2 = fopen(\"{os.path.abspath(vector_path)}\", \"r\");\n")
+    code.append("\tif (file2 == NULL) { printf(\"Error opening file2\"); return 1; }\n")
+    code.append(f"\tmemset(y, 0, sizeof(double)*{rpntr[-1] * 512});\n")
+    code.append(f"\tmemset(val, 0, {len(val) if len(val) > 0 else 1} * sizeof(double));\n")
+    if len(csr_val) > 0:
+        code.append(f"\tmemset(csr_val, 0, {len(csr_val)} * sizeof(double));\n")
+        code.append(f"\tmemset(indptr, 0, {len(indptr)} * sizeof(int));\n")
+        code.append(f"\tmemset(indices, 0, {len(indices)} * sizeof(int));\n")
+    code.append("\tchar c;\n")
+    code.append(f"\tint x_size=0, val_size=0;\n")
+    code.append('''\tassert(fscanf(file1, "val=[%c", &c) == 1);
+    if (c != ']') {
+        ungetc(c, file1);
+        assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+        val_size++;
+        while (1) {
+            assert(fscanf(file1, "%c", &c) == 1);
+            if (c == ',') {
+                assert(fscanf(file1, "%lf", &val[val_size]) == 1);
+                val_size++;
+            } else if (c == ']') {
+                break;
+            } else {
+                assert(0);
+            }
+        }
+    }
+    assert(fscanf(file1, "%c", &c) == 1 && c == '\\n');\n''')
+    if len(ublocks) > 0:
+        code.append('''\tval_size=0;
+    assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
+    val_size++;
+    while (1) {
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {
+            assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+            val_size++;
+        } else if (c == ']') {
+            break;
+        } else {
+            assert(0);
+        }
+    }
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');\n''')
+    if len(indptr) > 0:
+        code.append(f"""\tval_size=0;
+    assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');
+    val_size=0;
+    assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+    val_size++;
+    while (1) {{
+        assert(fscanf(file1, "%c", &c) == 1);
+        if (c == ',') {{
+            assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+            val_size++;
+        }} else if (c == ']') {{
+            break;
+        }} else {{
+            assert(0);
+        }}
+    }}
+    if(fscanf(file1, "%c", &c));
+    assert(c=='\\n');\n""")
+    code.append("\tfclose(file1);\n")
+    code.append('\twhile (x_size < {0} && fscanf(file2, "%lf,", &x[x_size]) == 1) {{\n'.format(cpntr[-1] * 512))
+    code.append("\t\tx_size++;\n")
+    code.append("\t}\n")
+    code.append("\tfclose(file2);\n")
+    return code
+
+
+def _ablation_spmm_get_dense_block_info(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks, indx):
+    """Extract dense block info for SpMM ablation codegen."""
+    blocks = []
+    count = 0
+    for a in range(len(rpntr) - 1):
+        if bpntrb[a] == -1:
+            continue
+        ublocks_count = copy.copy(bpntrb[a])
+        valid_cols = bindx[bpntrb[a]:bpntre[a]]
+        for b in range(len(cpntr) - 1):
+            if b in valid_cols:
+                if ublocks_count not in ublocks:
+                    blocks.append({
+                        'i_start': rpntr[a], 'i_end': rpntr[a+1],
+                        'j_start': cpntr[b], 'j_end': cpntr[b+1],
+                        'val_offset': indx[count],
+                        'num_rows': rpntr[a+1] - rpntr[a],
+                        'num_cols': cpntr[b+1] - cpntr[b],
+                        'block_row': a,
+                    })
+                    count += 1
+                ublocks_count += 1
+    return blocks
+
+
+def gen_spmm_ablation_block_level(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=5):
+    """SpMM ablation: block-level parallelism (distribute blocks across threads)."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
+
+    dense_blocks = _ablation_spmm_get_dense_block_info(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks, indx)
+    num_dense_blocks = len(dense_blocks)
+
+    # Compute work per block row for load balancing
+    work_per_br = [0] * (len(rpntr) - 1)
+    for blk in dense_blocks:
+        work_per_br[blk['block_row']] += blk['num_rows'] * blk['num_cols'] * 512
+    thread_br_map = split_chunks(work_per_br, threads)
+
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <omp.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append(spmm_kernel())
+    code.append(spmm_kernel_2())
+    code.append(spmm_kernel_3())
+    code.append(spmm_kernel_4())
+    code.append(spmm_kernel_5())
+    code.append(spmm_sparse_parallel())
+    code.append("\nint main() {\n")
+    code.append(f"\tomp_set_num_threads({threads});\n\n")
+    code.extend(_ablation_spmm_data_loading_code(vbr_path, vector_path, rpntr, cpntr, val, csr_val, ublocks, indptr, indices))
+
+    # Sparse part
+    if len(ublocks) > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append(f"\tspmm_sparse_parallel(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tsparse_times[0] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # Dense blocks: distribute across threads via omp parallel sections
+    if len(thread_br_map) > 0 and num_dense_blocks > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append("\t#pragma omp parallel sections\n")
+        code.append("\t{\n")
+        for br_list in thread_br_map:
+            code.append("\t#pragma omp section\n")
+            code.append("\t{\n")
+            for a in br_list:
+                if bpntrb[a] == -1:
+                    continue
+                ublocks_count = copy.copy(bpntrb[a])
+                valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                blk_count = 0
+                for b in range(len(cpntr) - 1):
+                    if b in valid_cols:
+                        if ublocks_count not in ublocks:
+                            num_rows = rpntr[a+1] - rpntr[a]
+                            num_cols = cpntr[b+1] - cpntr[b]
+                            kernel_call = get_best_naive_spmm_kernel_call(
+                                num_rows, num_cols,
+                                rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[blk_count]
+                            )
+                            code.append(f"\t\t{kernel_call}\n")
+                            blk_count += 1
+                        ublocks_count += 1
+            code.append("\t}\n")
+        code.append("\t}\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tlong dense_time = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+    else:
+        code.append("\tlong dense_time = 0;\n")
+
+    # Output
+    code.append('\tprintf("Sparse: %lu,\\n", sparse_times[0]);\n')
+    code.append('\tprintf("Dense: %lu,\\n", dense_time);\n')
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]*512}; i++) {{\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("\tfree(y); free(x); free(val);\n")
+    if len(csr_val) > 0:
+        code.append("\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append("\tfree(indptr); free(indices);\n")
+    code.append("}\n")
+
+    with open(os.path.join(dir_name, filename + ".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2 - time1
+
+
+def gen_spmm_ablation_intra_block(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=5):
+    """SpMM ablation: intra-block parallelism (each block's loops parallelized)."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
+
+    dense_blocks = _ablation_spmm_get_dense_block_info(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks, indx)
+
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <omp.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append(spmm_kernel_parallel())
+    code.append(spmm_kernel_2_parallel())
+    code.append(spmm_kernel_3_parallel())
+    code.append(spmm_kernel_4_parallel())
+    code.append(spmm_kernel_5_parallel())
+    code.append(spmm_sparse_parallel())
+    code.append("\nint main() {\n")
+    code.append(f"\tomp_set_num_threads({threads});\n\n")
+    code.extend(_ablation_spmm_data_loading_code(vbr_path, vector_path, rpntr, cpntr, val, csr_val, ublocks, indptr, indices))
+
+    # Sparse part
+    if len(ublocks) > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append(f"\tspmm_sparse_parallel(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tsparse_times[0] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # Dense blocks: sequential dispatch, each with intra-block parallel kernels
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+    for blk in dense_blocks:
+        kernel_call = get_best_parallel_spmm_kernel_call(
+            blk['num_rows'], blk['num_cols'],
+            blk['i_start'], blk['i_end'], blk['j_start'], blk['j_end'], blk['val_offset']
+        )
+        code.append(f"\t{kernel_call}\n")
+    code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+    code.append("\tlong dense_time = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # Output
+    code.append('\tprintf("Sparse: %lu,\\n", sparse_times[0]);\n')
+    code.append('\tprintf("Dense: %lu,\\n", dense_time);\n')
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]*512}; i++) {{\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("\tfree(y); free(x); free(val);\n")
+    if len(csr_val) > 0:
+        code.append("\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append("\tfree(indptr); free(indices);\n")
+    code.append("}\n")
+
+    with open(os.path.join(dir_name, filename + ".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2 - time1
+
+
+def gen_spmm_ablation_hybrid(threads, val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, bench=5):
+    """SpMM ablation: hybrid parallelism (blocks across thread teams + intra-block)."""
+    if not os.path.exists(dir_name):
+        os.makedirs(dir_name)
+    time1 = time.time_ns() // 1_000_000
+    vbr_path = os.path.join(vbr_dir, filename + ".vbrc")
+    vector_path = os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{cpntr[-1]}x512.matrix")
+
+    dense_blocks = _ablation_spmm_get_dense_block_info(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks, indx)
+    num_dense_blocks = len(dense_blocks)
+    outer_threads, inner_threads = compute_hybrid_thread_split(threads, num_dense_blocks)
+
+    # Compute work per block row for load balancing
+    work_per_br = [0] * (len(rpntr) - 1)
+    for blk in dense_blocks:
+        work_per_br[blk['block_row']] += blk['num_rows'] * blk['num_cols'] * 512
+    thread_br_map = split_chunks(work_per_br, outer_threads)
+
+    code = []
+    code.append("#include <stdio.h>\n")
+    code.append("#include <time.h>\n")
+    code.append("#include <stdlib.h>\n")
+    code.append("#include <string.h>\n")
+    code.append("#include <omp.h>\n")
+    code.append("#include <assert.h>\n\n")
+    code.append(spmm_kernel_parallel())
+    code.append(spmm_kernel_2_parallel())
+    code.append(spmm_kernel_3_parallel())
+    code.append(spmm_kernel_4_parallel())
+    code.append(spmm_kernel_5_parallel())
+    code.append(spmm_sparse_parallel())
+    code.append("\nint main() {\n")
+    code.append(f"\tomp_set_num_threads({threads});\n")
+    code.append(f"\tomp_set_max_active_levels(2);\n\n")
+    code.extend(_ablation_spmm_data_loading_code(vbr_path, vector_path, rpntr, cpntr, val, csr_val, ublocks, indptr, indices))
+
+    # Sparse part
+    if len(ublocks) > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append(f"\tspmm_sparse_parallel(y, csr_val, indices, indptr, x, {rpntr[-1]});\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tsparse_times[0] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+
+    # Dense blocks: outer sections distribute blocks, inner parallelism within each block
+    if num_dense_blocks > 0:
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
+        code.append(f"\t#pragma omp parallel sections num_threads({outer_threads})\n")
+        code.append("\t{\n")
+        for br_list in thread_br_map:
+            code.append("\t#pragma omp section\n")
+            code.append("\t{\n")
+            code.append(f"\t\tomp_set_num_threads({inner_threads});\n")
+            for a in br_list:
+                if bpntrb[a] == -1:
+                    continue
+                ublocks_count = copy.copy(bpntrb[a])
+                valid_cols = bindx[bpntrb[a]:bpntre[a]]
+                blk_count = 0
+                for b in range(len(cpntr) - 1):
+                    if b in valid_cols:
+                        if ublocks_count not in ublocks:
+                            num_rows = rpntr[a+1] - rpntr[a]
+                            num_cols = cpntr[b+1] - cpntr[b]
+                            kernel_call = get_best_parallel_spmm_kernel_call(
+                                num_rows, num_cols,
+                                rpntr[a], rpntr[a+1], cpntr[b], cpntr[b+1], indx[blk_count]
+                            )
+                            code.append(f"\t\t{kernel_call}\n")
+                            blk_count += 1
+                        ublocks_count += 1
+            code.append("\t}\n")
+        code.append("\t}\n")
+        code.append("\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
+        code.append("\tlong dense_time = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+    else:
+        code.append("\tlong dense_time = 0;\n")
+
+    # Output
+    code.append('\tprintf("Sparse: %lu,\\n", sparse_times[0]);\n')
+    code.append('\tprintf("Dense: %lu,\\n", dense_time);\n')
+    code.append(f"\tfor (int i=0; i<{rpntr[-1]*512}; i++) {{\n")
+    code.append("\t\tprintf(\"%lf\\n\", y[i]);\n")
+    code.append("\t}\n")
+    code.append("\tfree(y); free(x); free(val);\n")
+    if len(csr_val) > 0:
+        code.append("\tfree(csr_val);\n")
+    if len(indptr) > 0:
+        code.append("\tfree(indptr); free(indices);\n")
+    code.append("}\n")
+
+    with open(os.path.join(dir_name, filename + ".c"), "w") as f:
+        f.writelines(code)
+    time2 = time.time_ns() // 1_000_000
+    return time2 - time1
 
 
 def vbr_spmm_codegen(filename: str, dir_name: str, vbr_dir: str, threads: int, bench: int = 5, mkl: bool = False)->int:

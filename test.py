@@ -22,6 +22,8 @@ from src.codegen import (
 )
 from src.consts import CFLAGS as CFLAGS
 from src.consts import MKL_FLAGS as MKL_FLAGS
+from src.consts import MKL_AVAILABLE as MKL_AVAILABLE
+from src.consts import SPV8_FLAGS as SPV8_FLAGS
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH)
@@ -137,8 +139,16 @@ def test_partition():
     assert(len(csr_val) == 0)
 
 def run_spmv(threads, mkl):
+    write_dense_vector(1.0, 11)  # ensure dense vector exists (gitignored Generated_dense_tensors/)
     vbr_spmv_codegen(filename="example", dir_name="tests", threads=threads, vbr_dir="tests", mkl=mkl)
-    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS + MKL_FLAGS, cwd="tests")
+    if mkl:
+        extra_flags = MKL_FLAGS
+    else:
+        spv8_obj = os.path.join(BASE_PATH, "spv8-public", "bin", "spmv_spv8.o")
+        if not os.path.isfile(spv8_obj):
+            pytest.skip("SPV8 object not built (spv8-public/bin/spmv_spv8.o); skipping non-MKL spmv test")
+        extra_flags = SPV8_FLAGS
+    subprocess.check_call(["gcc", "-o", "example", "example.c"] + CFLAGS + extra_flags, cwd="tests")
     output = subprocess.check_output(["./example"], cwd="tests").decode("utf-8").split("\n")[1:]
     with open(os.path.join("tests", "output.txt"), "w") as f:
         f.write("\n".join(output))
@@ -147,7 +157,14 @@ def run_spmv(threads, mkl):
 def run_spmv_unroll(threads, mkl):
     test_compression()
     vbr_spmv_codegen("example2", "tests", "tests", threads, mkl=mkl)
-    subprocess.check_call(["gcc", "-o", "example2", "example2.c"] + CFLAGS+MKL_FLAGS, cwd="tests")
+    if mkl:
+        extra_flags = MKL_FLAGS
+    else:
+        spv8_obj = os.path.join(BASE_PATH, "spv8-public", "bin", "spmv_spv8.o")
+        if not os.path.isfile(spv8_obj):
+            pytest.skip("SPV8 object not built (spv8-public/bin/spmv_spv8.o); skipping non-MKL unroll test")
+        extra_flags = SPV8_FLAGS
+    subprocess.check_call(["gcc", "-o", "example2", "example2.c"] + CFLAGS + extra_flags, cwd="tests")
     output = subprocess.check_output(["./example2"], cwd="tests").decode("utf-8").split("\n")
     if "warning" in output[0].lower():
         output = output[2:]
@@ -165,6 +182,8 @@ def test_spmv():
 #     run_spmv(16)
 
 def test_spmv_mkl():
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
     run_spmv(1, mkl=True)
 
 # def test_spmv_py():
@@ -178,6 +197,8 @@ def test_spmv_unroll():
 #     run_spmv_unroll(16)
 
 def test_spmv_unroll_mkl():
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
     run_spmv_unroll(1, mkl=True)
 
 def run_spmm(threads):
@@ -291,6 +312,8 @@ def test_spmm_mkl_naive():
 
     Tests that MKL's cblas_dgemm produces correct results for dense blocks in SpMM.
     """
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)
@@ -513,6 +536,8 @@ def test_spmm_mkl_spreg():
 
     Tests MKL cblas_dgemm for dense blocks + sparse-register-tiling for sparse part.
     """
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)
@@ -673,6 +698,22 @@ def test_spmv_naive():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
+def _uzp_available() -> bool:
+    """Check whether the UZP toolchain is functional.
+
+    Verifies that uzp_prepare.sh exists and is executable, and that the
+    z_polyhedrator binary has been built (Rust + cargo required).
+    """
+    uzp_prepare = os.path.join(BASE_PATH, "uzp_prepare.sh")
+    if not os.path.isfile(uzp_prepare) or not os.access(uzp_prepare, os.X_OK):
+        return False
+    # z_polyhedrator must be pre-built (requires Rust toolchain)
+    z_poly = os.path.join(
+        BASE_PATH, "uzp-artifact", "z_polyhedrator", "target", "release", "z_polyhedrator"
+    )
+    return os.path.isfile(z_poly)
+
+
 def test_spmv_uzp_sparse_dispatch():
     """Test UZP sparse-dispatch backend against scipy SpMV.
 
@@ -681,10 +722,8 @@ def test_spmv_uzp_sparse_dispatch():
     - UZP preparation (z_polyhedrator + spf_aggregator) runs via uzp_prepare.sh
     - Only the UZP kernel execution is timed
     """
-    # Require the uzp_prepare.sh script
-    uzp_prepare = os.path.join(BASE_PATH, "uzp_prepare.sh")
-    if not os.path.exists(uzp_prepare):
-        pytest.skip("uzp_prepare.sh not found; skipping UZP dispatch test")
+    if not _uzp_available():
+        pytest.skip("UZP toolchain not available; skipping UZP dispatch test")
 
     # Load matrix from MTX file
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
@@ -763,14 +802,10 @@ def test_spmv_uzp_sparse_dispatch():
 
 def test_spmv_uzp_sparse_dispatch_blas():
     """Test UZP sparse-dispatch + BLAS dense blocks backend against scipy SpMV."""
-    uzp_prepare = os.path.join(BASE_PATH, "uzp_prepare.sh")
-    if not os.path.exists(uzp_prepare):
-        pytest.skip("uzp_prepare.sh not found; skipping UZP dispatch BLAS test")
-
-    # Best-effort MKL availability check (avoid noisy compile failures)
-    mkl_inc = next((f[2:] for f in MKL_FLAGS if f.startswith("-I")), None)
-    if not mkl_inc or not os.path.isdir(mkl_inc):
-        pytest.skip("MKL include directory not found; skipping BLAS dense test")
+    if not _uzp_available():
+        pytest.skip("UZP toolchain not available; skipping UZP dispatch BLAS test")
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available; skipping BLAS dense test")
 
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     mtx = scipy.io.mmread(mtx_path)

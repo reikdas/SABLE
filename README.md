@@ -45,3 +45,32 @@ In `src/consts.py` set the correct paths.
 ### 7. Running Benchmarks
 
 To benchmark, run the `bench_suitesparse_split_timings_c*.py` files.
+
+## Testing
+
+### Quick tests (no MKL / hardware dependencies)
+
+These tests verify C code generation without running any actual sparse
+computations. They run in seconds and need only Python + pytest:
+
+```bash
+# Codegen golden tests (compares generated C against stored references)
+python3 -m pytest tests/test_codegen_golden.py -v
+```
+
+After an **intentional** change to codegen output, regenerate the golden
+files:
+
+```bash
+python3 -m pytest tests/test_codegen_golden.py --update-golden
+```
+
+### Full integration tests (require MKL, GCC, hardware)
+
+The full test suite in `test.py` compiles and runs generated C code, so it
+needs GCC, MKL, and the `spv8-public` / `sparse-register-tiling` submodules
+built:
+
+```bash
+python3 -m pytest test.py -v
+```

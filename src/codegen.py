@@ -987,6 +987,8 @@ def _gen_single_threaded_spmv_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpn
     code.append("#include <string.h>\n")
     if threads > 1:
         code.append("#include <omp.h>\n")
+    if use_mkl and "#include <mkl.h>" not in (sparse_kernel_include or ""):
+        code.append("#include <mkl.h>\n")
     if sparse_kernel_include:
         code.append(sparse_kernel_include)
     code.append("#include <assert.h>\n\n")

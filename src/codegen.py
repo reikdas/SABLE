@@ -304,34 +304,6 @@ def _append_read_int_array(
     code.append(f"{indent}if(fscanf(file1, \"%c\", &c));\n")
     code.append(f"{indent}assert(c=='\\n');\n")
 
-def _append_spreg_initialization(
-    code: list[str],
-    vbr_path: str,
-    csr_val_size: int,
-    indptr_size: int,
-    indices_size: int,
-    nrows: int,
-    ncols: int,
-    threads: int,
-) -> None:
-    code.append(f"\n\t// Initial data load for spreg executor initialization\n")
-    code.append(f"\tFILE *file1 = fopen(\"{os.path.abspath(vbr_path)}\", \"r\");\n")
-    code.append("\tif (file1 == NULL) { printf(\"Error opening file1\"); return 1; }\n")
-    _append_csr_memsets(code, csr_val_size, indptr_size, indices_size, indent="\t")
-    code.append("\tchar c;\n")
-    code.append("\tint val_size=0;\n")
-    _append_read_double_array(code, "val", indent="\t")
-    _append_read_double_array(code, "csr_val", indent="\t")
-    _append_read_int_array(code, "indptr", indent="\t")
-    _append_read_int_array(code, "indices", indent="\t")
-    code.append("\tfclose(file1);\n")
-    code.append(f"\n\t// Initialize sparse-register-tiling executor (not timed)\n")
-    code.append(f"\tvoid *spreg_handle = spmm_spreg_init(csr_val, indices, indptr, {nrows}, {ncols}, 512, {threads});\n")
-    code.append("\tif (spreg_handle == NULL) {\n")
-    code.append("\t\tprintf(\"Failed to initialize sparse-register-tiling executor\\n\");\n")
-    code.append("\t\treturn 1;\n")
-    code.append("\t}\n")
-
 def spmv_kernel():
     code = []
     code.append("void spmv_kernel(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int j_end, const int val_offset) {\n")
@@ -1495,6 +1467,13 @@ void spmm_sparse_parallel(double *restrict y, const double *restrict csr_val, co
 """
     return code
 
+def _append_spreg_init(code: list[str], nrows: int, ncols: int, threads: int) -> None:
+    code.append(f"\t\tvoid *spreg_handle = spmm_spreg_init(csr_val, indices, indptr, {nrows}, {ncols}, 512, {threads});\n")
+    code.append("\t\tif (spreg_handle == NULL) {\n")
+    code.append("\t\t\tprintf(\"Failed to initialize sparse-register-tiling executor\\n\");\n")
+    code.append("\t\t\treturn 1;\n")
+    code.append("\t\t}\n")
+
 def _gen_single_threaded_spmm_naive_sparse_common(val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val, dir_name, filename, vbr_dir, dense_dispatch, bench:int=5, threads:int=1)->int:
     """Shared body for SpMM codegen with handwritten naive sparse dispatch.
 
@@ -1826,9 +1805,9 @@ def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
     """Generate SpMM code with handwritten dense kernels + sparse-register-tiling sparse kernel.
 
     Uses separate init/execute/cleanup pattern for spreg:
-    - spmm_spreg_init: Called once before timing loop (inspection + packing)
+    - spmm_spreg_init: Called inside each benchmark iteration after data load
     - spmm_spreg_execute: Called inside timing loop (actual SpMM)
-    - spmm_spreg_cleanup: Called after timing loop
+    - spmm_spreg_cleanup: Called after each timed execution
 
     Args:
         threads: Number of threads for sparse-register-tiling parallelization (default: 1)
@@ -1870,11 +1849,6 @@ def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
     prev_count = _count_dense_blocks(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks)
     _append_timing_workspace(code, bench, prev_count)
     
-    # For spreg, load CSR data once to initialize the executor. The benchmark
-    # loop reloads data for consistency with the other sparse backends.
-    if (len(ublocks) > 0):
-        _append_spreg_initialization(code, vbr_path, len(csr_val), len(indptr), len(indices), rpntr[-1], cpntr[-1], threads)
-
     # === BENCHMARK LOOP - load data each iteration (outside timing), like SpMV ===
     code.append(f"\n\t// Benchmark loop - load data each iteration (outside timing)\n")
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
@@ -1894,11 +1868,12 @@ def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
         fclose(file2);\n'''.format(cpntr[-1] * 512))
     
     if (len(ublocks) > 0):
+        _append_spreg_init(code, rpntr[-1], cpntr[-1], threads)
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-        # Use sparse-register-tiling execute (only execution, no init)
-        code.append(f"\t\tspmm_spreg_execute(spreg_handle, y, x);\n")
+        code.append("\t\tspmm_spreg_execute(spreg_handle, y, x);\n")
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+        code.append("\t\tspmm_spreg_cleanup(spreg_handle);\n")
     count = 0
     nnz_block = 0
     for a in range(len(rpntr)-1):
@@ -1927,11 +1902,6 @@ def gen_single_threaded_spmm_naive_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
     
     _append_result_output(code, rpntr[-1] * 512)
 
-    # Cleanup sparse-register-tiling executor
-    if len(ublocks) > 0:
-        code.append("\n\t// Cleanup sparse-register-tiling executor\n")
-        code.append("\tspmm_spreg_cleanup(spreg_handle);\n")
-    
     _append_free_allocated_memory(code, True)
     
     code.append("}\n")
@@ -2078,10 +2048,6 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
     prev_count = _count_dense_blocks(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks)
     _append_timing_workspace(code, bench, prev_count)
 
-    # === INITIALIZE SPARSE-REGISTER-TILING EXECUTOR (once, needs initial data load) ===
-    if (len(ublocks) > 0):
-        _append_spreg_initialization(code, vbr_path, len(csr_val), len(indptr), len(indices), rpntr[-1], cpntr[-1], threads)
-
     code.append(f"\n\t// Benchmark loop - load data each iteration (outside timing)\n")
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
     _append_benchmark_file_open(code, vbr_path, vector_path)
@@ -2099,10 +2065,12 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
         }}
         fclose(file2);\n'''.format(cpntr[-1] * 512))
     if (len(ublocks) > 0):
+        _append_spreg_init(code, rpntr[-1], cpntr[-1], threads)
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-        code.append(f"\t\tspmm_spreg_execute(spreg_handle, y, x);\n")
+        code.append("\t\tspmm_spreg_execute(spreg_handle, y, x);\n")
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+        code.append("\t\tspmm_spreg_cleanup(spreg_handle);\n")
     count = 0
     nnz_block = 0
     for a in range(len(rpntr)-1):
@@ -2124,10 +2092,6 @@ def gen_single_threaded_spmm_mkl_spreg(val, indx, bindx, rpntr, cpntr, bpntrb, b
     _append_timing_output(code, bench, count)
 
     _append_result_output(code, rpntr[-1] * 512)
-
-    if len(ublocks) > 0:
-        code.append("\n\t// Cleanup sparse-register-tiling executor\n")
-        code.append("\tspmm_spreg_cleanup(spreg_handle);\n")
 
     _append_free_allocated_memory(code, True)
 
@@ -2261,9 +2225,9 @@ def gen_single_threaded_spmm_mixed_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
 
     Threshold-based dispatch for dense blocks (MKL or handwritten); sparse-register-tiling for the sparse remainder.
     Uses separate init/execute/cleanup pattern for spreg:
-    - spmm_spreg_init: Called once before timing loop (inspection + packing)
+    - spmm_spreg_init: Called inside each benchmark iteration after data load
     - spmm_spreg_execute: Called inside timing loop (actual SpMM)
-    - spmm_spreg_cleanup: Called after timing loop
+    - spmm_spreg_cleanup: Called after each timed execution
 
     Args:
         threads: Number of threads for parallelization (MKL + spreg) (default: 1)
@@ -2312,10 +2276,6 @@ def gen_single_threaded_spmm_mixed_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
     prev_count = _count_dense_blocks(rpntr, cpntr, bpntrb, bpntre, bindx, ublocks)
     _append_timing_workspace(code, bench, prev_count)
 
-    # === INITIALIZE SPARSE-REGISTER-TILING EXECUTOR (once, needs initial data load) ===
-    if (len(ublocks) > 0):
-        _append_spreg_initialization(code, vbr_path, len(csr_val), len(indptr), len(indices), rpntr[-1], cpntr[-1], threads)
-
     code.append(f"\n\t// Benchmark loop - load data each iteration (outside timing)\n")
     code.append(f"\tfor (int i=0; i<{bench}; i++) {{\n")
     _append_benchmark_file_open(code, vbr_path, vector_path)
@@ -2333,11 +2293,12 @@ def gen_single_threaded_spmm_mixed_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
         }}
         fclose(file2);\n'''.format(cpntr[-1] * 512))
     if (len(ublocks) > 0):
+        _append_spreg_init(code, rpntr[-1], cpntr[-1], threads)
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t1);\n")
-        # Use sparse-register-tiling execute (only execution, no init)
-        code.append(f"\t\tspmm_spreg_execute(spreg_handle, y, x);\n")
+        code.append("\t\tspmm_spreg_execute(spreg_handle, y, x);\n")
         code.append("\t\tclock_gettime(CLOCK_MONOTONIC, &t2);\n")
         code.append("\t\tsparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);\n")
+        code.append("\t\tspmm_spreg_cleanup(spreg_handle);\n")
     count = 0
     nnz_block = 0
     mkl_blocks = 0
@@ -2373,11 +2334,6 @@ def gen_single_threaded_spmm_mixed_spreg(val, indx, bindx, rpntr, cpntr, bpntrb,
     _append_timing_output(code, bench, count)
 
     _append_result_output(code, rpntr[-1] * 512)
-
-    # Cleanup sparse-register-tiling executor
-    if len(ublocks) > 0:
-        code.append("\n\t// Cleanup sparse-register-tiling executor\n")
-        code.append("\tspmm_spreg_cleanup(spreg_handle);\n")
 
     _append_free_allocated_memory(code, True)
 

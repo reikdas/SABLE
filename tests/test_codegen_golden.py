@@ -31,8 +31,11 @@ from src.codegen import (
     gen_single_threaded_spmv_mixed_naive,
     gen_single_threaded_spmv_mkl_naive,
     gen_single_threaded_spmm_naive_naive,
+    gen_single_threaded_spmm_naive_spreg,
     gen_single_threaded_spmm_mixed_naive,
+    gen_single_threaded_spmm_mixed_spreg,
     gen_single_threaded_spmm_mkl_naive,
+    gen_single_threaded_spmm_mkl_spreg,
 )
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file
 from utils.fileio import write_dense_vector
@@ -111,8 +114,11 @@ CODEGEN_VARIANTS = {
     "spmv_mkl_naive": gen_single_threaded_spmv_mkl_naive,
     # SpMM: naive / mixed / mkl dense backends.
     "spmm_naive_naive": gen_single_threaded_spmm_naive_naive,
+    "spmm_naive_spreg": gen_single_threaded_spmm_naive_spreg,
     "spmm_mixed_naive": gen_single_threaded_spmm_mixed_naive,
+    "spmm_mixed_spreg": gen_single_threaded_spmm_mixed_spreg,
     "spmm_mkl_naive": gen_single_threaded_spmm_mkl_naive,
+    "spmm_mkl_spreg": gen_single_threaded_spmm_mkl_spreg,
 }
 
 

@@ -1,0 +1,203 @@
+#include <stdio.h>
+#include <time.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <mkl.h>
+#include <mkl_cblas.h>
+#ifdef __cplusplus
+#ifndef restrict
+#define restrict __restrict__
+#endif
+#endif
+#include "spmm_spreg_wrapper.h"
+
+
+void spmm_kernel_mkl(
+    double *restrict Y,
+    const double *restrict X,
+    const double *restrict val,
+    const int i_start, const int i_end,
+    const int j_start, const int j_end,
+    const int val_offset)
+{
+    const int block_rows = i_end - i_start;
+    const int block_cols = j_end - j_start;
+
+    // A is stored column-major (block_rows x block_cols)
+    // X is row-major (K x 512), we use submatrix starting at row j_start
+    // Y is row-major (M x 512), we update submatrix starting at row i_start
+    //
+    // With CblasRowMajor + CblasTrans:
+    // - A is treated as (block_cols x block_rows) row-major, then transposed to (block_rows x block_cols)
+    // - This matches our column-major storage
+    cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
+                block_rows, 512, block_cols,     // M, N, K
+                1.0,                              // alpha
+                &val[val_offset], block_rows,     // A: column-major = row-major transposed, lda = block_rows
+                &X[j_start * 512], 512,           // B: row-major (block_cols x 512), ldb = 512
+                1.0,                              // beta
+                &Y[i_start * 512], 512);          // C: row-major (block_rows x 512), ldc = 512
+}
+
+int main() {
+	mkl_set_num_threads(1);
+
+	double *y = (double*)malloc(3072 * sizeof(double));
+	double *x = (double*)malloc(3072 * sizeof(double));
+	double *val = (double*)malloc(9 * sizeof(double));
+	double *csr_val = (double*)malloc(3 * sizeof(double));
+	int *indptr = (int*)malloc(7 * sizeof(int));
+	int *indices = (int*)malloc(3 * sizeof(int));
+	if (!csr_val || !indptr || !indices) {
+		printf("Memory allocation failed for csr_val/indptr/indices\n");
+		return 1;
+	}
+	struct timespec t1, t2;
+	long sparse_times[1];
+	long (*dense_block_times)[1] = (long(*)[1])malloc(1 * 1 * sizeof(long));
+	for (int i=0; i<1; i++) {
+		sparse_times[i] = 0;
+		for (int j=0; j<1; j++) {
+			dense_block_times[j][i] = 0;
+		}
+	}
+
+	// Benchmark loop - load data each iteration (outside timing)
+	for (int i=0; i<1; i++) {
+	FILE *file1 = fopen("<PATH>/fixture.vbrc", "r");
+	if (file1 == NULL) { printf("Error opening file1"); return 1; }
+	FILE *file2 = fopen("<PATH>/generated_matrix_6x512.matrix", "r");
+	if (file2 == NULL) { printf("Error opening file2"); return 1; }
+		memset(y, 0, sizeof(double)*3072);
+		memset(val, 0, 9 * sizeof(double));
+		memset(csr_val, 0, 3 * sizeof(double));
+		memset(indptr, 0, 7 * sizeof(int));
+		memset(indices, 0, 3 * sizeof(int));
+		char c;
+		int x_size=0, val_size=0;
+		val_size=0;
+		assert(fscanf(file1, "val=[%c", &c) == 1);
+		if (c != ']') {
+			ungetc(c, file1);
+			assert(fscanf(file1, "%lf", &val[val_size]) == 1.0);
+			val_size++;
+			while (1) {
+				assert(fscanf(file1, "%c", &c) == 1);
+				if (c == ',') {
+					assert(fscanf(file1, "%lf", &val[val_size]) == 1.0);
+					val_size++;
+				} else if (c == ']') {
+					break;
+				} else {
+					assert(0);
+				}
+			}
+		}
+		if(fscanf(file1, "%c", &c));
+		assert(c=='\n');
+		val_size=0;
+		assert(fscanf(file1, "csr_val=[%c", &c) == 1);
+		if (c != ']') {
+			ungetc(c, file1);
+			assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+			val_size++;
+			while (1) {
+				assert(fscanf(file1, "%c", &c) == 1);
+				if (c == ',') {
+					assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+					val_size++;
+				} else if (c == ']') {
+					break;
+				} else {
+					assert(0);
+				}
+			}
+		}
+		if(fscanf(file1, "%c", &c));
+		assert(c=='\n');
+		val_size=0;
+		assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+		val_size++;
+		while (1) {
+			assert(fscanf(file1, "%c", &c) == 1);
+			if (c == ',') {
+				assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+				val_size++;
+			} else if (c == ']') {
+				break;
+			} else {
+				assert(0);
+			}
+		}
+		if(fscanf(file1, "%c", &c));
+		assert(c=='\n');
+		val_size=0;
+		assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+		val_size++;
+		while (1) {
+			assert(fscanf(file1, "%c", &c) == 1);
+			if (c == ',') {
+				assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+				val_size++;
+			} else if (c == ']') {
+				break;
+			} else {
+				assert(0);
+			}
+		}
+		if(fscanf(file1, "%c", &c));
+		assert(c=='\n');
+		fclose(file1);
+		while (x_size < 3072 && fscanf(file2, "%lf,", &x[x_size]) == 1) {
+            x_size++;
+        }
+        fclose(file2);
+		void *spreg_handle = spmm_spreg_init(csr_val, indices, indptr, 6, 6, 512, 1);
+		if (spreg_handle == NULL) {
+			printf("Failed to initialize sparse-register-tiling executor\n");
+			return 1;
+		}
+		clock_gettime(CLOCK_MONOTONIC, &t1);
+		spmm_spreg_execute(spreg_handle, y, x);
+		clock_gettime(CLOCK_MONOTONIC, &t2);
+		sparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);
+		spmm_spreg_cleanup(spreg_handle);
+		clock_gettime(CLOCK_MONOTONIC, &t1);
+		spmm_kernel_mkl(y, x, val, 0, 3, 0, 3, 0);
+		clock_gettime(CLOCK_MONOTONIC, &t2);
+		dense_block_times[0][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);
+	}
+	printf("Sparse: ");
+	for (int i=0; i<1; i++) {
+		printf("%lu,", sparse_times[i]);
+	}
+	printf("\n");
+	printf("Dense: ");
+	for (int i=0; i<1; i++) {
+		long total_dense = 0;
+		for (int j=0; j<1; j++) {
+			total_dense += dense_block_times[j][i];
+		}
+		printf("%lu,", total_dense);
+	}
+	printf("\n");
+	for (int j=0; j<1; j++) {
+		printf("Dense Block %d: ", j+1);
+		for (int i=0; i<1; i++) {
+			printf("%lu,", dense_block_times[j][i]);
+		}
+		printf("\n");
+	}
+	printf("\n");
+	for (int i=0; i<3072; i++) {
+		printf("%lf\n", y[i]);
+	}
+	free(dense_block_times);
+	free(y);
+	free(x);
+	free(val);
+	free(csr_val);
+	free(indptr);
+	free(indices);
+}

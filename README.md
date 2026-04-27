@@ -28,7 +28,21 @@ cd spv8-public/
 cd ..
 ```
 
-### 5. Python Environment Setup
+### 5. Build sparse-register-tiling/
+
+First generate the micro-kernels, then build with CMake:
+
+```bash
+cd sparse-register-tiling/spmm_nano_kernels/
+python3 -m codegen.generate_ukernels
+cd ..
+mkdir -p build && cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_AVX512=True
+make -j$(nproc) SPMM_demo
+cd ../..
+```
+
+### 6. Python Environment Setup
 
 Create a Python virtual environment and install dependencies:
 
@@ -38,11 +52,11 @@ source sable-env/bin/activate
 pip install -r requirements.txt
 ```
 
-### 6. Configuration
+### 7. Configuration
 
 In `src/consts.py` set the correct paths.
 
-### 7. Running Benchmarks
+### 8. Running Benchmarks
 
 To benchmark, run the `bench_suitesparse_split_timings_c*.py` files.
 

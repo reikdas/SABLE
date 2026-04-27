@@ -33,8 +33,9 @@ from ssgetpy import fetch
 
 from src.codegen import (
     gen_single_threaded_spmv_naive_spv8, gen_single_threaded_spmv_naive_mkl, gen_single_threaded_spmv_naive_naive,
-    gen_single_threaded_spmv_blas_spv8, gen_single_threaded_spmv_blas_mkl, gen_single_threaded_spmv_blas_naive,
-    gen_single_threaded_spmv_naive_uzp, gen_single_threaded_spmv_blas_uzp
+    gen_single_threaded_spmv_mixed_spv8, gen_single_threaded_spmv_mixed_mkl, gen_single_threaded_spmv_mixed_naive,
+    gen_single_threaded_spmv_mkl_spv8, gen_single_threaded_spmv_mkl_mkl, gen_single_threaded_spmv_mkl_naive,
+    gen_single_threaded_spmv_naive_uzp, gen_single_threaded_spmv_mixed_uzp, gen_single_threaded_spmv_mkl_uzp
 )
 from src.consts import SparseKernel, DenseKernel, build_compile_command
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file, analyze_dense_blocks
@@ -77,7 +78,7 @@ def compile_c_program(
         c_file_path: Path to the generated C file.
         output_dir: Directory for the compiled binary.
         sparse_kernel: Sparse kernel variant (determines kernel-specific sources/flags).
-        dense_kernel: Dense kernel variant (NAIVE or BLAS).  The BLAS variant
+        dense_kernel: Dense kernel variant (NAIVE or MKL).  The MKL variant
             uses ``cblas_dgemv`` from MKL, so MKL flags are added automatically
             even when the sparse kernel is not MKL.
 
@@ -376,7 +377,7 @@ def process_and_benchmark_matrix(
         matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
         bench_iterations: Number of benchmark iterations
         use_mkl: Whether to use MKL (True) or SpV8 (False) for sparse kernel
-        dense_kernel: Which dense kernel to use (NAIVE or BLAS)
+        dense_kernel: Which dense kernel to use (NAIVE or MKL)
         threads: Number of threads for parallelization (default: 1)
 
     Returns:
@@ -388,13 +389,17 @@ def process_and_benchmark_matrix(
 
     # Select directories and functions based on sparse variant and dense kernel
     if use_mkl:
-        if dense_kernel == DenseKernel.BLAS:
-            gen_function = gen_single_threaded_spmv_blas_mkl
+        if dense_kernel == DenseKernel.MKL:
+            gen_function = gen_single_threaded_spmv_mkl_mkl
+        elif dense_kernel == DenseKernel.MIXED:
+            gen_function = gen_single_threaded_spmv_mixed_mkl
         else:
             gen_function = gen_single_threaded_spmv_naive_mkl
     else:
-        if dense_kernel == DenseKernel.BLAS:
-            gen_function = gen_single_threaded_spmv_blas_spv8
+        if dense_kernel == DenseKernel.MKL:
+            gen_function = gen_single_threaded_spmv_mkl_spv8
+        elif dense_kernel == DenseKernel.MIXED:
+            gen_function = gen_single_threaded_spmv_mixed_spv8
         else:
             gen_function = gen_single_threaded_spmv_naive_spv8
 
@@ -567,14 +572,16 @@ def process_and_benchmark_matrix_naive(
         sparse_vbrc_data: Pre-converted VBRC data without dense blocks
         matrix_rows, matrix_cols, matrix_nnz: Matrix dimensions
         bench_iterations: Number of benchmark iterations
-        dense_kernel: Which dense kernel to use (NAIVE or BLAS)
+        dense_kernel: Which dense kernel to use (NAIVE or MKL)
 
     Returns:
         Dictionary with benchmark results
     """
     # Select codegen function based on dense kernel
-    if dense_kernel == DenseKernel.BLAS:
-        gen_function = gen_single_threaded_spmv_blas_naive
+    if dense_kernel == DenseKernel.MKL:
+        gen_function = gen_single_threaded_spmv_mkl_naive
+    elif dense_kernel == DenseKernel.MIXED:
+        gen_function = gen_single_threaded_spmv_mixed_naive
     else:
         gen_function = gen_single_threaded_spmv_naive_naive
 
@@ -781,7 +788,12 @@ def process_and_benchmark_matrix_uzp(
     sparse_vbr_dir = sparse_vbrc_data["vbr_dir"]
     sparse_sparse_mtx_path = sparse_vbrc_data.get("sparse_mtx_path", "")
 
-    gen_uzp = gen_single_threaded_spmv_blas_uzp if dense_kernel == DenseKernel.BLAS else gen_single_threaded_spmv_naive_uzp
+    if dense_kernel == DenseKernel.MKL:
+        gen_uzp = gen_single_threaded_spmv_mkl_uzp
+    elif dense_kernel == DenseKernel.MIXED:
+        gen_uzp = gen_single_threaded_spmv_mixed_uzp
+    else:
+        gen_uzp = gen_single_threaded_spmv_naive_uzp
 
     print(f"  [{variant_name}] Generating C code (split)...")
     codegen_time_split_ns = gen_uzp(
@@ -926,7 +938,7 @@ def main():
     parser.add_argument("--sparse", type=str, default="all",
                         help="Sparse kernel(s): naive, spv8, mkl, uzp, all, or comma-separated (e.g., 'spv8,mkl')")
     parser.add_argument("--dense", type=str, default="all",
-                        help="Dense kernel(s): naive, blas, all, or comma-separated (e.g., 'naive,blas')")
+                        help="Dense kernel(s): naive, mixed, mkl, all, or comma-separated (e.g., 'naive,mixed,mkl'). 'mixed' uses threshold-based dispatch (cblas_dgemv + handwritten kernels); 'mkl' always uses cblas_dgemv.")
     parser.add_argument("--threads", type=str, default="1",
                         help="Number of threads: single value (e.g., '4') or comma-separated list (e.g., '1,2,4,8')")
 

@@ -80,9 +80,9 @@ class TestMKLSparseKernel:
         for f in MKL_FLAGS:
             assert f in flags
 
-    def test_mkl_blas_includes_mkl_flags_once(self):
-        """MKL sparse_kernel + BLAS dense should NOT duplicate MKL flags."""
-        cmd = _cmd(SparseKernel.MKL, DenseKernel.BLAS)
+    def test_mkl_mkl_includes_mkl_flags_once(self):
+        """MKL sparse_kernel + MKL dense should NOT duplicate MKL flags."""
+        cmd = _cmd(SparseKernel.MKL, DenseKernel.MKL)
         assert cmd.count("-lmkl_rt") == 1
 
     def test_no_extra_sources(self):
@@ -95,10 +95,10 @@ class TestSPV8SparseKernel:
         for f in SPV8_FLAGS:
             assert f in flags
 
-    def test_spv8_blas_adds_mkl_flags(self):
-        flags = _flags(_cmd(SparseKernel.SPV8, DenseKernel.BLAS))
+    def test_spv8_mkl_adds_mkl_flags(self):
+        flags = _flags(_cmd(SparseKernel.SPV8, DenseKernel.MKL))
         for f in MKL_FLAGS:
-            assert f in flags, f"BLAS dense kernel should add MKL flag {f!r}"
+            assert f in flags, f"MKL dense kernel should add MKL flag {f!r}"
         for f in SPV8_FLAGS:
             assert f in flags, f"SPV8 flag {f!r} should still be present"
 
@@ -116,15 +116,15 @@ class TestUZPSparseKernel:
         sources = _sources(_cmd(SparseKernel.UZP, DenseKernel.NAIVE))
         assert sources == UZP_SOURCES
 
-    def test_uzp_blas_adds_mkl_flags(self):
-        flags = _flags(_cmd(SparseKernel.UZP, DenseKernel.BLAS))
+    def test_uzp_mkl_adds_mkl_flags(self):
+        flags = _flags(_cmd(SparseKernel.UZP, DenseKernel.MKL))
         for f in MKL_FLAGS:
             assert f in flags
         for f in UZP_FLAGS:
             assert f in flags
 
-    def test_uzp_blas_keeps_uzp_sources(self):
-        sources = _sources(_cmd(SparseKernel.UZP, DenseKernel.BLAS))
+    def test_uzp_mkl_keeps_uzp_sources(self):
+        sources = _sources(_cmd(SparseKernel.UZP, DenseKernel.MKL))
         assert sources == UZP_SOURCES
 
 
@@ -133,8 +133,8 @@ class TestNaiveSparseKernel:
         flags = _flags(_cmd(SparseKernel.NAIVE, DenseKernel.NAIVE))
         assert flags == list(CFLAGS)
 
-    def test_naive_blas_adds_mkl_flags(self):
-        flags = _flags(_cmd(SparseKernel.NAIVE, DenseKernel.BLAS))
+    def test_naive_mkl_adds_mkl_flags(self):
+        flags = _flags(_cmd(SparseKernel.NAIVE, DenseKernel.MKL))
         assert flags == list(CFLAGS) + list(MKL_FLAGS)
 
     def test_no_extra_sources(self):
@@ -142,13 +142,13 @@ class TestNaiveSparseKernel:
 
 
 # ---------------------------------------------------------------------------
-# Cross-cutting: BLAS dense kernel always brings in MKL
+# Cross-cutting: MKL dense kernel always brings in MKL
 # ---------------------------------------------------------------------------
 
-class TestBlasDenseAlwaysAddsMKL:
+class TestMKLDenseAlwaysAddsMKL:
     @pytest.mark.parametrize("sparse_kernel", list(SparseKernel))
-    def test_blas_always_has_mkl_rt(self, sparse_kernel):
-        cmd = _cmd(sparse_kernel, DenseKernel.BLAS)
+    def test_mkl_always_has_mkl_rt(self, sparse_kernel):
+        cmd = _cmd(sparse_kernel, DenseKernel.MKL)
         assert "-lmkl_rt" in cmd
 
     @pytest.mark.parametrize("sparse_kernel", list(SparseKernel))

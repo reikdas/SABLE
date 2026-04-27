@@ -5,30 +5,8 @@
 #include <mkl.h>
 #include <assert.h>
 
-void spmv_kernel(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int j_end, const int val_offset) {
-	for (int j = j_start; j < j_end; j++) {
-		for (int i = i_start; i < i_end; i++) {
-			y[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);
-		}
-	}
-}
 
-void spmv_kernel_2(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int j_start, const int j_end, const int val_offset) {
-	for (int j = j_start; j < j_end; j++) {
-		y[i_start] += ((&val[val_offset])[(((j-j_start)))] * x[j]);
-	}
-}
-
-void spmv_kernel_3(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int val_offset) {
-	double xj = x[j_start];
-	for (int i = i_start; i < i_end; i++) {
-		y[i] += ((&val[val_offset])[(i-i_start)] * xj);
-	}
-}
-
-
-
-void spmv_kernel_blas(double *restrict y, const double *restrict x, const double *restrict val,
+void spmv_kernel_mkl(double *restrict y, const double *restrict x, const double *restrict val,
                       const int i_start, const int i_end, const int j_start, const int j_end,
                       const int val_offset) {
     const int m = i_end - i_start;  // block_rows
@@ -65,6 +43,10 @@ int main() {
 	double *csr_val = (double*)malloc(3 * sizeof(double));
 	int *indptr = (int*)malloc(7 * sizeof(int));
 	int *indices = (int*)malloc(3 * sizeof(int));
+	if (!csr_val || !indptr || !indices) {
+		printf("Memory allocation failed for csr_val/indptr/indices\n");
+		return 1;
+	}
 	struct timespec t1, t2;
 	long sparse_times[1];
 	long (*dense_block_times)[1] = (long(*)[1])malloc(1 * 1 * sizeof(long));
@@ -86,72 +68,78 @@ int main() {
 		memset(indices, 0, 3 * sizeof(int));
 		char c;
 		int x_size=0, val_size=0;
+		val_size=0;
 		assert(fscanf(file1, "val=[%c", &c) == 1);
-        if (c != ']') {
-            ungetc(c, file1);
-            assert(fscanf(file1, "%lf", &val[val_size]) == 1);
-            val_size++;
-            while (1) {
-                assert(fscanf(file1, "%c", &c) == 1);
-                if (c == ',') {
-                    assert(fscanf(file1, "%lf", &val[val_size]) == 1);
-                    val_size++;
-                } else if (c == ']') {
-                    break;
-                } else {
-                    assert(0);
-                }
-            }
-        }
-        assert(fscanf(file1, "%c", &c) == 1 && c == '\n');
+		if (c != ']') {
+			ungetc(c, file1);
+			assert(fscanf(file1, "%lf", &val[val_size]) == 1.0);
+			val_size++;
+			while (1) {
+				assert(fscanf(file1, "%c", &c) == 1);
+				if (c == ',') {
+					assert(fscanf(file1, "%lf", &val[val_size]) == 1.0);
+					val_size++;
+				} else if (c == ']') {
+					break;
+				} else {
+					assert(0);
+				}
+			}
+		}
+		if(fscanf(file1, "%c", &c));
+		assert(c=='\n');
 		val_size=0;
-        assert(fscanf(file1, "csr_val=[%lf", &csr_val[val_size]) == 1.0);
-        val_size++;
-        while (1) {
-            assert(fscanf(file1, "%c", &c) == 1);
-            if (c == ',') {
-                assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
-                val_size++;
-            } else if (c == ']') {
-                break;
-            } else {
-                assert(0);
-            }
-        }
-        if(fscanf(file1, "%c", &c));
-        assert(c=='\n');
+		assert(fscanf(file1, "csr_val=[%c", &c) == 1);
+		if (c != ']') {
+			ungetc(c, file1);
+			assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+			val_size++;
+			while (1) {
+				assert(fscanf(file1, "%c", &c) == 1);
+				if (c == ',') {
+					assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
+					val_size++;
+				} else if (c == ']') {
+					break;
+				} else {
+					assert(0);
+				}
+			}
+		}
+		if(fscanf(file1, "%c", &c));
+		assert(c=='\n');
 		val_size=0;
-        assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
-        val_size++;
-        while (1) {
-            assert(fscanf(file1, "%c", &c) == 1);
-            if (c == ',') {
-                assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
-                val_size++;
-            } else if (c == ']') {
-                break;
-            } else {
-                assert(0);
-            }
-        }
-        if(fscanf(file1, "%c", &c));
-        assert(c=='\n');
-        val_size=0;
-        assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
-        val_size++;
-        while (1) {
-            assert(fscanf(file1, "%c", &c) == 1);
-            if (c == ',') {
-                assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
-                val_size++;
-            } else if (c == ']') {
-                break;
-            } else {
-                assert(0);
-            }
-        }
-        if(fscanf(file1, "%c", &c));
-        assert(c=='\n');
+		assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
+		val_size++;
+		while (1) {
+			assert(fscanf(file1, "%c", &c) == 1);
+			if (c == ',') {
+				assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
+				val_size++;
+			} else if (c == ']') {
+				break;
+			} else {
+				assert(0);
+			}
+		}
+		if(fscanf(file1, "%c", &c));
+		assert(c=='\n');
+		val_size=0;
+		assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
+		val_size++;
+		while (1) {
+			assert(fscanf(file1, "%c", &c) == 1);
+			if (c == ',') {
+				assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
+				val_size++;
+			} else if (c == ']') {
+				break;
+			} else {
+				assert(0);
+			}
+		}
+		if(fscanf(file1, "%c", &c));
+		assert(c=='\n');
 		fclose(file1);
 		while (x_size < 6 && fscanf(file2, "%lf,", &x[x_size]) == 1) {
             x_size++;
@@ -162,7 +150,7 @@ int main() {
 		clock_gettime(CLOCK_MONOTONIC, &t2);
 		sparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);
 		clock_gettime(CLOCK_MONOTONIC, &t1);
-		spmv_kernel(y, x, val, 0, 3, 0, 3, 0);
+		spmv_kernel_mkl(y, x, val, 0, 3, 0, 3, 0);
 		clock_gettime(CLOCK_MONOTONIC, &t2);
 		dense_block_times[0][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);
 	}

@@ -27,8 +27,12 @@ import scipy.sparse
 from src.codegen import (
     gen_single_threaded_spmv_naive_naive,
     gen_single_threaded_spmv_naive_spv8,
-    gen_single_threaded_spmv_blas_mkl,
-    gen_single_threaded_spmv_blas_naive,
+    gen_single_threaded_spmv_mixed_mkl,
+    gen_single_threaded_spmv_mixed_naive,
+    gen_single_threaded_spmv_mkl_naive,
+    gen_single_threaded_spmm_naive_naive,
+    gen_single_threaded_spmm_mixed_naive,
+    gen_single_threaded_spmm_mkl_naive,
 )
 from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file
 from utils.fileio import write_dense_vector
@@ -99,10 +103,16 @@ def vbrc_fixture():
 # ---------------------------------------------------------------------------
 
 CODEGEN_VARIANTS = {
-    "naive_naive": gen_single_threaded_spmv_naive_naive,
-    "naive_spv8": gen_single_threaded_spmv_naive_spv8,
-    "blas_mkl": gen_single_threaded_spmv_blas_mkl,
-    "blas_naive": gen_single_threaded_spmv_blas_naive,
+    # SpMV: naive / mixed / mkl dense backends.
+    "spmv_naive_naive": gen_single_threaded_spmv_naive_naive,
+    "spmv_naive_spv8": gen_single_threaded_spmv_naive_spv8,
+    "spmv_mixed_mkl": gen_single_threaded_spmv_mixed_mkl,
+    "spmv_mixed_naive": gen_single_threaded_spmv_mixed_naive,
+    "spmv_mkl_naive": gen_single_threaded_spmv_mkl_naive,
+    # SpMM: naive / mixed / mkl dense backends.
+    "spmm_naive_naive": gen_single_threaded_spmm_naive_naive,
+    "spmm_mixed_naive": gen_single_threaded_spmm_mixed_naive,
+    "spmm_mkl_naive": gen_single_threaded_spmm_mkl_naive,
 }
 
 

@@ -11,7 +11,8 @@ class SparseKernel(str, Enum):
 
 class DenseKernel(str, Enum):
     NAIVE = "naive"
-    BLAS = "blas"
+    MIXED = "mixed"
+    MKL = "mkl"
 
 def _detect_mkl_config() -> tuple[list[str], bool]:
     """Detect MKL compiler flags and availability.
@@ -118,14 +119,15 @@ def build_compile_command(
 
     The *sparse_kernel* selects sparse-kernel-specific sources and flags from
     :data:`BACKEND_EXTRA_SOURCES` / :data:`BACKEND_FLAGS`.  MKL flags are
-    added whenever *dense_kernel* is :attr:`DenseKernel.BLAS` (``cblas_dgemv``
-    lives in MKL) or *sparse_kernel* is :attr:`SparseKernel.MKL`.
+    added whenever *dense_kernel* is :attr:`DenseKernel.MKL` or
+    :attr:`DenseKernel.MIXED` (both rely on ``cblas_dgemv``, which lives in
+    MKL) or *sparse_kernel* is :attr:`SparseKernel.MKL`.
     """
     extra_sources = list(BACKEND_EXTRA_SOURCES[sparse_kernel])
     extra_flags = list(BACKEND_FLAGS[sparse_kernel])
 
-    # For dense kernel BLAS, add MKL flags if needed, i.e. if not already added by the sparse kernel selection.
-    if dense_kernel == DenseKernel.BLAS and sparse_kernel != SparseKernel.MKL:
+    # For dense kernel MKL or MIXED, add MKL flags if needed, i.e. if not already added by the sparse kernel selection.
+    if dense_kernel in (DenseKernel.MKL, DenseKernel.MIXED) and sparse_kernel != SparseKernel.MKL:
         extra_flags += MKL_FLAGS
 
     return (

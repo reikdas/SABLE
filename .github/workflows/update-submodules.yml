@@ -4,10 +4,12 @@ on:
   push:
     branches:
       - '**'
+      - '!github-actions/update-submodules/**'
   workflow_dispatch:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   update-submodules:
@@ -35,11 +37,28 @@ jobs:
           git diff --name-only
         fi
 
-    - name: Commit and push
+    - name: Open pull request
       if: steps.check.outputs.changed == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
+        base_branch="${GITHUB_REF_NAME}"
+        update_branch="github-actions/update-submodules/${base_branch//\//-}"
+
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
+        git switch -C "$update_branch"
         git add -A
         git commit -m "Update submodules to latest commits"
-        git push
+        git push --force-with-lease origin HEAD:"$update_branch"
+
+        existing_pr="$(gh pr list --head "$update_branch" --base "$base_branch" --state open --json number --jq '.[0].number')"
+        if [ -n "$existing_pr" ]; then
+          echo "Updated existing pull request #$existing_pr."
+        else
+          gh pr create \
+            --base "$base_branch" \
+            --head "$update_branch" \
+            --title "Update submodules to latest commits" \
+            --body "Automated submodule pointer update from GitHub Actions."
+        fi

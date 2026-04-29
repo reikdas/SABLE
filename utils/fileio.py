@@ -1,12 +1,9 @@
 import os
 import pathlib
 import re
-from os import makedirs
-from os.path import exists, join
 from typing import List, Tuple
 
 import yaml
-from numpy import count_nonzero
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
@@ -28,50 +25,6 @@ def write_dense_matrix(val: float, m: int, n: int):
     with open(os.path.join(dir_name, filename), "w") as f:
         x = [val] * n * m
         f.write(f"{','.join(map(str, x))}\n")
-
-def read_vbr(filename):
-    with open(filename, "r") as f:
-        val = list(map(float, f.readline().split("=")[1][1:-2].split(",")))
-        indx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bindx = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        rpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        cpntr = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bpntrb = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bpntre = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre
-
-def read_vbrc(filename):
-    with open(filename, "r") as f:
-        l_val = f.readline().split("=")[1][1:-2]
-        val: list[float] = []
-        if l_val != "":
-            val.extend(list(map(float, l_val.split(","))))
-        l_val = f.readline().split("=")[1][1:-2]
-        csr_val: list[float] = []
-        if l_val != "":
-            csr_val.extend(list(map(float, l_val.split(","))))
-        l_i = f.readline().split("=")[1][1:-2]
-        l_j = f.readline().split("=")[1][1:-2]
-        indptr: list[int] = []
-        indices: list[int] = []
-        if l_i != "":
-            indptr = list(map(int, l_i.split(",")))
-            indices = list(map(int, l_j.split(",")))
-        indx: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bindx: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        rpntr: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        cpntr: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bpntrb: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        bpntre: list[int] = list(map(int, f.readline().split("=")[1][1:-2].split(",")))
-        ublocks: list[int] = []
-        l = f.readline().split("=")[1][1:-2]
-        if l != "":
-            ublocks = list(map(int, l.split(",")))
-    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val
-
-def cleanup(*args):
-    for arg in args:
-        os.rmdir(arg)
 
 def parse_yaml_blocks(yaml_path: str) -> List[Tuple[int, int, int, int]]:
     """

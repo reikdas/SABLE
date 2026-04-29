@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <mkl.h>
-#include <mkl_cblas.h>
 
 
 static void skip_to_array(FILE *file) {
@@ -75,49 +73,25 @@ static void read_dense_input(FILE *file, double *out, int size) {
 
 
 int main(void) {
-    double *y = (double *)calloc(6, sizeof(double));
-    double *x = (double *)malloc(6 * sizeof(double));
+    double *y = (double *)calloc(3072, sizeof(double));
+    double *x = (double *)malloc(3072 * sizeof(double));
     assert(y != NULL);
     assert(x != NULL);
-    double *vbr_val = (double *)malloc(9 * sizeof(double));
-    assert(vbr_val != NULL);
-    int *vbr_indx = (int *)malloc(2 * sizeof(int));
-    assert(vbr_indx != NULL);
-    int *vbr_bindx = (int *)malloc(2 * sizeof(int));
-    assert(vbr_bindx != NULL);
-    int *vbr_rpntr = (int *)malloc(3 * sizeof(int));
-    assert(vbr_rpntr != NULL);
-    int *vbr_cpntr = (int *)malloc(3 * sizeof(int));
-    assert(vbr_cpntr != NULL);
-    int *vbr_bpntrb = (int *)malloc(2 * sizeof(int));
-    assert(vbr_bpntrb != NULL);
-    int *vbr_bpntre = (int *)malloc(2 * sizeof(int));
-    assert(vbr_bpntre != NULL);
-    int *vbr_ublocks = (int *)malloc(1 * sizeof(int));
-    assert(vbr_ublocks != NULL);
     int *csr_indptr = (int *)malloc(7 * sizeof(int));
     assert(csr_indptr != NULL);
-    int *csr_indices = (int *)malloc(3 * sizeof(int));
+    int *csr_indices = (int *)malloc(12 * sizeof(int));
     assert(csr_indices != NULL);
-    double *csr_val = (double *)malloc(3 * sizeof(double));
+    double *csr_val = (double *)malloc(12 * sizeof(double));
     assert(csr_val != NULL);
     FILE *matrix_file = fopen("<PATH>/fixture.sabledata", "r");
     assert(matrix_file != NULL);
-    read_double_array(matrix_file, vbr_val, 9);
-    read_int_array(matrix_file, vbr_indx, 2);
-    read_int_array(matrix_file, vbr_bindx, 2);
-    read_int_array(matrix_file, vbr_rpntr, 3);
-    read_int_array(matrix_file, vbr_cpntr, 3);
-    read_int_array(matrix_file, vbr_bpntrb, 2);
-    read_int_array(matrix_file, vbr_bpntre, 2);
-    read_int_array(matrix_file, vbr_ublocks, 1);
     read_int_array(matrix_file, csr_indptr, 7);
-    read_int_array(matrix_file, csr_indices, 3);
-    read_double_array(matrix_file, csr_val, 3);
+    read_int_array(matrix_file, csr_indices, 12);
+    read_double_array(matrix_file, csr_val, 12);
     fclose(matrix_file);
-    FILE *rhs_file = fopen("<PATH>/x.vector", "r");
+    FILE *rhs_file = fopen("<PATH>/x.matrix", "r");
     assert(rhs_file != NULL);
-    read_dense_input(rhs_file, x, 6);
+    read_dense_input(rhs_file, x, 3072);
     fclose(rhs_file);
 
     struct timespec t1, t2;
@@ -128,24 +102,17 @@ int main(void) {
     assert(dense_times != NULL);
     assert(dense_block_times != NULL);
     for (int iter = 0; iter < 1; iter++) {
-        memset(y, 0, 6 * sizeof(double));
+        memset(y, 0, 3072 * sizeof(double));
         double iter_sparse_ns = 0.0;
         double iter_dense_ns = 0.0;
         clock_gettime(CLOCK_MONOTONIC, &t1);
-cblas_dgemv(CblasColMajor, CblasNoTrans,
-    3 - 0, 3 - 0,
-    1.0,
-    &vbr_val[0], 3 - 0,
-    &x[0], 1,
-    1.0,
-    &y[0], 1);
-        clock_gettime(CLOCK_MONOTONIC, &t2);
-        iter_dense_ns += (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
-        dense_block_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
-        clock_gettime(CLOCK_MONOTONIC, &t1);
 for (int i = 0; i < 6; i++) {
     for (int p = csr_indptr[i]; p < csr_indptr[i + 1]; p++) {
-        y[i] += csr_val[p] * x[csr_indices[p]];
+        int col = csr_indices[p];
+        double a = csr_val[p];
+        for (int j = 0; j < 512; j++) {
+            y[i * 512 + j] += a * x[col * 512 + j];
+        }
     }
 }
         clock_gettime(CLOCK_MONOTONIC, &t2);
@@ -164,23 +131,10 @@ for (int i = 0; i < 6; i++) {
         printf("%.0f,", dense_times[i]);
     }
     printf("\n");
-    printf("Dense Block 1: ");
-    for (int i = 0; i < 1; i++) {
-        printf("%.0f,", dense_block_times[0][i]);
-    }
     printf("\n");
-    printf("\n");
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 3072; i++) {
         printf("%.17g\n", y[i]);
     }
-    free(vbr_val);
-    free(vbr_indx);
-    free(vbr_bindx);
-    free(vbr_rpntr);
-    free(vbr_cpntr);
-    free(vbr_bpntrb);
-    free(vbr_bpntre);
-    free(vbr_ublocks);
     free(csr_indptr);
     free(csr_indices);
     free(csr_val);

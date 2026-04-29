@@ -1,192 +1,189 @@
+#include <assert.h>
 #include <stdio.h>
-#include <time.h>
 #include <stdlib.h>
 #include <string.h>
-#include <assert.h>
+#include <time.h>
 
-void spmv_kernel(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int j_end, const int val_offset) {
-	for (int j = j_start; j < j_end; j++) {
-		for (int i = i_start; i < i_end; i++) {
-			y[i] += ((&val[val_offset])[(((j-j_start)*(i_end-i_start)) + (i-i_start))] * x[j]);
-		}
-	}
+
+static void skip_to_array(FILE *file) {
+    int c;
+    while ((c = fgetc(file)) != EOF && c != '[') {}
+    if (c == EOF) {
+        fprintf(stderr, "Unexpected end of data file\n");
+        exit(1);
+    }
 }
 
-
-void spmv_kernel_2(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int j_start, const int j_end, const int val_offset) {
-	for (int j = j_start; j < j_end; j++) {
-		y[i_start] += ((&val[val_offset])[(((j-j_start)))] * x[j]);
-	}
+static void finish_array_line(FILE *file) {
+    int c;
+    while ((c = fgetc(file)) != EOF && c != '\n') {}
 }
 
-
-void spmv_kernel_3(double *restrict y, const double *restrict x, const double *restrict val, const int i_start, const int i_end, const int j_start, const int val_offset) {
-	double xj = x[j_start];
-	for (int i = i_start; i < i_end; i++) {
-		y[i] += ((&val[val_offset])[(i-i_start)] * xj);
-	}
-}
-
-
-void spmv_sparse_naive(double *restrict y, const double *restrict csr_val, const int *restrict indices, const int *restrict indptr, const double *restrict x, const int rpntr_size) {
-	for (int i = 0; i < rpntr_size; i++) {
-		double sum = 0.0;
-		for (int j = indptr[i]; j < indptr[i + 1]; j++) {
-			sum += csr_val[j] * x[indices[j]];
-		}
-		y[i] += sum;
-	}
-}
-
-
-int main() {
-	double *y = (double*)malloc(6 * sizeof(double));
-	double *x = (double*)malloc(6 * sizeof(double));
-	double *val = (double*)malloc(9 * sizeof(double));
-	double *csr_val = (double*)malloc(3 * sizeof(double));
-	int *indptr = (int*)malloc(7 * sizeof(int));
-	int *indices = (int*)malloc(3 * sizeof(int));
-	if (!csr_val || !indptr || !indices) {
-		printf("Memory allocation failed for csr_val/indptr/indices\n");
-		return 1;
-	}
-	struct timespec t1, t2;
-	long sparse_times[1];
-	long (*dense_block_times)[1] = (long(*)[1])malloc(1 * 1 * sizeof(long));
-	for (int i=0; i<1; i++) {
-		sparse_times[i] = 0;
-		for (int j=0; j<1; j++) {
-			dense_block_times[j][i] = 0;
-		}
-	}
-	for (int i=0; i<1; i++) {
-	FILE *file1 = fopen("<PATH>/fixture.vbrc", "r");
-	if (file1 == NULL) { printf("Error opening file1"); return 1; }
-	FILE *file2 = fopen("<PATH>/generated_vector_6.vector", "r");
-	if (file2 == NULL) { printf("Error opening file2"); return 1; }
-		memset(y, 0, sizeof(double)*6);
-		memset(val, 0, 9 * sizeof(double));
-		memset(csr_val, 0, 3 * sizeof(double));
-		memset(indptr, 0, 7 * sizeof(int));
-		memset(indices, 0, 3 * sizeof(int));
-		char c;
-		int x_size=0, val_size=0;
-		val_size=0;
-		assert(fscanf(file1, "val=[%c", &c) == 1);
-		if (c != ']') {
-			ungetc(c, file1);
-			assert(fscanf(file1, "%lf", &val[val_size]) == 1.0);
-			val_size++;
-			while (1) {
-				assert(fscanf(file1, "%c", &c) == 1);
-				if (c == ',') {
-					assert(fscanf(file1, "%lf", &val[val_size]) == 1.0);
-					val_size++;
-				} else if (c == ']') {
-					break;
-				} else {
-					assert(0);
-				}
-			}
-		}
-		if(fscanf(file1, "%c", &c));
-		assert(c=='\n');
-		val_size=0;
-		assert(fscanf(file1, "csr_val=[%c", &c) == 1);
-		if (c != ']') {
-			ungetc(c, file1);
-			assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
-			val_size++;
-			while (1) {
-				assert(fscanf(file1, "%c", &c) == 1);
-				if (c == ',') {
-					assert(fscanf(file1, "%lf", &csr_val[val_size]) == 1.0);
-					val_size++;
-				} else if (c == ']') {
-					break;
-				} else {
-					assert(0);
-				}
-			}
-		}
-		if(fscanf(file1, "%c", &c));
-		assert(c=='\n');
-		val_size=0;
-		assert(fscanf(file1, "indptr=[%d", &indptr[val_size]) == 1.0);
-		val_size++;
-		while (1) {
-			assert(fscanf(file1, "%c", &c) == 1);
-			if (c == ',') {
-				assert(fscanf(file1, "%d", &indptr[val_size]) == 1.0);
-				val_size++;
-			} else if (c == ']') {
-				break;
-			} else {
-				assert(0);
-			}
-		}
-		if(fscanf(file1, "%c", &c));
-		assert(c=='\n');
-		val_size=0;
-		assert(fscanf(file1, "indices=[%d", &indices[val_size]) == 1.0);
-		val_size++;
-		while (1) {
-			assert(fscanf(file1, "%c", &c) == 1);
-			if (c == ',') {
-				assert(fscanf(file1, "%d", &indices[val_size]) == 1.0);
-				val_size++;
-			} else if (c == ']') {
-				break;
-			} else {
-				assert(0);
-			}
-		}
-		if(fscanf(file1, "%c", &c));
-		assert(c=='\n');
-		fclose(file1);
-		while (x_size < 6 && fscanf(file2, "%lf,", &x[x_size]) == 1) {
-            x_size++;
+static void read_double_array(FILE *file, double *out, int size) {
+    skip_to_array(file);
+    for (int i = 0; i < size; i++) {
+        if (fscanf(file, "%lf", &out[i]) != 1) {
+            fprintf(stderr, "Failed to read double array\n");
+            exit(1);
         }
-        fclose(file2);
-		clock_gettime(CLOCK_MONOTONIC, &t1);
-		spmv_sparse_naive(y, csr_val, indices, indptr, x, 6);
-		clock_gettime(CLOCK_MONOTONIC, &t2);
-		sparse_times[i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);
-		clock_gettime(CLOCK_MONOTONIC, &t1);
-		spmv_kernel(y, x, val, 0, 3, 0, 3, 0);
-		clock_gettime(CLOCK_MONOTONIC, &t2);
-		dense_block_times[0][i] = (t2.tv_sec - t1.tv_sec) * 1e9 + (t2.tv_nsec - t1.tv_nsec);
-	}
-	printf("Sparse: ");
-	for (int i=0; i<1; i++) {
-		printf("%lu,", sparse_times[i]);
-	}
-	printf("\n");
-	printf("Dense: ");
-	for (int i=0; i<1; i++) {
-		long total_dense = 0;
-		for (int j=0; j<1; j++) {
-			total_dense += dense_block_times[j][i];
-		}
-		printf("%lu,", total_dense);
-	}
-	printf("\n");
-	for (int j=0; j<1; j++) {
-		printf("Dense Block %d: ", j+1);
-		for (int i=0; i<1; i++) {
-			printf("%lu,", dense_block_times[j][i]);
-		}
-		printf("\n");
-	}
-	printf("\n");
-	for (int i=0; i<6; i++) {
-		printf("%lf\n", y[i]);
-	}
-	free(dense_block_times);
-	free(y);
-	free(x);
-	free(val);
-	free(csr_val);
-	free(indptr);
-	free(indices);
+        if (i + 1 < size) {
+            int comma = fgetc(file);
+            if (comma != ',') {
+                fprintf(stderr, "Malformed double array\n");
+                exit(1);
+            }
+        }
+    }
+    finish_array_line(file);
+}
+
+static void read_int_array(FILE *file, int *out, int size) {
+    skip_to_array(file);
+    for (int i = 0; i < size; i++) {
+        if (fscanf(file, "%d", &out[i]) != 1) {
+            fprintf(stderr, "Failed to read int array\n");
+            exit(1);
+        }
+        if (i + 1 < size) {
+            int comma = fgetc(file);
+            if (comma != ',') {
+                fprintf(stderr, "Malformed int array\n");
+                exit(1);
+            }
+        }
+    }
+    finish_array_line(file);
+}
+
+static void read_dense_input(FILE *file, double *out, int size) {
+    for (int i = 0; i < size; i++) {
+        if (fscanf(file, "%lf", &out[i]) != 1) {
+            fprintf(stderr, "Failed to read dense input\n");
+            exit(1);
+        }
+        if (i + 1 < size) {
+            int comma = fgetc(file);
+            if (comma != ',') {
+                fprintf(stderr, "Malformed dense input\n");
+                exit(1);
+            }
+        }
+    }
+}
+
+
+int main(void) {
+    double *y = (double *)calloc(6, sizeof(double));
+    double *x = (double *)malloc(6 * sizeof(double));
+    assert(y != NULL);
+    assert(x != NULL);
+    double *vbr_val = (double *)malloc(9 * sizeof(double));
+    assert(vbr_val != NULL);
+    int *vbr_indx = (int *)malloc(2 * sizeof(int));
+    assert(vbr_indx != NULL);
+    int *vbr_bindx = (int *)malloc(2 * sizeof(int));
+    assert(vbr_bindx != NULL);
+    int *vbr_rpntr = (int *)malloc(3 * sizeof(int));
+    assert(vbr_rpntr != NULL);
+    int *vbr_cpntr = (int *)malloc(3 * sizeof(int));
+    assert(vbr_cpntr != NULL);
+    int *vbr_bpntrb = (int *)malloc(2 * sizeof(int));
+    assert(vbr_bpntrb != NULL);
+    int *vbr_bpntre = (int *)malloc(2 * sizeof(int));
+    assert(vbr_bpntre != NULL);
+    int *vbr_ublocks = (int *)malloc(1 * sizeof(int));
+    assert(vbr_ublocks != NULL);
+    int *csr_indptr = (int *)malloc(7 * sizeof(int));
+    assert(csr_indptr != NULL);
+    int *csr_indices = (int *)malloc(3 * sizeof(int));
+    assert(csr_indices != NULL);
+    double *csr_val = (double *)malloc(3 * sizeof(double));
+    assert(csr_val != NULL);
+    FILE *matrix_file = fopen("<PATH>/fixture.sabledata", "r");
+    assert(matrix_file != NULL);
+    read_double_array(matrix_file, vbr_val, 9);
+    read_int_array(matrix_file, vbr_indx, 2);
+    read_int_array(matrix_file, vbr_bindx, 2);
+    read_int_array(matrix_file, vbr_rpntr, 3);
+    read_int_array(matrix_file, vbr_cpntr, 3);
+    read_int_array(matrix_file, vbr_bpntrb, 2);
+    read_int_array(matrix_file, vbr_bpntre, 2);
+    read_int_array(matrix_file, vbr_ublocks, 1);
+    read_int_array(matrix_file, csr_indptr, 7);
+    read_int_array(matrix_file, csr_indices, 3);
+    read_double_array(matrix_file, csr_val, 3);
+    fclose(matrix_file);
+    FILE *rhs_file = fopen("<PATH>/x.vector", "r");
+    assert(rhs_file != NULL);
+    read_dense_input(rhs_file, x, 6);
+    fclose(rhs_file);
+
+    struct timespec t1, t2;
+    double *sparse_times = (double *)calloc(1, sizeof(double));
+    double *dense_times = (double *)calloc(1, sizeof(double));
+    double (*dense_block_times)[1] = (double (*)[1])calloc(1, 1 * sizeof(double));
+    assert(sparse_times != NULL);
+    assert(dense_times != NULL);
+    assert(dense_block_times != NULL);
+    for (int iter = 0; iter < 1; iter++) {
+        memset(y, 0, 6 * sizeof(double));
+        double iter_sparse_ns = 0.0;
+        double iter_dense_ns = 0.0;
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+for (int j = 0; j < 3; j++) {
+    for (int i = 0; i < 3; i++) {
+        y[i] += vbr_val[0 + (j - 0) * (3 - 0) + (i - 0)] * x[j];
+    }
+}
+        clock_gettime(CLOCK_MONOTONIC, &t2);
+        iter_dense_ns += (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+        dense_block_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+for (int i = 0; i < 6; i++) {
+    for (int p = csr_indptr[i]; p < csr_indptr[i + 1]; p++) {
+        y[i] += csr_val[p] * x[csr_indices[p]];
+    }
+}
+        clock_gettime(CLOCK_MONOTONIC, &t2);
+        iter_sparse_ns += (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+        sparse_times[iter] = iter_sparse_ns;
+        dense_times[iter] = iter_dense_ns;
+    }
+
+    printf("Sparse: ");
+    for (int i = 0; i < 1; i++) {
+        printf("%.0f,", sparse_times[i]);
+    }
+    printf("\n");
+    printf("Dense: ");
+    for (int i = 0; i < 1; i++) {
+        printf("%.0f,", dense_times[i]);
+    }
+    printf("\n");
+    printf("Dense Block 1: ");
+    for (int i = 0; i < 1; i++) {
+        printf("%.0f,", dense_block_times[0][i]);
+    }
+    printf("\n");
+    printf("\n");
+    for (int i = 0; i < 6; i++) {
+        printf("%.17g\n", y[i]);
+    }
+    free(vbr_val);
+    free(vbr_indx);
+    free(vbr_bindx);
+    free(vbr_rpntr);
+    free(vbr_cpntr);
+    free(vbr_bpntrb);
+    free(vbr_bpntre);
+    free(vbr_ublocks);
+    free(csr_indptr);
+    free(csr_indices);
+    free(csr_val);
+    free(dense_block_times);
+    free(dense_times);
+    free(sparse_times);
+    free(x);
+    free(y);
+    return 0;
 }

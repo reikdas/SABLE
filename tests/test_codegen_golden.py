@@ -1,51 +1,37 @@
-"""Golden tests for SpMV C code generation.
+"""Golden tests for frontend C code generation.
 
 Each test regenerates C source from a small fixture matrix and compares it
-against a stored reference file in ``tests/golden/``.  This catches
-unexpected changes to codegen output during refactorings.
-
-Regenerate golden files after *intentional* codegen changes::
-
-    NIXPKGS_ALLOW_UNFREE=1 nix-shell --run \\
-        "python3 -m pytest tests/test_codegen_golden.py --update-golden -v"
-
-Run normally (comparison mode)::
-
-    NIXPKGS_ALLOW_UNFREE=1 nix-shell --run \\
-        "python3 -m pytest tests/test_codegen_golden.py -v"
+against a stored reference file in ``tests/golden/fixture``.
 """
 
 import os
 import pathlib
 import re
 
-import numpy as np
+import numpy
 import pytest
-import scipy.io
 import scipy.sparse
 
-from src.codegen import (
-    gen_single_threaded_spmv_naive_naive,
-    gen_single_threaded_spmv_naive_spv8,
-    gen_single_threaded_spmv_mixed_mkl,
-    gen_single_threaded_spmv_mixed_naive,
-    gen_single_threaded_spmv_mkl_naive,
-    gen_single_threaded_spmm_naive_naive,
-    gen_single_threaded_spmm_naive_spreg,
-    gen_single_threaded_spmm_mixed_naive,
-    gen_single_threaded_spmm_mixed_spreg,
-    gen_single_threaded_spmm_mkl_naive,
-    gen_single_threaded_spmm_mkl_spreg,
+from sable import Matrix, Plan
+from sable.extractors import BlockDetectorSkip, CSRConvertor
+from sable.kernels import (
+    MKLCSRSpmm,
+    MKLCSRSpmv,
+    MKLVBRSpmm,
+    MKLVBRSpmv,
+    MixedVBRSpmm,
+    MixedVBRSpmv,
+    NaiveCSRSpmm,
+    NaiveCSRSpmv,
+    NaiveVBRSpmm,
+    NaiveVBRSpmv,
+    SPRegCSRSpmm,
+    SPV8CSRSpmv,
 )
-from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks, _write_vbrc_file
-from utils.fileio import write_dense_vector
+from sable.tensor import DenseInput, DenseLayout
 
 GOLDEN_DIR = pathlib.Path(__file__).resolve().parent / "golden" / "fixture"
-
-
-# ---------------------------------------------------------------------------
-# pytest fixture: --update-golden flag
-# ---------------------------------------------------------------------------
+_PATH_RE = re.compile(r'fopen\("([^"]+)"')
 
 
 @pytest.fixture
@@ -53,139 +39,162 @@ def update_golden(request):
     return request.config.getoption("--update-golden")
 
 
-# ---------------------------------------------------------------------------
-# Path normalisation
-# ---------------------------------------------------------------------------
+@pytest.fixture
+def matrix_fixture():
+    dense = numpy.array(
+        [
+            [1, 2, 3, 0, 0, 0],
+            [4, 5, 6, 0, 0, 0],
+            [7, 8, 9, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 2, 0],
+            [0, 0, 0, 0, 0, 3],
+        ],
+        dtype=float,
+    )
+    return scipy.sparse.csr_matrix(dense)
 
-# Matches absolute paths embedded via fopen() in generated C, e.g.:
-#   fopen("/tmp/.../test_matrix.vbrc", "r")
-#   fopen("/home/.../generated_vector_6.vector", "r")
-_PATH_RE = re.compile(r'fopen\("([^"]+)"')
+
+MIXED_DENSE_BLOCKS = [(0, 3, 0, 3), (3, 11, 3, 11)]
+
+
+def _mixed_dense_dispatch_matrix(include_sparse_remainder: bool) -> scipy.sparse.csr_matrix:
+    dense = numpy.zeros((11, 11), dtype=float)
+    dense[0:3, 0:3] = numpy.array(
+        [
+            [1, 2, 3],
+            [4, 5, 6],
+            [7, 8, 9],
+        ],
+        dtype=float,
+    )
+    dense[3:11, 3:11] = numpy.arange(1, 65, dtype=float).reshape(8, 8)
+    if include_sparse_remainder:
+        dense[0, 10] = 5.0
+        dense[1, 9] = 4.0
+        dense[2, 8] = 3.0
+        dense[8, 2] = 6.0
+        dense[9, 1] = 1.0
+        dense[10, 0] = 2.0
+    return scipy.sparse.csr_matrix(dense)
 
 
 def _normalize_c_source(source: str) -> str:
-    """Replace machine-specific absolute paths with stable placeholders."""
-    def _replace(m: re.Match) -> str:
-        path = m.group(1)
-        basename = os.path.basename(path)
-        return f'fopen("<PATH>/{basename}"'
+    def _replace(match: re.Match) -> str:
+        path = match.group(1)
+        return f'fopen("<PATH>/{os.path.basename(path)}"'
+
     return _PATH_RE.sub(_replace, source)
 
 
-# ---------------------------------------------------------------------------
-# Fixture: small matrix with one dense block + sparse remainder
-# ---------------------------------------------------------------------------
-
-@pytest.fixture
-def vbrc_fixture():
-    """Return VBRC arrays for a 6×6 matrix with a 3×3 dense block."""
-    dense = np.array([
-        [1, 2, 3, 0, 0, 0],
-        [4, 5, 6, 0, 0, 0],
-        [7, 8, 9, 0, 0, 0],
-        [0, 0, 0, 1, 0, 0],
-        [0, 0, 0, 0, 2, 0],
-        [0, 0, 0, 0, 0, 3],
-    ], dtype=float)
-    A = scipy.sparse.csc_matrix(dense)
-    dense_blocks = [(0, 3, 0, 3)]
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val = \
-        convert_sparse_to_vbrc_with_blocks(A, dense_blocks)
-    return {
-        "val": val, "indx": indx, "bindx": bindx,
-        "rpntr": rpntr, "cpntr": cpntr,
-        "bpntrb": bpntrb, "bpntre": bpntre,
-        "ublocks": ublocks,
-        "indptr": indptr, "indices": indices, "csr_val": csr_val,
-        "rows": 6, "cols": 6,
-    }
+def _write_vector(path: pathlib.Path, size: int) -> None:
+    path.write_text(",".join(["1.0"] * size) + "\n")
 
 
-# ---------------------------------------------------------------------------
-# Codegen variants to test
-# ---------------------------------------------------------------------------
+def _write_matrix(path: pathlib.Path, rows: int, cols: int) -> None:
+    path.write_text(",".join(["1.0"] * (rows * cols)) + "\n")
+
 
 CODEGEN_VARIANTS = {
-    # SpMV: naive / mixed / mkl dense backends.
-    "spmv_naive_naive": gen_single_threaded_spmv_naive_naive,
-    "spmv_naive_spv8": gen_single_threaded_spmv_naive_spv8,
-    "spmv_mixed_mkl": gen_single_threaded_spmv_mixed_mkl,
-    "spmv_mixed_naive": gen_single_threaded_spmv_mixed_naive,
-    "spmv_mkl_naive": gen_single_threaded_spmv_mkl_naive,
-    # SpMM: naive / mixed / mkl dense backends.
-    "spmm_naive_naive": gen_single_threaded_spmm_naive_naive,
-    "spmm_naive_spreg": gen_single_threaded_spmm_naive_spreg,
-    "spmm_mixed_naive": gen_single_threaded_spmm_mixed_naive,
-    "spmm_mixed_spreg": gen_single_threaded_spmm_mixed_spreg,
-    "spmm_mkl_naive": gen_single_threaded_spmm_mkl_naive,
-    "spmm_mkl_spreg": gen_single_threaded_spmm_mkl_spreg,
+    "spmv_naive_naive": ("split", 1, NaiveVBRSpmv, NaiveCSRSpmv),
+    "spmv_naive_spv8": ("split", 1, NaiveVBRSpmv, SPV8CSRSpmv),
+    "spmv_mixed_mkl": ("split", 1, MixedVBRSpmv, MKLCSRSpmv),
+    "spmv_mixed_naive": ("split", 1, MixedVBRSpmv, NaiveCSRSpmv),
+    "spmv_mkl_naive": ("split", 1, MKLVBRSpmv, NaiveCSRSpmv),
+    "spmv_naive_fully_dense": ("fully_dense", 1, NaiveVBRSpmv, None),
+    "spmv_mkl_fully_dense": ("fully_dense", 1, MKLVBRSpmv, None),
+    "spmv_mixed_fully_dense": ("fully_dense", 1, MixedVBRSpmv, None),
+    "spmv_naive_fully_sparse": ("fully_sparse", 1, None, NaiveCSRSpmv),
+    "spmv_mkl_fully_sparse": ("fully_sparse", 1, None, MKLCSRSpmv),
+    "spmv_spv8_fully_sparse": ("fully_sparse", 1, None, SPV8CSRSpmv),
+    "spmm_naive_naive": ("split", 2, NaiveVBRSpmm, NaiveCSRSpmm),
+    "spmm_naive_spreg": ("split", 2, NaiveVBRSpmm, SPRegCSRSpmm),
+    "spmm_mixed_naive": ("split", 2, MixedVBRSpmm, NaiveCSRSpmm),
+    "spmm_mixed_spreg": ("split", 2, MixedVBRSpmm, SPRegCSRSpmm),
+    "spmm_mkl_naive": ("split", 2, MKLVBRSpmm, NaiveCSRSpmm),
+    "spmm_mkl_spreg": ("split", 2, MKLVBRSpmm, SPRegCSRSpmm),
+    "spmm_naive_fully_dense": ("fully_dense", 2, NaiveVBRSpmm, None),
+    "spmm_mkl_fully_dense": ("fully_dense", 2, MKLVBRSpmm, None),
+    "spmm_mixed_fully_dense": ("fully_dense", 2, MixedVBRSpmm, None),
+    "spmm_naive_fully_sparse": ("fully_sparse", 2, None, NaiveCSRSpmm),
+    "spmm_mkl_fully_sparse": ("fully_sparse", 2, None, MKLCSRSpmm),
+    "spmm_spreg_fully_sparse": ("fully_sparse", 2, None, SPRegCSRSpmm),
 }
 
 
-def _generate_c(gen_func, vbrc_data, tmpdir: str) -> str:
-    """Call a codegen function and return the normalised C source."""
-    vbr_dir = tmpdir
-    codegen_dir = os.path.join(tmpdir, "codegen")
-    os.makedirs(codegen_dir, exist_ok=True)
+def _generate_c(variant: str, A: scipy.sparse.csr_matrix, tmpdir: pathlib.Path) -> str:
+    fixture_kind, rhs_rank, dense_kernel_type, sparse_kernel_type = CODEGEN_VARIANTS[variant]
+    mixed_dense_dispatch = dense_kernel_type in {MixedVBRSpmv, MixedVBRSpmm}
+    if mixed_dense_dispatch:
+        A = _mixed_dense_dispatch_matrix(include_sparse_remainder=fixture_kind == "split")
+    elif fixture_kind == "fully_dense":
+        A = scipy.sparse.csr_matrix(
+            numpy.array(
+                [
+                    [1, 2, 3],
+                    [4, 5, 6],
+                    [7, 8, 9],
+                ],
+                dtype=float,
+            )
+        )
+    plan = Plan(Matrix(A, name="fixture"), artifact_dir=str(tmpdir / "codegen"))
 
-    _write_vbrc_file(
-        "fixture", vbr_dir,
-        vbrc_data["val"], vbrc_data["indx"], vbrc_data["bindx"],
-        vbrc_data["rpntr"], vbrc_data["cpntr"],
-        vbrc_data["bpntrb"], vbrc_data["bpntre"],
-        vbrc_data["ublocks"],
-        vbrc_data["indptr"], vbrc_data["indices"], vbrc_data["csr_val"],
-    )
-    write_dense_vector(1.0, vbrc_data["cols"])
+    if rhs_rank == 1:
+        rhs_path = tmpdir / "x.vector"
+        _write_vector(rhs_path, A.shape[1])
+        plan.rhs(DenseInput.vector(str(rhs_path), A.shape[1]))
+    else:
+        rhs_path = tmpdir / "x.matrix"
+        _write_matrix(rhs_path, A.shape[1], 512)
+        plan.rhs(
+            DenseInput.matrix(
+                str(rhs_path),
+                shape=(A.shape[1], 512),
+                layout=DenseLayout.ROW_MAJOR,
+            )
+        )
 
-    gen_func(
-        vbrc_data["val"], vbrc_data["indx"], vbrc_data["bindx"],
-        vbrc_data["rpntr"], vbrc_data["cpntr"],
-        vbrc_data["bpntrb"], vbrc_data["bpntre"],
-        vbrc_data["ublocks"],
-        vbrc_data["indptr"], vbrc_data["indices"], vbrc_data["csr_val"],
-        codegen_dir, "fixture", vbr_dir, bench=1,
-    )
+    if fixture_kind in {"split", "fully_dense"}:
+        if mixed_dense_dispatch:
+            blocks = MIXED_DENSE_BLOCKS
+        else:
+            blocks = [(0, 3, 0, 3)] if fixture_kind == "split" else [(0, A.shape[0], 0, A.shape[1])]
+        vbr = plan.extract(BlockDetectorSkip(blocks=blocks))
+        plan.dispatch(vbr, dense_kernel_type())
+    if fixture_kind in {"split", "fully_sparse"}:
+        csr = plan.extract(CSRConvertor())
+        plan.dispatch(csr, sparse_kernel_type())
 
-    c_path = os.path.join(codegen_dir, "fixture.c")
-    with open(c_path) as f:
-        return _normalize_c_source(f.read())
+    executor = plan.compile(filename="fixture", bench=1)
+    return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
 
-
-# ---------------------------------------------------------------------------
-# Parametrised golden test
-# ---------------------------------------------------------------------------
 
 @pytest.mark.parametrize("variant", list(CODEGEN_VARIANTS))
-def test_codegen_golden(variant, vbrc_fixture, update_golden, tmp_path):
-    gen_func = CODEGEN_VARIANTS[variant]
-    actual = _generate_c(gen_func, vbrc_fixture, str(tmp_path))
-
+def test_codegen_golden(variant, matrix_fixture, update_golden, tmp_path):
+    actual = _generate_c(variant, matrix_fixture, tmp_path)
     golden_path = GOLDEN_DIR / f"{variant}.c"
 
     if update_golden:
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_text(actual)
         pytest.skip(f"Golden file updated: {golden_path}")
-    else:
-        if not golden_path.exists():
-            pytest.fail(
-                f"Golden file {golden_path} does not exist.  "
-                f"Run with --update-golden to create it."
-            )
-        expected = golden_path.read_text()
-        if actual != expected:
-            # Show a useful diff
-            import difflib
-            diff = difflib.unified_diff(
-                expected.splitlines(keepends=True),
-                actual.splitlines(keepends=True),
-                fromfile=f"golden/{variant}.c",
-                tofile=f"actual/{variant}.c",
-            )
-            diff_text = "".join(diff)
-            pytest.fail(
-                f"Codegen output for {variant!r} differs from golden file.\n"
-                f"Run with --update-golden to accept the new output.\n\n"
-                f"{diff_text}"
-            )
+
+    if not golden_path.exists():
+        pytest.fail(f"Golden file {golden_path} does not exist. Run with --update-golden to create it.")
+
+    expected = golden_path.read_text()
+    if actual != expected:
+        import difflib
+
+        diff = difflib.unified_diff(
+            expected.splitlines(keepends=True),
+            actual.splitlines(keepends=True),
+            fromfile=f"golden/{variant}.c",
+            tofile=f"actual/{variant}.c",
+        )
+        pytest.fail(
+            f"Codegen output for {variant!r} differs from golden file.\n"
+            f"Run with --update-golden to accept the new output.\n\n"
+            f"{''.join(diff)}"
+        )

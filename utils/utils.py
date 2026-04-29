@@ -1,4 +1,3 @@
-import os
 import resource
 import signal
 import numpy as np

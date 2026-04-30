@@ -1,6 +1,5 @@
 import os
 import pathlib
-import subprocess
 
 import numpy
 import pytest
@@ -91,13 +90,36 @@ def _extract_mixed_dense_vbr(plan: Plan):
     return vbr
 
 
+def _cpu_flags() -> set[str]:
+    try:
+        with open("/proc/cpuinfo", encoding="utf-8") as cpuinfo:
+            for line in cpuinfo:
+                if line.startswith("flags"):
+                    _, flags = line.split(":", 1)
+                    return set(flags.split())
+    except OSError:
+        return set()
+    return set()
+
+
+def _has_cpu_flags(*flags: str) -> bool:
+    cpu_flags = _cpu_flags()
+    return all(flag in cpu_flags for flag in flags)
+
+
 def _check_avx512_support():
     """Check if AVX512 is supported on this CPU."""
-    result = subprocess.run(
-        ["grep", "-c", "avx512", "/proc/cpuinfo"],
-        capture_output=True, text=True
-    )
-    return result.returncode == 0 and int(result.stdout.strip()) > 0
+    return _has_cpu_flags("avx512f")
+
+
+def _require_spv8_toolchain():
+    if not os.path.isfile(os.path.join(BASE_PATH, "spv8-public", "bin", "spmv_spv8.o")):
+        pytest.skip("SPV8 object not built")
+    required_flags = ("avx512f", "avx512vl", "fma")
+    cpu_flags = _cpu_flags()
+    missing_flags = [flag for flag in required_flags if flag not in cpu_flags]
+    if missing_flags:
+        pytest.skip(f"SPV8 requires CPU flags: {', '.join(missing_flags)}")
 
 
 def _require_uzp_toolchain():
@@ -210,8 +232,7 @@ def test_spmv_single_threaded_naive_mkl():
 
 def test_spmv_single_threaded_naive_spv8():
     """Test SpMV with handwritten VBR dense dispatch + SPV8 CSR sparse dispatch."""
-    if not os.path.isfile(os.path.join(BASE_PATH, "spv8-public", "bin", "spmv_spv8.o")):
-        pytest.skip("SPV8 object not built")
+    _require_spv8_toolchain()
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     filename = "spmv_single_threaded_naive_spv8"
     matrix = Matrix(mtx_path, name=filename)
@@ -288,8 +309,7 @@ def test_spmv_single_threaded_mkl_fully_sparse():
 
 def test_spmv_single_threaded_spv8_fully_sparse():
     """Test SpMV with SPV8 CSR sparse dispatch and no dense blocks."""
-    if not os.path.isfile(os.path.join(BASE_PATH, "spv8-public", "bin", "spmv_spv8.o")):
-        pytest.skip("SPV8 object not built")
+    _require_spv8_toolchain()
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     filename = "spmv_single_threaded_spv8_fully_sparse"
     matrix = Matrix(mtx_path, name=filename)
@@ -385,8 +405,7 @@ def test_spmv_single_threaded_mkl_spv8():
     """Test SpMV with MKL VBR dense dispatch + SPV8 CSR sparse dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    if not os.path.isfile(os.path.join(BASE_PATH, "spv8-public", "bin", "spmv_spv8.o")):
-        pytest.skip("SPV8 object not built")
+    _require_spv8_toolchain()
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
     filename = "spmv_single_threaded_mkl_spv8"
     matrix = Matrix(mtx_path, name=filename)
@@ -506,8 +525,7 @@ def test_spmv_single_threaded_mixed_spv8():
     """Test SpMV with mixed VBR dense dispatch + SPV8 CSR sparse dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    if not os.path.isfile(os.path.join(BASE_PATH, "spv8-public", "bin", "spmv_spv8.o")):
-        pytest.skip("SPV8 object not built")
+    _require_spv8_toolchain()
     filename = "spmv_single_threaded_mixed_spv8"
     matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
     cols = matrix.ncols

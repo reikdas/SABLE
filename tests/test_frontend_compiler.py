@@ -139,8 +139,9 @@ def test_spv8_kernel_contributes_object_and_include_flags(tmp_path):
 def test_uzp_kernel_contributes_sources_and_flags(tmp_path):
     matrix = Matrix(scipy.sparse.eye(2, format="csr"), name="uzp_flags")
     plan = Plan(matrix, artifact_dir=str(tmp_path))
+    kernel = UZPCSRSpmv()
     csr = plan.extract(CSRConvertor())
-    plan.dispatch(csr, UZPCSRSpmv())
+    plan.dispatch(csr, kernel)
 
     command = sable.compiler.build_compile_command_for_plan(plan, "input.c", "output")
 
@@ -152,6 +153,7 @@ def test_uzp_kernel_contributes_sources_and_flags(tmp_path):
     assert any(flag.endswith("uzp-genex") for flag in command if flag.startswith("-I"))
     assert "-DGEN_EXECUTOR_SPMV_ORIGINAL" in command
     assert "-lm" in command
+    assert kernel.runtime_env() == {"OMP_NUM_THREADS": "1"}
 
 
 def test_block_detector_skip_packs_vbr_and_tracks_csr_remainder():

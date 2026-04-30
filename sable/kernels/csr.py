@@ -253,7 +253,8 @@ class UZPCSRSpmv(SpmvKernel):
         return ["-lm"]
 
     def runtime_env(self) -> dict[str, str]:
-        return {}
+        # The vendored unincorporated-point executor mutates a shared data index.
+        return {"OMP_NUM_THREADS": "1"}
 
     def emit_includes(self) -> list[str]:
         return ['#include "spf_structure.h"', '#include "spf_executors.h"']

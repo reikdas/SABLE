@@ -33,6 +33,7 @@ class CompiledExecutor:
     codegen_time_ms: int
     plan: Plan
     runtime_env: dict[str, str]
+    runtime_cwd: str | None = None
     binary_path: str | None = None
     compile_command: list[str] | None = None
 
@@ -50,7 +51,7 @@ class CompiledExecutor:
             self.build()
         output = subprocess.check_output(
             [self.binary_path],
-            cwd=self.artifact_dir,
+            cwd=self.runtime_cwd or self.artifact_dir,
             env=_runtime_env(self.compile_command or [], self.runtime_env),
         )
         return output.decode("utf-8")
@@ -284,11 +285,14 @@ def build_compile_command_for_plan(plan: Plan, c_path: str, output_path: str) ->
         compile_flags.extend(_kernel_list(dispatch.kernel, "compile_flags"))
         link_flags.extend(_kernel_list(dispatch.kernel, "link_flags"))
 
+    reset_language = ["-x", "none"] if "-x" in pre_source_flags else []
+
     return (
         [compiler]
         + _dedupe(pre_source_flags)
         + [os.path.abspath(c_path)]
         + _dedupe(source_files)
+        + reset_language
         + ["-o", os.path.abspath(output_path)]
         + list(CFLAGS)
         + _dedupe(compile_flags)
@@ -301,6 +305,19 @@ def _collect_runtime_env(plan: Plan) -> dict[str, str]:
     for dispatch in plan.dispatches:
         env.update(_kernel_dict(dispatch.kernel, "runtime_env"))
     return env
+
+
+def _collect_runtime_cwd(plan: Plan) -> str | None:
+    runtime_cwd: str | None = None
+    for dispatch in plan.dispatches:
+        cwd = _kernel_value(dispatch.kernel, "runtime_cwd")
+        if cwd is None:
+            continue
+        cwd = os.path.abspath(str(cwd))
+        if runtime_cwd is not None and runtime_cwd != cwd:
+            raise ValueError(f"Conflicting runtime working directories: {runtime_cwd} and {cwd}")
+        runtime_cwd = cwd
+    return runtime_cwd
 
 
 def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: int) -> str:
@@ -479,4 +496,5 @@ def compile(plan: Plan, filename: str | None = None, bench: int = 5, threads: in
         codegen_time_ms=end - start,
         plan=plan,
         runtime_env=_collect_runtime_env(plan),
+        runtime_cwd=_collect_runtime_cwd(plan),
     )

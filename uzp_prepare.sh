@@ -49,7 +49,10 @@ fi
 
 # Step 2: Build spf_aggregator if needed, then tune
 if [ ! -f "${UZP_BASE}.tuned.uzp" ]; then
-    make -C "$UZP_ARTIFACT_DIR/uzp-tuners" spf_aggregator 2>/dev/null
+    make -C "$UZP_ARTIFACT_DIR/uzp-tuners" \
+        spf_aggregator \
+        GCC="${CC:-gcc}" \
+        GCC_OMP="${CC:-gcc} -fopenmp"
     "$UZP_ARTIFACT_DIR/uzp-tuners/spf_aggregator" \
         "${UZP_BASE}.1d.uzp" "${UZP_BASE}.tuned.uzp"
 fi

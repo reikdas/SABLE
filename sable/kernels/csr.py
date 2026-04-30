@@ -32,7 +32,12 @@ def _empty_dict() -> dict[str, str]:
     return {}
 
 
+_SPREG_LIB = os.path.join(_SPREG_BASE, "build", "libspreg.a")
+
+
 def _spreg_source_files() -> list[str]:
+    if os.path.isfile(_SPREG_LIB):
+        return []
     generated_dir = os.path.join(_SPREG_BASE, "generated")
     return [
         os.path.join(_SPREG_BASE, "src", "cake_block_dims.cpp"),
@@ -423,10 +428,17 @@ class SPRegCSRSpmm(SpmmKernel):
         ]
 
     def link_flags(self) -> list[str]:
-        return ["-lstdc++fs"]
+        flags = []
+        if os.path.isfile(_SPREG_LIB):
+            flags.append(_SPREG_LIB)
+        flags.append("-lstdc++fs")
+        return flags
 
     def runtime_env(self) -> dict[str, str]:
         return {}
+
+    def runtime_cwd(self) -> str:
+        return _SPREG_BASE
 
     def emit_includes(self) -> list[str]:
         if self.threads != 1:

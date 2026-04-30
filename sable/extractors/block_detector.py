@@ -86,7 +86,7 @@ def find_dense_blocks(
     partitioner_path: str | os.PathLike[str] | None = None,
 ) -> list[Block]:
     partitioner = _ensure_partitioner(partitioner_path)
-    with tempfile.TemporaryDirectory(prefix="sable-block-detector-", dir="/tmp") as tmp_dir:
+    with tempfile.TemporaryDirectory(prefix="sable-block-detector-") as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
         matrix_path = tmp_path / f"{A.name}.mtx"
         output_path = tmp_path / f"{A.name}.yaml"

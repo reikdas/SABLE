@@ -113,7 +113,13 @@ def test_spreg_kernel_contributes_cxx_build_requirements(tmp_path):
 
     assert command[0] == "g++"
     assert command[1:3] == ["-x", "c++"]
-    assert any(path.endswith("spmm_spreg_wrapper.cpp") for path in command)
+    assert any(path.endswith("libspreg.a") for path in command) or any(
+        path.endswith("spmm_spreg_wrapper.cpp") for path in command
+    )
+    if any(path.endswith("libspreg.a") for path in command):
+        lib_index = next(i for i, path in enumerate(command) if path.endswith("libspreg.a"))
+        reset_index = next(i for i in range(len(command) - 1) if command[i : i + 2] == ["-x", "none"])
+        assert reset_index < lib_index
     assert "-DENABLE_AVX512" in command
 
 

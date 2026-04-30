@@ -233,13 +233,13 @@ To benchmark, run `bench_suitesparse.py`.
 
 ### Quick tests (no MKL / hardware dependencies)
 
-These tests verify the benchmarking infrastructure itself — compiler flag
+These tests verify the benchmarking infrastructure itself — frontend compiler
 assembly and C code generation — without running any actual sparse
 computations.  They run in seconds and need only Python + pytest:
 
 ```bash
-# Compiler-flag unit tests (all Backend × DenseKernel combinations)
-python3 -m pytest tests/test_compile_flags.py -v
+# Frontend compiler unit tests, including kernel build requirements
+python3 -m pytest tests/test_frontend_compiler.py -v
 
 # Codegen golden tests (compares generated C against stored references)
 python3 -m pytest tests/test_codegen_golden.py -v

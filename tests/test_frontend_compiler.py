@@ -8,7 +8,7 @@ import sable.compiler
 from sable import Matrix, Operation, Plan
 from sable.extractors import BlockDetectorSkip, CSRConvertor
 from sable.formats import CSR
-from sable.kernels import SPRegCSRSpmm, SPV8CSRSpmv
+from sable.kernels import SPRegCSRSpmm, SPV8CSRSpmv, UZPCSRSpmv
 from sable.tensor import DenseInput
 
 
@@ -128,6 +128,24 @@ def test_spv8_kernel_contributes_object_and_include_flags(tmp_path):
     assert command[0] == "gcc"
     assert any(path.endswith("spmv_spv8.o") for path in command)
     assert any(flag.endswith("spv8-public/src") for flag in command if flag.startswith("-I"))
+
+
+def test_uzp_kernel_contributes_sources_and_flags(tmp_path):
+    matrix = Matrix(scipy.sparse.eye(2, format="csr"), name="uzp_flags")
+    plan = Plan(matrix, artifact_dir=str(tmp_path))
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, UZPCSRSpmv())
+
+    command = sable.compiler.build_compile_command_for_plan(plan, "input.c", "output")
+
+    assert command[0] == "gcc"
+    assert any(path.endswith("uzp-genex/polybench.c") for path in command)
+    assert any(path.endswith("uzp-genex/spf_structure.c") for path in command)
+    assert any(path.endswith("uzp-genex/spf_executors.c") for path in command)
+    assert any(path.endswith("uzp-genex/spf_executors_uninc.c") for path in command)
+    assert any(flag.endswith("uzp-genex") for flag in command if flag.startswith("-I"))
+    assert "-DGEN_EXECUTOR_SPMV_ORIGINAL" in command
+    assert "-lm" in command
 
 
 def test_block_detector_skip_packs_vbr_and_tracks_csr_remainder():

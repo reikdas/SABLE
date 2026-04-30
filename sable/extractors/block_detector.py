@@ -7,11 +7,12 @@ import tempfile
 
 import scipy.io
 
-from utils.convert_real_to_vbr import convert_sparse_to_vbrc_with_blocks
 from utils.fileio import parse_yaml_blocks
 
 from sable.formats import Rep, VBR
 from sable.matrix import ResidualMatrix
+
+from .vbr_packing import convert_sparse_to_vbrc_with_blocks
 
 
 Block = tuple[int, int, int, int]

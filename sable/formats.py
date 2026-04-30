@@ -39,7 +39,7 @@ class VBR(Format):
     cpntr: Rep[int]
     bpntrb: Rep[int]
     bpntre: Rep[int]
-    # Compatibility metadata for the current src.codegen lowering.
+    # Block metadata used to skip entries handled by sparse residual kernels.
     ublocks: Rep[int]
     blocks: list[tuple[int, int, int, int]]
 

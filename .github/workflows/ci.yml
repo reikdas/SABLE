@@ -32,7 +32,7 @@ jobs:
 
     - name: Run unit & golden tests
       run: |
-        python3 -m pytest tests/test_compile_flags.py tests/test_codegen_golden.py -v
+        python3 -m pytest tests/test_frontend_compiler.py tests/test_codegen_golden.py -v
 
   # ── Full integration tests ────────────────────────────────────────────
   # Compiles and runs generated C code.  Needs GCC, MKL, built submodules.

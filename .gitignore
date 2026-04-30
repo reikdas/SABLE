@@ -65,6 +65,8 @@ tests/example3_uzp_blas
 tests/example3_uzp_blas.c
 tests/example3_uzp_blas.vbrc
 tests/Franz8.vbr
+tests/csr_indptr_input_*
+tests/csr_indptr_tmp_*
 Suitesparse*/
 mat_dist*.csv
 *.o

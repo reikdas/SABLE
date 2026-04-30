@@ -23,6 +23,7 @@ from sable.kernels import (
     NaiveVBRSpmv,
     SPRegCSRSpmm,
     SPV8CSRSpmv,
+    UZPCSRSpmv,
 )
 from sable.tensor import DenseInput, DenseLayout
 
@@ -97,6 +98,13 @@ def _check_avx512_support():
         capture_output=True, text=True
     )
     return result.returncode == 0 and int(result.stdout.strip()) > 0
+
+
+def _require_uzp_toolchain():
+    if not os.path.isfile(os.path.join(BASE_PATH, "uzp_prepare.sh")):
+        pytest.skip("UZP prepare script not available")
+    if not os.path.isdir(os.path.join(BASE_PATH, "uzp-artifact")):
+        pytest.skip("UZP artifact not available")
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +309,28 @@ def test_spmv_single_threaded_spv8_fully_sparse():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
+def test_spmv_single_threaded_uzp_fully_sparse():
+    """Test SpMV with UZP CSR sparse dispatch and no dense blocks."""
+    _require_uzp_toolchain()
+    mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
+    filename = "spmv_single_threaded_uzp_fully_sparse"
+    matrix = Matrix(mtx_path, name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    csr = plan.extract(CSRConvertor())
+    assert plan.residual.nnz == 0
+    plan.dispatch(csr, UZPCSRSpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = matrix.to_scipy().dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
 def test_spmv_single_threaded_mkl_naive():
     """Test SpMV with MKL VBR dense dispatch + handwritten CSR sparse dispatch."""
     if not MKL_AVAILABLE:
@@ -370,6 +400,30 @@ def test_spmv_single_threaded_mkl_spv8():
     plan.dispatch(vbr, MKLVBRSpmv())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, SPV8CSRSpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = matrix.to_scipy().dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmv_single_threaded_naive_uzp():
+    """Test SpMV with handwritten VBR dense dispatch + UZP CSR sparse dispatch."""
+    _require_uzp_toolchain()
+    mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
+    filename = "spmv_single_threaded_naive_uzp"
+    matrix = Matrix(mtx_path, name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
+    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    plan.dispatch(vbr, NaiveVBRSpmv())
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, UZPCSRSpmv())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
     result_lines = _numeric_result_lines(output)
@@ -466,6 +520,31 @@ def test_spmv_single_threaded_mixed_spv8():
     csr = plan.extract(CSRConvertor())
     assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ
     plan.dispatch(csr, SPV8CSRSpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = matrix.to_scipy().dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmv_single_threaded_mixed_uzp():
+    """Test SpMV with mixed VBR dense dispatch + UZP CSR sparse dispatch."""
+    _require_uzp_toolchain()
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
+    filename = "spmv_single_threaded_mixed_uzp"
+    matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    vbr = _extract_mixed_dense_vbr(plan)
+    plan.dispatch(vbr, MixedVBRSpmv())
+    csr = plan.extract(CSRConvertor())
+    assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ
+    plan.dispatch(csr, UZPCSRSpmv())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
     result_lines = _numeric_result_lines(output)

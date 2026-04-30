@@ -6,6 +6,7 @@ from .csr import (
     NaiveCSRSpmv,
     SPRegCSRSpmm,
     SPV8CSRSpmv,
+    UZPCSRSpmv,
 )
 from .vbr import (
     MKLVBRSpmm,
@@ -26,6 +27,7 @@ __all__ = [
     "NaiveCSRSpmm",
     "NaiveCSRSpmv",
     "SPRegCSRSpmm",
+    "UZPCSRSpmv",
     "NaiveVBRSpmm",
     "NaiveVBRSpmv",
     "SpmmKernel",

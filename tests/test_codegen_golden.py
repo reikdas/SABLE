@@ -27,6 +27,7 @@ from sable.kernels import (
     NaiveVBRSpmv,
     SPRegCSRSpmm,
     SPV8CSRSpmv,
+    UZPCSRSpmv,
 )
 from sable.tensor import DenseInput, DenseLayout
 
@@ -80,6 +81,8 @@ def _mixed_dense_dispatch_matrix(include_sparse_remainder: bool) -> scipy.sparse
 
 
 def _normalize_c_source(source: str) -> str:
+    source = source.replace(str(pathlib.Path(__file__).resolve().parents[1]), "<REPO>")
+
     def _replace(match: re.Match) -> str:
         path = match.group(1)
         return f'fopen("<PATH>/{os.path.basename(path)}"'
@@ -98,8 +101,10 @@ def _write_matrix(path: pathlib.Path, rows: int, cols: int) -> None:
 CODEGEN_VARIANTS = {
     "spmv_naive_naive": ("split", 1, NaiveVBRSpmv, NaiveCSRSpmv),
     "spmv_naive_spv8": ("split", 1, NaiveVBRSpmv, SPV8CSRSpmv),
+    "spmv_naive_uzp": ("split", 1, NaiveVBRSpmv, UZPCSRSpmv),
     "spmv_mixed_mkl": ("split", 1, MixedVBRSpmv, MKLCSRSpmv),
     "spmv_mixed_naive": ("split", 1, MixedVBRSpmv, NaiveCSRSpmv),
+    "spmv_mixed_uzp": ("split", 1, MixedVBRSpmv, UZPCSRSpmv),
     "spmv_mkl_naive": ("split", 1, MKLVBRSpmv, NaiveCSRSpmv),
     "spmv_naive_fully_dense": ("fully_dense", 1, NaiveVBRSpmv, None),
     "spmv_mkl_fully_dense": ("fully_dense", 1, MKLVBRSpmv, None),
@@ -107,6 +112,7 @@ CODEGEN_VARIANTS = {
     "spmv_naive_fully_sparse": ("fully_sparse", 1, None, NaiveCSRSpmv),
     "spmv_mkl_fully_sparse": ("fully_sparse", 1, None, MKLCSRSpmv),
     "spmv_spv8_fully_sparse": ("fully_sparse", 1, None, SPV8CSRSpmv),
+    "spmv_uzp_fully_sparse": ("fully_sparse", 1, None, UZPCSRSpmv),
     "spmm_naive_naive": ("split", 2, NaiveVBRSpmm, NaiveCSRSpmm),
     "spmm_naive_spreg": ("split", 2, NaiveVBRSpmm, SPRegCSRSpmm),
     "spmm_mixed_naive": ("split", 2, MixedVBRSpmm, NaiveCSRSpmm),

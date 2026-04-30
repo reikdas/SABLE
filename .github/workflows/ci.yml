@@ -62,5 +62,11 @@ jobs:
         python3 -m pip install --upgrade pip
         python3 -m pip install -r requirements.txt
 
+    - name: Build optional native kernels
+      run: |
+        make -C spv8-public
+        cd sparse-register-tiling/spmm_nano_kernels
+        python3 -m codegen.generate_ukernels
+
     - name: Run integration tests
       run: python3 -m pytest test.py -v

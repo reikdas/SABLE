@@ -46,6 +46,7 @@ from sable.kernels import (
     NaiveVBRSpmv,
     SPRegCSRSpmm,
     SPV8CSRSpmv,
+    UZPCSRSpmv,
 )
 from sable.tensor import DenseInput, DenseLayout
 from utils.fileio import parse_yaml_blocks, write_dense_matrix, write_dense_vector
@@ -61,7 +62,7 @@ DEFAULT_SPMM_BENCH_ITERATIONS = 10
 PHYSICAL_CORES = list(range(os.cpu_count() or 20))
 SPMM_NRHS = 512
 
-SPMV_SPARSE_KERNELS = (SparseKernel.NAIVE, SparseKernel.MKL, SparseKernel.SPV8)
+SPMV_SPARSE_KERNELS = (SparseKernel.NAIVE, SparseKernel.MKL, SparseKernel.SPV8, SparseKernel.UZP)
 SPMM_SPARSE_KERNELS = ("naive", "mkl", "spreg")
 
 SUITESPARSE_DIR = FILEPATH / "Suitesparse"
@@ -258,6 +259,8 @@ def _sparse_spmv_kernel(sparse_kernel: SparseKernel):
         return MKLCSRSpmv()
     if sparse_kernel == SparseKernel.SPV8:
         return SPV8CSRSpmv()
+    if sparse_kernel == SparseKernel.UZP:
+        return UZPCSRSpmv()
     if sparse_kernel == SparseKernel.NAIVE:
         return NaiveCSRSpmv()
     raise ValueError(f"{sparse_kernel.value} is not a frontend SpMV sparse kernel")
@@ -642,7 +645,7 @@ def main() -> int:
                         help=f"Benchmark iterations (default: {DEFAULT_SPMV_BENCH_ITERATIONS} for spmv, {DEFAULT_SPMM_BENCH_ITERATIONS} for spmm)")
     parser.add_argument("--output-dir", type=str, default="results")
     parser.add_argument("--sparse", type=str, default="all",
-                        help="SpMV: naive,spv8,mkl. SpMM: naive,mkl,spreg. Invalid names silently skipped per operation.")
+                        help="SpMV: naive,spv8,mkl,uzp. SpMM: naive,mkl,spreg. Invalid names silently skipped per operation.")
     parser.add_argument("--dense", type=str, default="all", help="naive, mixed, mkl, all, or comma-separated")
     parser.add_argument("--threads", type=str, default="1")
     args = parser.parse_args()

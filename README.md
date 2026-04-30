@@ -223,7 +223,7 @@ cd ../..
 ### 6. Configuration
 
 Shared compiler flags and MKL discovery live in `sable/build_config.py`.
-`src/consts.py` only remains for the legacy UZP compile path.
+UZP, SPV8, MKL, and naive SpMV sparse dispatches are exposed through the frontend kernel API.
 
 ### 7. Running Benchmarks
 

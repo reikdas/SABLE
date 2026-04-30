@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import glob
+import hashlib
 import os
 
 from sable.formats import CSR
@@ -11,6 +12,8 @@ from sable.kernels.base import SpmmKernel, SpmvKernel
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _SPREG_BASE = os.path.join(_REPO_ROOT, "sparse-register-tiling", "spmm_nano_kernels")
 _SPV8_BASE = os.path.join(_REPO_ROOT, "spv8-public")
+_UZP_GENEX_DIR = os.path.join(_REPO_ROOT, "uzp-artifact", "spmv-executors", "uzp-genex")
+_UZP_PREPARE_SCRIPT = os.path.join(_REPO_ROOT, "uzp_prepare.sh")
 
 
 def _mkl_compile_flags() -> list[str]:
@@ -63,6 +66,24 @@ def _spreg_name(fmt: CSR, suffix: str) -> str:
 def _spv8_name(fmt: CSR, suffix: str) -> str:
     base = str(fmt.indptr) or "csr"
     return f"{base}_{suffix}"
+
+
+def _uzp_name(fmt: CSR, suffix: str) -> str:
+    base = str(fmt.indptr) or "csr"
+    return f"{base}_{suffix}"
+
+
+def _c_string(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _uzp_fingerprint(fmt: CSR) -> str:
+    digest = hashlib.sha1()
+    digest.update(f"{fmt.nrows},{fmt.ncols},{fmt.nnz};".encode("ascii"))
+    for rep in (fmt.indptr, fmt.indices, fmt.values):
+        digest.update(",".join(map(str, rep.values)).encode("ascii"))
+        digest.update(b";")
+    return digest.hexdigest()[:12]
 
 
 class NaiveCSRSpmv(SpmvKernel):
@@ -207,6 +228,90 @@ free({tr}.spvv8_len);
 destroy_matrix(&{tr}.mat);
 destroy_matrix(&{mat});
 """
+
+
+class UZPCSRSpmv(SpmvKernel):
+    accepts = CSR
+
+    def source_files(self) -> list[str]:
+        return [
+            os.path.join(_UZP_GENEX_DIR, "polybench.c"),
+            os.path.join(_UZP_GENEX_DIR, "spf_structure.c"),
+            os.path.join(_UZP_GENEX_DIR, "spf_executors.c"),
+            os.path.join(_UZP_GENEX_DIR, "spf_executors_uninc.c"),
+        ]
+
+    def compile_flags(self) -> list[str]:
+        return [f"-I{_UZP_GENEX_DIR}", "-DGEN_EXECUTOR_SPMV_ORIGINAL"]
+
+    def link_flags(self) -> list[str]:
+        return ["-lm"]
+
+    def runtime_env(self) -> dict[str, str]:
+        return {}
+
+    def emit_includes(self) -> list[str]:
+        return ['#include "spf_structure.h"', '#include "spf_executors.h"']
+
+    def emit_helpers(self) -> str:
+        return r"""
+static void write_csr_matrix_market(
+    const char *path,
+    int nrows,
+    int ncols,
+    int nnz,
+    const int *indptr,
+    const int *indices,
+    const double *values
+) {
+    FILE *file = fopen(path, "w");
+    assert(file != NULL);
+    fprintf(file, "%%%%MatrixMarket matrix coordinate real general\n");
+    fprintf(file, "%d %d %d\n", nrows, ncols, nnz);
+    for (int row = 0; row < nrows; row++) {
+        for (int p = indptr[row]; p < indptr[row + 1]; p++) {
+            fprintf(file, "%d %d %.17g\n", row + 1, indices[p] + 1, values[p]);
+        }
+    }
+    fclose(file);
+}
+"""
+
+    def emit_setup(self, fmt: CSR, rhs) -> str:
+        if fmt.nnz == 0:
+            return ""
+        input_name = f"{_uzp_name(fmt, 'input')}_{_uzp_fingerprint(fmt)}"
+        mtx_path = f"{input_name}.mtx"
+        uzp_dir = f"{_uzp_name(fmt, 'tmp')}_{_uzp_fingerprint(fmt)}"
+        spf = _uzp_name(fmt, "spf_mat")
+        return f"""\
+char {_uzp_name(fmt, 'mtx_path')}[] = "{mtx_path}";
+char {_uzp_name(fmt, 'uzp_dir')}[] = "{uzp_dir}";
+write_csr_matrix_market({_uzp_name(fmt, 'mtx_path')}, {fmt.nrows}, {fmt.ncols}, {fmt.nnz},
+    {fmt.indptr}, {fmt.indices}, {fmt.values});
+char {_uzp_name(fmt, 'cmd')}[4096];
+snprintf({_uzp_name(fmt, 'cmd')}, sizeof({_uzp_name(fmt, 'cmd')}),
+    "\\"{_c_string(os.path.abspath(_UZP_PREPARE_SCRIPT))}\\" \\"%s\\" \\"%s\\"",
+    {_uzp_name(fmt, 'mtx_path')}, {_uzp_name(fmt, 'uzp_dir')});
+int {_uzp_name(fmt, 'rc')} = system({_uzp_name(fmt, 'cmd')});
+assert({_uzp_name(fmt, 'rc')} == 0);
+char {_uzp_name(fmt, 'path')}[1024];
+snprintf({_uzp_name(fmt, 'path')}, sizeof({_uzp_name(fmt, 'path')}), "%s/{input_name}.tuned.uzp",
+    {_uzp_name(fmt, 'uzp_dir')});
+s_spf_structure_t *{spf} = spf_matrix_read_from_file({_uzp_name(fmt, 'path')});
+assert({spf} != NULL);
+"""
+
+    def emit_call(self, fmt: CSR, y: str, x: str, rhs) -> str:
+        if fmt.nnz == 0:
+            return ""
+        spf = _uzp_name(fmt, "spf_mat")
+        return f"""\
+spf_executors_spf_matrix_dense_vector_product({spf}, {x}, {y}, {fmt.ncols}, {fmt.nrows}, 0);
+"""
+
+    def emit_teardown(self, fmt: CSR, rhs) -> str:
+        return ""
 
 
 class NaiveCSRSpmm(SpmmKernel):

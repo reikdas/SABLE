@@ -30,9 +30,9 @@ from find_matrices import cleanup_matrix_files, get_matrix_info, get_matrix_path
 from ssgetpy import fetch
 
 from sable import Matrix, Operation, Plan
-from sable.build_config import DenseKernel, SparseKernel
+from sable.build_config import CSRKernel, VBRKernel, VDIAKernel
 from sable.compiler import build_compile_command_for_plan
-from sable.extractors import BlockDetectorSkip, CSRConvertor
+from sable.extractors import BandExtractorSkip, BlockDetectorSkip, CSRConvertor
 from sable.kernels import (
     MKLCSRSpmm,
     MKLCSRSpmv,
@@ -42,6 +42,8 @@ from sable.kernels import (
     MixedVBRSpmv,
     NaiveCSRSpmm,
     NaiveCSRSpmv,
+    NaiveVDIASpmm,
+    NaiveVDIASpmv,
     NaiveVBRSpmm,
     NaiveVBRSpmv,
     SPRegCSRSpmm,
@@ -49,7 +51,7 @@ from sable.kernels import (
     UZPCSRSpmv,
 )
 from sable.tensor import DenseInput, DenseLayout
-from utils.fileio import parse_yaml_blocks, write_dense_matrix, write_dense_vector
+from utils.fileio import parse_yaml_bands, parse_yaml_blocks, write_dense_matrix, write_dense_vector
 from utils.utils import remove_outliers_deciles, set_ulimit
 
 
@@ -62,11 +64,12 @@ DEFAULT_SPMM_BENCH_ITERATIONS = 10
 PHYSICAL_CORES = list(range(os.cpu_count() or 20))
 SPMM_NRHS = 512
 
-SPMV_SPARSE_KERNELS = (SparseKernel.NAIVE, SparseKernel.MKL, SparseKernel.SPV8, SparseKernel.UZP)
-SPMM_SPARSE_KERNELS = ("naive", "mkl", "spreg")
+SPMV_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPV8, CSRKernel.UZP)
+SPMM_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPREG)
 
 SUITESPARSE_DIR = FILEPATH / "Suitesparse"
 RESULTS_DIR = FILEPATH / "find-submatrices" / "results"
+BANDS_RESULTS_DIR = FILEPATH / "find-submatrices" / "results_bands"
 
 
 # ---------------------------------------------------------------------------
@@ -95,30 +98,31 @@ def _executor_env(command: list[str], runtime_env: dict[str, str]) -> dict[str, 
     return env
 
 
+def _parse_timing_values(raw_values: str) -> list[float]:
+    return [float(x.strip()) for x in raw_values.strip().rstrip(",").split(",") if x.strip()]
+
+
 def _parse_timing_output(
     output: list[str],
-    sparse_times: list[float],
-    dense_times: list[float],
-    individual_dense_block_times: dict[int, list[float]],
-    extract_indiv_blocks: bool,
+    dispatch_times: dict[int, list[float]],
+    dispatch_part_times: dict[tuple[int, int], list[float]],
+    extract_parts: bool,
 ) -> None:
     for line in output:
-        if line.startswith("Sparse: "):
-            values = [float(x.strip()) for x in line[8:].strip().rstrip(",").split(",") if x.strip()]
-            sparse_times.extend(values)
-        elif line.startswith("Dense: ") and not line.startswith("Dense Block"):
-            values = [float(x.strip()) for x in line[7:].strip().rstrip(",").split(",") if x.strip()]
-            dense_times.extend(values)
-        elif extract_indiv_blocks:
-            dense_block_match = re.search(r"Dense Block (\d+): (.+)", line)
-            if dense_block_match:
-                block_id = int(dense_block_match.group(1))
-                values = [
-                    float(x.strip())
-                    for x in dense_block_match.group(2).strip().rstrip(",").split(",")
-                    if x.strip()
-                ]
-                individual_dense_block_times.setdefault(block_id, []).extend(values)
+        dispatch_match = re.search(r"Dispatch (\d+): (.+)", line)
+        if dispatch_match:
+            dispatch_id = int(dispatch_match.group(1))
+            dispatch_times.setdefault(dispatch_id, []).extend(_parse_timing_values(dispatch_match.group(2)))
+            continue
+
+        if extract_parts:
+            part_match = re.search(r"Dispatch (\d+) Part (\d+): (.+)", line)
+            if part_match:
+                dispatch_id = int(part_match.group(1))
+                part_id = int(part_match.group(2))
+                dispatch_part_times.setdefault((dispatch_id, part_id), []).extend(
+                    _parse_timing_values(part_match.group(3))
+                )
 
 
 # ---------------------------------------------------------------------------
@@ -154,18 +158,17 @@ def eval_frontend_executor_timings(
     executor,
     bench_freq: int,
     threads: int = 1,
-    extract_indiv_blocks: bool = True,
-) -> Tuple[float, float, Dict[int, float], float]:
+    extract_parts: bool = True,
+) -> Tuple[Dict[int, float], Dict[str, float], float]:
     cores_to_use = PHYSICAL_CORES[:threads]
     compile_result = compile_frontend_executor(executor)
     if compile_result is None:
         print(f"Failed to compile {executor.filename}, skipping evaluation")
-        return 0, 0, {}, 0.0
+        return {}, {}, 0.0
 
     executable_path, compile_time_ns = compile_result
-    sparse_times: list[float] = []
-    dense_times: list[float] = []
-    individual_dense_block_times: dict[int, list[float]] = {}
+    dispatch_times: dict[int, list[float]] = {}
+    dispatch_part_times: dict[tuple[int, int], list[float]] = {}
 
     if os.environ.get("SLURM_JOB_ID"):
         run_cmd = [executable_path]
@@ -184,20 +187,21 @@ def eval_frontend_executor_timings(
         except subprocess.CalledProcessError as exc:
             print(f"Error running {executor.filename}: {exc}")
             continue
-        _parse_timing_output(output, sparse_times, dense_times, individual_dense_block_times, extract_indiv_blocks)
+        _parse_timing_output(output, dispatch_times, dispatch_part_times, extract_parts)
 
-    sparse_times = remove_outliers_deciles(sparse_times)
-    dense_times = remove_outliers_deciles(dense_times)
-    avg_sparse_time = statistics.mean(sparse_times) if sparse_times else 0
-    avg_dense_time = statistics.mean(dense_times) if dense_times else 0
+    avg_dispatch_times = {}
+    for dispatch_id, times in dispatch_times.items():
+        times_clean = remove_outliers_deciles(times)
+        avg_dispatch_times[dispatch_id] = statistics.mean(times_clean) if times_clean else 0
 
-    avg_individual_block_times = {}
-    if extract_indiv_blocks:
-        for block_id, times in individual_dense_block_times.items():
+    avg_dispatch_part_times = {}
+    if extract_parts:
+        for (dispatch_id, part_id), times in dispatch_part_times.items():
             times_clean = remove_outliers_deciles(times)
-            avg_individual_block_times[block_id] = statistics.mean(times_clean) if times_clean else 0
+            key = f"dispatch_{dispatch_id}_part_{part_id}"
+            avg_dispatch_part_times[key] = statistics.mean(times_clean) if times_clean else 0
 
-    return avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_ns
+    return avg_dispatch_times, avg_dispatch_part_times, compile_time_ns
 
 
 # ---------------------------------------------------------------------------
@@ -238,7 +242,9 @@ def download_matrix_from_suitesparse(matrix_name: str) -> Optional[Tuple[str, An
 
 
 def get_available_matrices() -> List[str]:
-    return [f.stem for f in RESULTS_DIR.glob("*.yaml")]
+    names = {f.stem for f in RESULTS_DIR.glob("*.yaml")}
+    names.update(f.stem for f in BANDS_RESULTS_DIR.glob("*.yaml"))
+    return sorted(names)
 
 
 # ---------------------------------------------------------------------------
@@ -246,24 +252,30 @@ def get_available_matrices() -> List[str]:
 # ---------------------------------------------------------------------------
 
 
-def _dense_spmv_kernel(dense_kernel: DenseKernel):
-    if dense_kernel == DenseKernel.MKL:
+def _vbr_spmv_kernel(vbr_kernel: VBRKernel):
+    if vbr_kernel == VBRKernel.MKL:
         return MKLVBRSpmv()
-    if dense_kernel == DenseKernel.MIXED:
+    if vbr_kernel == VBRKernel.MIXED:
         return MixedVBRSpmv()
     return NaiveVBRSpmv()
 
 
-def _sparse_spmv_kernel(sparse_kernel: SparseKernel):
-    if sparse_kernel == SparseKernel.MKL:
+def _vdia_spmv_kernel(vdia_kernel: VDIAKernel):
+    if vdia_kernel == VDIAKernel.NAIVE:
+        return NaiveVDIASpmv()
+    raise ValueError(f"Unknown SpMV VDIA kernel: {vdia_kernel}")
+
+
+def _csr_spmv_kernel(csr_kernel: CSRKernel):
+    if csr_kernel == CSRKernel.MKL:
         return MKLCSRSpmv()
-    if sparse_kernel == SparseKernel.SPV8:
+    if csr_kernel == CSRKernel.SPV8:
         return SPV8CSRSpmv()
-    if sparse_kernel == SparseKernel.UZP:
+    if csr_kernel == CSRKernel.UZP:
         return UZPCSRSpmv()
-    if sparse_kernel == SparseKernel.NAIVE:
+    if csr_kernel == CSRKernel.NAIVE:
         return NaiveCSRSpmv()
-    raise ValueError(f"{sparse_kernel.value} is not a frontend SpMV sparse kernel")
+    raise ValueError(f"{csr_kernel.value} is not a frontend SpMV CSR kernel")
 
 
 # ---------------------------------------------------------------------------
@@ -271,22 +283,28 @@ def _sparse_spmv_kernel(sparse_kernel: SparseKernel):
 # ---------------------------------------------------------------------------
 
 
-def _dense_spmm_kernel(dense_kernel: DenseKernel):
-    if dense_kernel == DenseKernel.MKL:
+def _vbr_spmm_kernel(vbr_kernel: VBRKernel):
+    if vbr_kernel == VBRKernel.MKL:
         return MKLVBRSpmm()
-    if dense_kernel == DenseKernel.MIXED:
+    if vbr_kernel == VBRKernel.MIXED:
         return MixedVBRSpmm()
     return NaiveVBRSpmm()
 
 
-def _sparse_spmm_kernel(sparse_kernel: str):
-    if sparse_kernel == "mkl":
+def _vdia_spmm_kernel(vdia_kernel: VDIAKernel):
+    if vdia_kernel == VDIAKernel.NAIVE:
+        return NaiveVDIASpmm()
+    raise ValueError(f"Unknown SpMM VDIA kernel: {vdia_kernel}")
+
+
+def _csr_spmm_kernel(csr_kernel: CSRKernel):
+    if csr_kernel == CSRKernel.MKL:
         return MKLCSRSpmm()
-    if sparse_kernel == "spreg":
+    if csr_kernel == CSRKernel.SPREG:
         return SPRegCSRSpmm()
-    if sparse_kernel == "naive":
+    if csr_kernel == CSRKernel.NAIVE:
         return NaiveCSRSpmm()
-    raise ValueError(f"Unknown SpMM sparse kernel: {sparse_kernel}")
+    raise ValueError(f"{csr_kernel.value} is not a frontend SpMM CSR kernel")
 
 
 # ---------------------------------------------------------------------------
@@ -299,22 +317,33 @@ def _analyze_blocks_from_coords(
     mat: scipy.sparse.spmatrix,
 ) -> List[Dict[str, Any]]:
     csr = mat.tocsr()
-    dense_blocks = []
+    regions = []
     for r_start, r_end, c_start, c_end in block_coords:
         rows = r_end - r_start
         cols = c_end - c_start
         block_nnz = csr[r_start:r_end, c_start:c_end].nnz
         block_size = rows * cols
         density = (block_nnz / block_size * 100) if block_size > 0 else 0
-        dense_blocks.append({"rows": rows, "cols": cols, "density_percent": density, "nnz": block_nnz})
-    return dense_blocks
+        regions.append({"rows": rows, "cols": cols, "density_percent": density, "nnz": block_nnz})
+    return regions
+
+
+def _analyze_bands_from_data(bands: list[dict[str, Any]]) -> List[Dict[str, Any]]:
+    regions = []
+    for band in bands:
+        area = int(band.get("vdia_area", 0))
+        nnz = int(band.get("total_nnz", 0))
+        density = (nnz / area * 100) if area > 0 else 0
+        regions.append({"rows": area, "cols": 1, "density_percent": density, "nnz": nnz})
+    return regions
 
 
 def _convert_and_prepare(
     operation: Operation,
     matrix_name: str,
-    dense_block_coords: List[Tuple[int, int, int, int]],
+    format_regions: list[Any],
     mat: scipy.sparse.spmatrix,
+    format_kind: str,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     csr_mat = mat.tocsr()
     _, matrix_cols = csr_mat.shape
@@ -324,18 +353,22 @@ def _convert_and_prepare(
     else:
         write_dense_matrix(1.0, matrix_cols, SPMM_NRHS)
 
-    dense_blocks = _analyze_blocks_from_coords(dense_block_coords, csr_mat)
+    if format_kind == "vdia":
+        region_stats = _analyze_bands_from_data(format_regions)
+    else:
+        region_stats = _analyze_blocks_from_coords(format_regions, csr_mat)
 
-    split_data = {
-        "dense_blocks": dense_blocks,
-        "block_coords": list(dense_block_coords),
+    composed_data = {
+        "format_kind": format_kind,
+        "format_regions": list(format_regions),
+        "region_stats": region_stats,
         "matrix": csr_mat,
     }
-    sparse_data = {
+    baseline_data = {
         "matrix": csr_mat,
     }
 
-    return split_data, sparse_data
+    return composed_data, baseline_data
 
 
 # ---------------------------------------------------------------------------
@@ -346,10 +379,11 @@ def _convert_and_prepare(
 def _compile_spmv_frontend(
     matrix_name: str,
     matrix_source,
-    block_coords: list[tuple[int, int, int, int]],
+    format_kind: str,
+    format_regions: list[Any],
     artifact_dir: str,
-    dense_kernel: DenseKernel,
-    sparse_kernel: SparseKernel,
+    format_kernel,
+    csr_kernel: CSRKernel,
     bench_iterations: int,
 ):
     matrix = Matrix(matrix_source, name=matrix_name)
@@ -357,21 +391,28 @@ def _compile_spmv_frontend(
 
     plan = Plan(matrix, artifact_dir=artifact_dir)
     plan.rhs(DenseInput.vector(_generated_vector_path(matrix.ncols), matrix.ncols))
-    if block_coords:
-        vbr = plan.extract(BlockDetectorSkip(block_coords))
-        plan.dispatch(vbr, _dense_spmv_kernel(dense_kernel))
+    if format_regions:
+        if format_kind == "vdia":
+            vdia = plan.extract(BandExtractorSkip(format_regions))
+            plan.dispatch(vdia, _vdia_spmv_kernel(format_kernel))
+        elif format_kind == "vbr":
+            vbr = plan.extract(BlockDetectorSkip(format_regions))
+            plan.dispatch(vbr, _vbr_spmv_kernel(format_kernel))
+        else:
+            raise ValueError(f"Unknown format kind: {format_kind}")
     csr = plan.extract(CSRConvertor())
-    plan.dispatch(csr, _sparse_spmv_kernel(sparse_kernel))
+    plan.dispatch(csr, _csr_spmv_kernel(csr_kernel))
     return plan.compile(filename=matrix_name, bench=bench_iterations)
 
 
 def _compile_spmm_frontend(
     matrix_name: str,
     matrix_source,
-    block_coords: list[tuple[int, int, int, int]],
+    format_kind: str,
+    format_regions: list[Any],
     artifact_dir: str,
-    dense_kernel: DenseKernel,
-    sparse_kernel: str,
+    format_kernel,
+    csr_kernel: CSRKernel,
     bench_iterations: int,
 ):
     matrix = Matrix(matrix_source, name=matrix_name)
@@ -385,11 +426,17 @@ def _compile_spmm_frontend(
             layout=DenseLayout.ROW_MAJOR,
         )
     )
-    if block_coords:
-        vbr = plan.extract(BlockDetectorSkip(block_coords))
-        plan.dispatch(vbr, _dense_spmm_kernel(dense_kernel))
+    if format_regions:
+        if format_kind == "vdia":
+            vdia = plan.extract(BandExtractorSkip(format_regions))
+            plan.dispatch(vdia, _vdia_spmm_kernel(format_kernel))
+        elif format_kind == "vbr":
+            vbr = plan.extract(BlockDetectorSkip(format_regions))
+            plan.dispatch(vbr, _vbr_spmm_kernel(format_kernel))
+        else:
+            raise ValueError(f"Unknown format kind: {format_kind}")
     csr = plan.extract(CSRConvertor())
-    plan.dispatch(csr, _sparse_spmm_kernel(sparse_kernel))
+    plan.dispatch(csr, _csr_spmm_kernel(csr_kernel))
     return plan.compile(filename=matrix_name, bench=bench_iterations)
 
 
@@ -400,27 +447,38 @@ def _compile_spmm_frontend(
 
 def _build_matrix_result(
     matrix_name: str,
-    dense_blocks: list[dict[str, Any]],
+    region_stats: list[dict[str, Any]],
     matrix_rows: int,
     matrix_cols: int,
     matrix_nnz: int,
-    avg_sparse_time: float,
-    avg_dense_time: float,
-    avg_individual_block_times: dict[int, float],
-    sparse_avg_sparse_time: float,
-    compile_time_split_ns: float,
-    compile_time_sparse_ns: float,
-    codegen_time_split_ms: int,
-    codegen_time_sparse_ms: int,
+    dispatch_times: dict[int, float],
+    dispatch_part_times: dict[str, float],
+    baseline_dispatch_times: dict[int, float],
+    compile_time_composed_ns: float,
+    compile_time_baseline_ns: float,
+    codegen_time_composed_ms: int,
+    codegen_time_baseline_ms: int,
 ) -> Dict[str, Any]:
-    total_time = avg_sparse_time + avg_dense_time
-    dense_all = sum(block.get("rows", 0) * block.get("cols", 0) for block in dense_blocks)
-    dense_nnz = sum(block.get("nnz", 0) for block in dense_blocks)
-    sparse_nnz = matrix_nnz - dense_nnz
-    extra_zeros = dense_all - dense_nnz
-    dense_nnz_perc = (dense_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
-    sparse_nnz_perc = (sparse_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+    total_time = sum(dispatch_times.values())
+    baseline_time = sum(baseline_dispatch_times.values())
+    format_area = sum(region.get("rows", 0) * region.get("cols", 0) for region in region_stats)
+    claimed_nnz = sum(region.get("nnz", 0) for region in region_stats)
+    residual_nnz = matrix_nnz - claimed_nnz
+    extra_values = format_area - claimed_nnz
+    claimed_nnz_perc = (claimed_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
+    residual_nnz_perc = (residual_nnz / matrix_nnz * 100) if matrix_nnz > 0 else 0
     density_calculation = matrix_nnz / (matrix_rows * matrix_cols) if matrix_rows * matrix_cols > 0 else 0
+    dispatch_timing = {
+        f"dispatch_{dispatch_id}": {
+            "time_ns": round(time_ns, 2),
+            "percentage_of_total_time": round((time_ns / total_time * 100), 3) if total_time > 0 else 0,
+        }
+        for dispatch_id, time_ns in sorted(dispatch_times.items())
+    }
+    baseline_timing = {
+        f"dispatch_{dispatch_id}": round(time_ns, 2)
+        for dispatch_id, time_ns in sorted(baseline_dispatch_times.items())
+    }
 
     result = {
         "matrix_name": matrix_name,
@@ -431,129 +489,109 @@ def _build_matrix_result(
             "density": round(density_calculation, 3),
         },
         "timing": {
-            "sparse_time_ns": round(avg_sparse_time, 2),
-            "dense_time_ns": round(avg_dense_time, 2),
             "total_time_ns": round(total_time, 2),
-            "sparse_percentage": round((avg_sparse_time / total_time * 100), 3) if total_time > 0 else 0,
-            "dense_percentage": round((avg_dense_time / total_time * 100), 3) if total_time > 0 else 0,
-            "fully_sparse_time": sparse_avg_sparse_time,
-            "speedup": round((sparse_avg_sparse_time / total_time), 3) if total_time > 0 else 0,
-            "max_theoretical_speedup": round((sparse_avg_sparse_time / avg_sparse_time), 3) if avg_sparse_time > 0 else 0,
-            "expected_sparse_time_ns": ((100 - dense_nnz_perc) / 100) * sparse_avg_sparse_time,
-            "dense_if_sparse_time_ns": sparse_avg_sparse_time - ((100 - dense_nnz_perc) / 100) * sparse_avg_sparse_time,
-            "compile_time_split_s": compile_time_split_ns / 1e9 if compile_time_split_ns else 0.0,
-            "compile_time_sparse_s": compile_time_sparse_ns / 1e9 if compile_time_sparse_ns else 0.0,
-            "codegen_time_split_ms": codegen_time_split_ms,
-            "codegen_time_sparse_ms": codegen_time_sparse_ms,
+            "dispatch_times": dispatch_timing,
+            "dispatch_part_times": {key: round(value, 2) for key, value in sorted(dispatch_part_times.items())},
+            "csr_baseline_time_ns": round(baseline_time, 2),
+            "csr_baseline_dispatch_times": baseline_timing,
+            "speedup": round((baseline_time / total_time), 3) if total_time > 0 else 0,
+            "compile_time_composed_s": compile_time_composed_ns / 1e9 if compile_time_composed_ns else 0.0,
+            "compile_time_csr_baseline_s": compile_time_baseline_ns / 1e9 if compile_time_baseline_ns else 0.0,
+            "codegen_time_composed_ms": codegen_time_composed_ms,
+            "codegen_time_csr_baseline_ms": codegen_time_baseline_ms,
         },
         "nnz": {
-            "sparse_nnz": sparse_nnz,
-            "dense_all": dense_all,
-            "dense_nnz": dense_nnz,
-            "extra_zeros": extra_zeros,
-            "dense_nnz_perc": round(dense_nnz_perc, 2),
-            "sparse_nnz_perc": round(sparse_nnz_perc, 2),
+            "format_claimed_nnz": claimed_nnz,
+            "residual_nnz": residual_nnz,
+            "format_area": format_area,
+            "extra_values": extra_values,
+            "format_claimed_nnz_perc": round(claimed_nnz_perc, 2),
+            "residual_nnz_perc": round(residual_nnz_perc, 2),
         },
-        "individual_dense_block_timings": {},
     }
-
-    for block_id, block_time in avg_individual_block_times.items():
-        block_info = dense_blocks[block_id - 1] if block_id - 1 < len(dense_blocks) else {}
-        block_nnz = block_info.get("nnz", 0)
-        dense_nnz_sum = sum(block.get("nnz", 0) for block in dense_blocks)
-        result["individual_dense_block_timings"][f"block_{block_id}"] = {
-            "time_ns": round(block_time, 2),
-            "percentage_of_total_time": round((block_time / total_time * 100), 2) if total_time > 0 else 0,
-            "percentage_of_dense_time": round((block_time / avg_dense_time * 100), 2) if avg_dense_time > 0 else 0,
-            "percentage_of_total_nnz": round((block_nnz / matrix_nnz * 100), 3) if matrix_nnz > 0 else 0,
-            "percentage_of_dense_nnz": round((block_nnz / dense_nnz_sum * 100), 3) if dense_nnz_sum > 0 else 0,
-            "rows": block_info.get("rows", 0),
-            "cols": block_info.get("cols", 0),
-            "density_percent": round(block_info.get("density_percent", 0), 3),
-            "nnz": block_nnz,
-        }
-
     return result
 
 
 def _process_and_benchmark_frontend(
     operation: Operation,
     matrix_name: str,
-    split_vbrc_data: Dict[str, Any],
-    sparse_vbrc_data: Dict[str, Any],
+    composed_data: Dict[str, Any],
+    baseline_data: Dict[str, Any],
     matrix_rows: int,
     matrix_cols: int,
     matrix_nnz: int,
     bench_iterations: int,
-    dense_kernel: DenseKernel,
-    sparse_kernel,
+    format_kernel,
+    csr_kernel,
     threads: int = 1,
 ) -> Optional[Dict[str, Any]]:
     if threads != 1:
         raise ValueError("The frontend benchmark path is single-threaded for now")
 
     if operation == Operation.SPMV:
-        sparse_label = sparse_kernel.value
+        csr_label = csr_kernel.value
         compile_fn = _compile_spmv_frontend
         dir_prefix = "Generated_SpMV_C"
     else:
-        sparse_label = sparse_kernel
+        csr_label = csr_kernel.value
         compile_fn = _compile_spmm_frontend
         dir_prefix = "Generated_SpMM_C"
 
-    variant_name = f"{dense_kernel.value}_{sparse_label}"
-    base_codegen_dir = FILEPATH / f"{dir_prefix}_{dense_kernel.value}_{sparse_label}"
-    codegen_dir_split = str(base_codegen_dir / "split")
-    codegen_dir_sparse = str(base_codegen_dir / "sparse")
-    os.makedirs(codegen_dir_split, exist_ok=True)
-    os.makedirs(codegen_dir_sparse, exist_ok=True)
+    format_kind = composed_data["format_kind"]
+    variant_name = f"{format_kernel.value}_{csr_label}"
+    base_codegen_dir = FILEPATH / f"{dir_prefix}_{format_kernel.value}_{csr_label}"
+    codegen_dir_composed = str(base_codegen_dir / "composed")
+    codegen_dir_baseline = str(base_codegen_dir / "csr_baseline")
+    os.makedirs(codegen_dir_composed, exist_ok=True)
+    os.makedirs(codegen_dir_baseline, exist_ok=True)
 
-    print(f"  [{variant_name}] Generating frontend C code (split)...")
-    split_executor = compile_fn(
+    print(f"  [{variant_name}] Generating frontend C code (composed)...")
+    composed_executor = compile_fn(
         matrix_name,
-        split_vbrc_data["matrix"],
-        split_vbrc_data["block_coords"],
-        codegen_dir_split,
-        dense_kernel,
-        sparse_kernel,
+        composed_data["matrix"],
+        format_kind,
+        composed_data["format_regions"],
+        codegen_dir_composed,
+        format_kernel,
+        csr_kernel,
         bench_iterations,
     )
 
-    print(f"  [{variant_name}] Evaluating split version...")
-    avg_sparse_time, avg_dense_time, avg_individual_block_times, compile_time_split_ns = eval_frontend_executor_timings(
-        split_executor, bench_iterations, threads=threads
+    print(f"  [{variant_name}] Evaluating composed version...")
+    dispatch_times, dispatch_part_times, compile_time_composed_ns = eval_frontend_executor_timings(
+        composed_executor, bench_iterations, threads=threads
     )
 
-    print(f"  [{variant_name}] Generating frontend C code (fully sparse)...")
-    sparse_executor = compile_fn(
+    print(f"  [{variant_name}] Generating frontend C code (CSR baseline)...")
+    baseline_executor = compile_fn(
         matrix_name,
-        sparse_vbrc_data["matrix"],
+        baseline_data["matrix"],
+        format_kind,
         [],
-        codegen_dir_sparse,
-        dense_kernel,
-        sparse_kernel,
+        codegen_dir_baseline,
+        format_kernel,
+        csr_kernel,
         bench_iterations,
     )
 
-    print(f"  [{variant_name}] Evaluating fully sparse version...")
-    sparse_avg_sparse_time, _, _, compile_time_sparse_ns = eval_frontend_executor_timings(
-        sparse_executor, bench_iterations, threads=threads
+    print(f"  [{variant_name}] Evaluating CSR baseline...")
+    baseline_dispatch_times, _, compile_time_baseline_ns = eval_frontend_executor_timings(
+        baseline_executor, bench_iterations, threads=threads
     )
 
     return _build_matrix_result(
         matrix_name,
-        split_vbrc_data["dense_blocks"],
+        composed_data["region_stats"],
         matrix_rows,
         matrix_cols,
         matrix_nnz,
-        avg_sparse_time,
-        avg_dense_time,
-        avg_individual_block_times,
-        sparse_avg_sparse_time,
-        compile_time_split_ns,
-        compile_time_sparse_ns,
-        split_executor.codegen_time_ms,
-        sparse_executor.codegen_time_ms,
+        dispatch_times,
+        dispatch_part_times,
+        baseline_dispatch_times,
+        compile_time_composed_ns,
+        compile_time_baseline_ns,
+        composed_executor.codegen_time_ms,
+        baseline_executor.codegen_time_ms,
     )
 
 
@@ -582,7 +620,6 @@ def _append_result(
 
     thread_key = f"{num_threads} thread"
     thread_timing = dict(result["timing"])
-    thread_timing["individual_dense_block_timings"] = result["individual_dense_block_timings"]
     matrix_entry["timing"][thread_key] = thread_timing
     with open(output_file, "w") as f:
         json.dump(results_list, f, indent=2)
@@ -590,35 +627,61 @@ def _append_result(
 
 
 # ---------------------------------------------------------------------------
-# Sparse kernel resolution per operation
+# Kernel resolution per operation
 # ---------------------------------------------------------------------------
 
 
-def _resolve_sparse_kernels(operation: Operation, sparse_arg: str, parser: argparse.ArgumentParser):
+def _resolve_csr_kernels(operation: Operation, csr_arg: str, parser: argparse.ArgumentParser):
     if operation == Operation.SPMV:
-        valid = {k.value for k in SPMV_SPARSE_KERNELS}
-        if sparse_arg == "all":
-            return list(SPMV_SPARSE_KERNELS)
-        requested = [name.strip() for name in sparse_arg.split(",")]
-        selected = [SparseKernel(n) for n in requested if n in valid]
+        valid = {k.value for k in SPMV_CSR_KERNELS}
+        if csr_arg == "all":
+            return list(SPMV_CSR_KERNELS)
+        requested = [name.strip() for name in csr_arg.split(",")]
+        selected = [CSRKernel(n) for n in requested if n in valid]
         skipped = [n for n in requested if n not in valid]
         if skipped:
-            print(f"  [spmv] Skipping sparse kernels not available for SpMV: {skipped}")
+            print(f"  [spmv] Skipping CSR kernels not available for SpMV: {skipped}")
         if not selected:
-            parser.error(f"No valid SpMV sparse kernels. Valid options: {valid}")
+            parser.error(f"No valid SpMV CSR kernels. Valid options: {valid}")
         return selected
     else:
-        valid = set(SPMM_SPARSE_KERNELS)
-        if sparse_arg == "all":
-            return list(SPMM_SPARSE_KERNELS)
-        requested = [name.strip() for name in sparse_arg.split(",")]
-        selected = [n for n in requested if n in valid]
+        valid = {k.value for k in SPMM_CSR_KERNELS}
+        if csr_arg == "all":
+            return list(SPMM_CSR_KERNELS)
+        requested = [name.strip() for name in csr_arg.split(",")]
+        selected = [CSRKernel(n) for n in requested if n in valid]
         skipped = [n for n in requested if n not in valid]
         if skipped:
-            print(f"  [spmm] Skipping sparse kernels not available for SpMM: {skipped}")
+            print(f"  [spmm] Skipping CSR kernels not available for SpMM: {skipped}")
         if not selected:
-            parser.error(f"No valid SpMM sparse kernels. Valid options: {valid}")
+            parser.error(f"No valid SpMM CSR kernels. Valid options: {valid}")
         return selected
+
+
+def _resolve_vbr_kernels(arg: str, parser: argparse.ArgumentParser) -> list[VBRKernel]:
+    if arg == "none":
+        return []
+    if arg == "all":
+        return list(VBRKernel)
+    names = [name.strip() for name in arg.split(",")]
+    valid = {kernel.value for kernel in VBRKernel} | {"blocksmixed"}
+    invalid = set(names) - valid
+    if invalid:
+        parser.error(f"Invalid VBR kernel(s): {invalid}. Valid options: {valid}")
+    return [VBRKernel(name) for name in names]
+
+
+def _resolve_vdia_kernels(arg: str, parser: argparse.ArgumentParser) -> list[VDIAKernel]:
+    if arg == "none":
+        return []
+    if arg == "all":
+        return list(VDIAKernel)
+    names = [name.strip() for name in arg.split(",")]
+    valid = {kernel.value for kernel in VDIAKernel}
+    invalid = set(names) - valid
+    if invalid:
+        parser.error(f"Invalid VDIA kernel(s): {invalid}. Valid options: {valid}")
+    return [VDIAKernel(name) for name in names]
 
 
 # ---------------------------------------------------------------------------
@@ -632,7 +695,7 @@ def main() -> int:
         epilog=(
             "Examples:\n"
             "  %(prog)s --operation spmv,spmm eris1176 bloweybl\n"
-            "  %(prog)s --operation spmv --sparse naive,mkl,spv8 --dense naive,mkl,mixed\n"
+            "  %(prog)s --operation spmv --csr-kernels naive,mkl,spv8 --vbr-kernels blocknaive,blockmkl --vdia-kernels bandnaive\n"
             "  %(prog)s  # both operations, all matrices, all kernels"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -644,9 +707,12 @@ def main() -> int:
     parser.add_argument("--bench", type=int, default=None,
                         help=f"Benchmark iterations (default: {DEFAULT_SPMV_BENCH_ITERATIONS} for spmv, {DEFAULT_SPMM_BENCH_ITERATIONS} for spmm)")
     parser.add_argument("--output-dir", type=str, default="results")
-    parser.add_argument("--sparse", type=str, default="all",
+    parser.add_argument("--csr-kernels", type=str, default="all",
                         help="SpMV: naive,spv8,mkl,uzp. SpMM: naive,mkl,spreg. Invalid names silently skipped per operation.")
-    parser.add_argument("--dense", type=str, default="all", help="naive, mixed, mkl, all, or comma-separated")
+    parser.add_argument("--vbr-kernels", type=str, default="all",
+                        help="blocknaive, blockmixed, blockmkl, all, none, or comma-separated")
+    parser.add_argument("--vdia-kernels", type=str, default="all",
+                        help="bandnaive, all, none, or comma-separated")
     parser.add_argument("--threads", type=str, default="1")
     args = parser.parse_args()
 
@@ -656,15 +722,10 @@ def main() -> int:
     if any(thread_count != 1 for thread_count in thread_counts):
         parser.error("The frontend benchmark path is single-threaded for now; use --threads 1")
 
-    valid_dense = {kernel.value for kernel in DenseKernel}
-    if args.dense == "all":
-        dense_kernels = list(DenseKernel)
-    else:
-        dense_names = [name.strip() for name in args.dense.split(",")]
-        invalid = set(dense_names) - valid_dense
-        if invalid:
-            parser.error(f"Invalid dense kernel(s): {invalid}. Valid options: {valid_dense}")
-        dense_kernels = [DenseKernel(name) for name in dense_names]
+    vbr_kernels = _resolve_vbr_kernels(args.vbr_kernels, parser)
+    vdia_kernels = _resolve_vdia_kernels(args.vdia_kernels, parser)
+    if not vbr_kernels and not vdia_kernels:
+        parser.error("At least one VBR or VDIA kernel must be selected")
 
     matrices = args.matrices or args.matrices_flag
     specific_matrices_requested = matrices is not None and len(matrices) > 0
@@ -688,7 +749,8 @@ def main() -> int:
 
     for matrix_name in matrices:
         yaml_path = RESULTS_DIR / f"{matrix_name}.yaml"
-        if not yaml_path.exists():
+        bands_yaml_path = BANDS_RESULTS_DIR / f"{matrix_name}.yaml"
+        if not yaml_path.exists() and not bands_yaml_path.exists():
             print(f"Warning: YAML file not found for {matrix_name}, skipping")
             continue
 
@@ -708,40 +770,60 @@ def main() -> int:
             matrix_nnz = A.nnz
             print(f"  Matrix shape: {matrix_rows} x {matrix_cols}, NNZ: {matrix_nnz}")
 
-            print(f"  Parsing dense blocks from {yaml_path}...")
-            dense_block_coords = parse_yaml_blocks(str(yaml_path))
-            print(f"  Found {len(dense_block_coords)} dense blocks")
+            if yaml_path.exists():
+                print(f"  Parsing VBR blocks from {yaml_path}...")
+                block_coords = parse_yaml_blocks(str(yaml_path))
+            else:
+                block_coords = []
+            print(f"  Found {len(block_coords)} VBR blocks")
+
+            if bands_yaml_path.exists():
+                print(f"  Parsing VDIA bands from {bands_yaml_path}...")
+                vdia_bands = parse_yaml_bands(str(bands_yaml_path))
+            else:
+                vdia_bands = []
+            print(f"  Found {len(vdia_bands)} VDIA bands")
 
             for operation in operations:
                 op_label = operation.value.upper()
-                sparse_kernels = _resolve_sparse_kernels(operation, args.sparse, parser)
+                csr_kernels = _resolve_csr_kernels(operation, args.csr_kernels, parser)
                 bench_iterations = args.bench
                 if bench_iterations is None:
                     bench_iterations = DEFAULT_SPMV_BENCH_ITERATIONS if operation == Operation.SPMV else DEFAULT_SPMM_BENCH_ITERATIONS
 
                 print(f"\n  === Converting to frontend formats ({op_label}) ===")
-                split_vbrc_data, sparse_vbrc_data = _convert_and_prepare(
-                    operation, matrix_name, dense_block_coords, A
+                vbr_data, baseline_data = _convert_and_prepare(
+                    operation, matrix_name, block_coords, A, "vbr"
                 )
+                vdia_data, _ = _convert_and_prepare(
+                    operation, matrix_name, vdia_bands, A, "vdia"
+                )
+                format_runs = [
+                    ("vbr", kernel, vbr_data)
+                    for kernel in vbr_kernels
+                ] + [
+                    ("vdia", kernel, vdia_data)
+                    for kernel in vdia_kernels
+                ]
 
                 for num_threads in thread_counts:
-                    for dense_kernel in dense_kernels:
-                        for sparse_kernel in sparse_kernels:
-                            sparse_label = sparse_kernel.value if isinstance(sparse_kernel, SparseKernel) else sparse_kernel
-                            results_key = f"{operation.value}_{dense_kernel.value}_{sparse_label}"
+                    for format_kind, format_kernel, composed_data in format_runs:
+                        for csr_kernel in csr_kernels:
+                            csr_label = csr_kernel.value
+                            results_key = f"{operation.value}_{format_kernel.value}_{csr_label}"
                             print(f"\n  === Running {results_key} benchmark (threads={num_threads}) ===")
 
                             result = _process_and_benchmark_frontend(
                                 operation,
                                 matrix_name,
-                                split_vbrc_data,
-                                sparse_vbrc_data,
+                                composed_data,
+                                baseline_data,
                                 matrix_rows,
                                 matrix_cols,
                                 matrix_nnz,
                                 bench_iterations,
-                                dense_kernel=dense_kernel,
-                                sparse_kernel=sparse_kernel,
+                                format_kernel=format_kernel,
+                                csr_kernel=csr_kernel,
                                 threads=num_threads,
                             )
 
@@ -769,12 +851,17 @@ def main() -> int:
             print(f"\n{results_key} Results ({len(results_list)} matrices):")
             for result in results_list:
                 for thread_key, thread_timing in result["timing"].items():
+                    dispatch_times = thread_timing.get("dispatch_times", {})
+                    dispatch_summary = ", ".join(
+                        f"{name}: {info.get('time_ns', 0):.0f}ns"
+                        for name, info in dispatch_times.items()
+                    )
                     print(
                         f"  {result['matrix_name']} ({thread_key}): "
-                        f"{len(thread_timing.get('individual_dense_block_timings', {}))} dense blocks, "
-                        f"sparse: {thread_timing['sparse_time_ns']:.0f}ns, "
-                        f"dense: {thread_timing['dense_time_ns']:.0f}ns, "
+                        f"total: {thread_timing['total_time_ns']:.0f}ns, "
+                        f"CSR baseline: {thread_timing.get('csr_baseline_time_ns', 0):.0f}ns, "
                         f"speedup: {thread_timing.get('speedup', 0):.3f}x"
+                        + (f", {dispatch_summary}" if dispatch_summary else "")
                     )
 
     print(f"\nResults written to {output_dir}/")

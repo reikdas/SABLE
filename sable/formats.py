@@ -33,14 +33,13 @@ class CSR(Format):
 @dataclass
 class VBR(Format):
     val: Rep[float]
-    indx: Rep[int]
-    bindx: Rep[int]
-    rpntr: Rep[int]
-    cpntr: Rep[int]
-    bpntrb: Rep[int]
-    bpntre: Rep[int]
-    # Block metadata used to skip entries handled by sparse residual kernels.
-    ublocks: Rep[int]
+    indx: list[int]
+    bindx: list[int]
+    rpntr: list[int]
+    cpntr: list[int]
+    bpntrb: list[int]
+    bpntre: list[int]
+    ublocks: list[int]
     blocks: list[tuple[int, int, int, int]]
 
 
@@ -48,11 +47,11 @@ class VBR(Format):
 class VDIA(Format):
     nregions: int
     nsegments: int
-    region_ptr: Rep[int]
-    diag_offsets: Rep[int]
-    row_start: Rep[int]
-    row_end: Rep[int]
-    lower_bw: Rep[int]
-    upper_bw: Rep[int]
-    data_ptr: Rep[int]
+    region_ptr: list[int]
+    diag_offsets: list[int]
+    row_start: list[int]
+    row_end: list[int]
+    lower_bw: list[int]
+    upper_bw: list[int]
+    data_ptr: list[int]
     data: Rep[float]

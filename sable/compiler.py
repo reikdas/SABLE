@@ -3,12 +3,15 @@ from __future__ import annotations
 import os
 import subprocess
 import time
+from collections.abc import Iterable
 from dataclasses import dataclass, fields, is_dataclass
+from inspect import Parameter, signature
 from typing import Any
 
 from sable.build_config import CFLAGS
 
-from .formats import CSR, Rep, VBR
+from .codegen import OutOfLineCode
+from .formats import Format, Rep
 from .plan import Plan
 
 
@@ -60,6 +63,17 @@ class CompiledExecutor:
         return self.run()
 
 
+@dataclass
+class TimedCall:
+    dispatch_index: int
+    snippet: str
+    part_index: int
+    part_ordinal: int
+
+
+KernelSnippet = str | OutOfLineCode
+
+
 def _sanitize_identifier(name: str) -> str:
     sanitized = "".join(ch if ch.isalnum() or ch == "_" else "_" for ch in name)
     if not sanitized:
@@ -78,6 +92,24 @@ def _dedupe(values: list[str]) -> list[str]:
         seen.add(value)
         result.append(value)
     return result
+
+
+def _normalize_kernel_snippets(value: object) -> list[KernelSnippet]:
+    if value is None:
+        return []
+    if isinstance(value, (str, OutOfLineCode)):
+        return [value]
+    if isinstance(value, Iterable):
+        snippets: list[KernelSnippet] = []
+        for item in value:
+            if item is None:
+                continue
+            if isinstance(item, (str, OutOfLineCode)):
+                snippets.append(item)
+                continue
+            raise TypeError(f"Kernel emitted unsupported snippet type: {type(item).__name__}")
+        return snippets
+    raise TypeError(f"Kernel emitted unsupported snippet type: {type(value).__name__}")
 
 
 def _kernel_list(kernel: object, method_name: str) -> list[str]:
@@ -110,6 +142,24 @@ def _kernel_text(kernel: object, method_name: str, *args) -> str:
     if method is None:
         return ""
     return method(*args) or ""
+
+
+def _kernel_context_text(kernel: object, method_name: str, *args) -> str:
+    method = getattr(kernel, method_name, None)
+    if method is None:
+        return ""
+    try:
+        params = list(signature(method).parameters.values())
+    except (TypeError, ValueError):
+        return method(*args) or ""
+    if any(param.kind == Parameter.VAR_POSITIONAL for param in params):
+        return method(*args) or ""
+    positional_params = [
+        param
+        for param in params
+        if param.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD)
+    ]
+    return method(*args[: len(positional_params)]) or ""
 
 
 def _runtime_env(compile_command: list[str], kernel_env: dict[str, str]) -> dict[str, str] | None:
@@ -320,6 +370,83 @@ def _collect_runtime_cwd(plan: Plan) -> str | None:
     return runtime_cwd
 
 
+def _bindings_for_format(fmt: Format, bindings: list[RepBinding]) -> list[RepBinding]:
+    if not is_dataclass(fmt):
+        return []
+    fmt_reps: list[Rep] = []
+    for field in fields(fmt):
+        value = getattr(fmt, field.name)
+        if isinstance(value, Rep):
+            fmt_reps.append(value)
+    return [binding for binding in bindings if any(binding.rep is rep for rep in fmt_reps)]
+
+
+def _bindings_used_by_body(body: str, fmt: Format, bindings: list[RepBinding]) -> list[RepBinding]:
+    return [binding for binding in _bindings_for_format(fmt, bindings) if binding.c_name in body]
+
+
+def _out_of_line_helper_name(
+    snippet: OutOfLineCode,
+    dispatch_index: int,
+    part_ordinal: int | None,
+) -> str:
+    if snippet.name:
+        return _sanitize_identifier(snippet.name)
+    base = f"sable_out_of_line_dispatch_{dispatch_index + 1}"
+    if part_ordinal is not None:
+        return f"{base}_part_{part_ordinal}"
+    return base
+
+
+def _emit_out_of_line_helper(
+    name: str,
+    body: str,
+    used_bindings: list[RepBinding],
+    parameters: tuple[str, ...],
+) -> str:
+    params = ["double *y", "const double *x"]
+    params.extend(f"const {binding.c_type} *{binding.c_name}" for binding in used_bindings)
+    params.extend(parameters)
+    return f"""\
+static void {name}({", ".join(params)}) {{
+{body}}}
+"""
+
+
+def _emit_out_of_line_call(
+    name: str,
+    used_bindings: list[RepBinding],
+    arguments: tuple[str, ...],
+) -> str:
+    args = ["y", "x"]
+    args.extend(binding.c_name for binding in used_bindings)
+    args.extend(arguments)
+    return f"{name}({', '.join(args)});\n"
+
+
+def _lower_kernel_snippet(
+    snippet: KernelSnippet,
+    dispatch_index: int,
+    part_ordinal: int | None,
+    fmt: Format,
+    bindings: list[RepBinding],
+    helpers: list[str],
+    helper_definitions: dict[str, str],
+) -> str:
+    if isinstance(snippet, str):
+        return snippet
+    name = _out_of_line_helper_name(snippet, dispatch_index, part_ordinal)
+    used_bindings = _bindings_used_by_body(snippet.body, fmt, bindings)
+    helper = _emit_out_of_line_helper(name, snippet.body, used_bindings, snippet.parameters)
+    existing = helper_definitions.get(name)
+    if existing is None:
+        helper_definitions[name] = helper
+        helpers.append(helper)
+    elif existing != helper:
+        raise ValueError(f"Conflicting out_of_line helper definition for {name}")
+    return _emit_out_of_line_call(name, used_bindings, snippet.arguments)
+
+
 def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: int) -> str:
     rhs = plan.rhs_input
     y_size = _output_size(plan)
@@ -334,27 +461,80 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
     ]
     helpers = [_reader_helpers()]
     setup: list[str] = []
-    calls: list[tuple[str, str, int | None]] = []
+    calls: list[TimedCall] = []
     teardown: list[str] = []
+    part_count = 0
+    out_of_line_helper_definitions: dict[str, str] = {}
 
-    for dispatch in plan.dispatches:
+    for dispatch_index, dispatch in enumerate(plan.dispatches):
         includes.extend(_kernel_list(dispatch.kernel, "emit_includes"))
-        helpers.append(_kernel_text(dispatch.kernel, "emit_helpers"))
+        helpers.append(_kernel_context_text(dispatch.kernel, "emit_helpers", dispatch.fmt, rhs))
         setup.append(_kernel_text(dispatch.kernel, "emit_setup", dispatch.fmt, rhs))
         call = getattr(dispatch.kernel, "emit_call", None)
         if call is None:
             raise TypeError(f"{type(dispatch.kernel).__name__} must implement emit_call(...)")
         timed_calls = getattr(dispatch.kernel, "emit_timed_calls", None)
-        if isinstance(dispatch.fmt, VBR) and callable(timed_calls):
-            dense_block_index = sum(1 for category, _, _ in calls if category == "dense")
-            for snippet in timed_calls(dispatch.fmt, "y", "x", rhs) or []:
-                calls.append(("dense", snippet or "", dense_block_index))
-                dense_block_index += 1
+        if callable(timed_calls):
+            snippets = _normalize_kernel_snippets(timed_calls(dispatch.fmt, "y", "x", rhs))
+            for part_ordinal, snippet in enumerate(snippets, start=1):
+                lowered = _lower_kernel_snippet(
+                    snippet,
+                    dispatch_index,
+                    part_ordinal,
+                    dispatch.fmt,
+                    bindings,
+                    helpers,
+                    out_of_line_helper_definitions,
+                )
+                calls.append(
+                    TimedCall(
+                        dispatch_index=dispatch_index,
+                        snippet=lowered or "",
+                        part_index=part_count,
+                        part_ordinal=part_ordinal,
+                    )
+                )
+                part_count += 1
         else:
-            category = "dense" if isinstance(dispatch.fmt, VBR) else "sparse"
-            if not isinstance(dispatch.fmt, (CSR, VBR)):
-                category = "sparse"
-            calls.append((category, call(dispatch.fmt, "y", "x", rhs) or "", None))
+            snippets = _normalize_kernel_snippets(call(dispatch.fmt, "y", "x", rhs))
+            if len(snippets) <= 1:
+                snippet = snippets[0] if snippets else ""
+                lowered = _lower_kernel_snippet(
+                    snippet,
+                    dispatch_index,
+                    1,
+                    dispatch.fmt,
+                    bindings,
+                    helpers,
+                    out_of_line_helper_definitions,
+                )
+                calls.append(TimedCall(
+                    dispatch_index=dispatch_index,
+                    snippet=lowered or "",
+                    part_index=part_count,
+                    part_ordinal=1,
+                ))
+                part_count += 1
+            else:
+                for part_ordinal, snippet in enumerate(snippets, start=1):
+                    lowered = _lower_kernel_snippet(
+                        snippet,
+                        dispatch_index,
+                        part_ordinal,
+                        dispatch.fmt,
+                        bindings,
+                        helpers,
+                        out_of_line_helper_definitions,
+                    )
+                    calls.append(
+                        TimedCall(
+                            dispatch_index=dispatch_index,
+                            snippet=lowered or "",
+                            part_index=part_count,
+                            part_ordinal=part_ordinal,
+                        )
+                    )
+                    part_count += 1
         teardown.append(_kernel_text(dispatch.kernel, "emit_teardown", dispatch.fmt, rhs))
 
     lines: list[str] = []
@@ -392,39 +572,26 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
                 lines.append("\n")
 
     lines.append("    struct timespec t1, t2;\n")
-    lines.append(f"    double *sparse_times = (double *)calloc({bench}, sizeof(double));\n")
-    lines.append(f"    double *dense_times = (double *)calloc({bench}, sizeof(double));\n")
-    dense_block_count = sum(1 for category, _, _ in calls if category == "dense")
+    dispatch_count = len(plan.dispatches)
     lines.append(
-        f"    double (*dense_block_times)[{bench}] = "
-        f"(double (*)[{bench}])calloc({_alloc_size(dense_block_count)}, {bench} * sizeof(double));\n"
+        f"    double (*dispatch_part_times)[{bench}] = "
+        f"(double (*)[{bench}])calloc({_alloc_size(part_count)}, {bench} * sizeof(double));\n"
     )
-    lines.append("    assert(sparse_times != NULL);\n")
-    lines.append("    assert(dense_times != NULL);\n")
-    lines.append("    assert(dense_block_times != NULL);\n")
+    lines.append("    assert(dispatch_part_times != NULL);\n")
     lines.append(f"    for (int iter = 0; iter < {bench}; iter++) {{\n")
     lines.append(f"        memset(y, 0, {y_size} * sizeof(double));\n")
-    lines.append("        double iter_sparse_ns = 0.0;\n")
-    lines.append("        double iter_dense_ns = 0.0;\n")
-    for category, snippet, block_index in calls:
-        if snippet:
+    for timed_call in calls:
+        if timed_call.snippet:
             lines.append("        clock_gettime(CLOCK_MONOTONIC, &t1);\n")
-            lines.append(snippet)
-            if not snippet.endswith("\n"):
+            lines.append(timed_call.snippet)
+            if not timed_call.snippet.endswith("\n"):
                 lines.append("\n")
             lines.append("        clock_gettime(CLOCK_MONOTONIC, &t2);\n")
-            target = "iter_dense_ns" if category == "dense" else "iter_sparse_ns"
             lines.append(
-                f"        {target} += (t2.tv_sec - t1.tv_sec) * 1000000000.0 + "
+                f"        dispatch_part_times[{timed_call.part_index}][iter] = "
+                "(t2.tv_sec - t1.tv_sec) * 1000000000.0 + "
                 "(t2.tv_nsec - t1.tv_nsec);\n"
             )
-            if block_index is not None:
-                lines.append(
-                    f"        dense_block_times[{block_index}][iter] = "
-                    "(t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);\n"
-                )
-    lines.append("        sparse_times[iter] = iter_sparse_ns;\n")
-    lines.append("        dense_times[iter] = iter_dense_ns;\n")
     lines.append("    }\n\n")
 
     for snippet in teardown:
@@ -433,20 +600,28 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
             if not snippet.endswith("\n"):
                 lines.append("\n")
 
-    lines.append('    printf("Sparse: ");\n')
-    lines.append(f"    for (int i = 0; i < {bench}; i++) {{\n")
-    lines.append('        printf("%.0f,", sparse_times[i]);\n')
-    lines.append("    }\n")
-    lines.append('    printf("\\n");\n')
-    lines.append('    printf("Dense: ");\n')
-    lines.append(f"    for (int i = 0; i < {bench}; i++) {{\n")
-    lines.append('        printf("%.0f,", dense_times[i]);\n')
-    lines.append("    }\n")
-    lines.append('    printf("\\n");\n')
-    for block_index in range(dense_block_count):
-        lines.append(f'    printf("Dense Block {block_index + 1}: ");\n')
+    parts_by_dispatch: dict[int, list[int]] = {}
+    for timed_call in calls:
+        if timed_call.snippet:
+            parts_by_dispatch.setdefault(timed_call.dispatch_index, []).append(timed_call.part_index)
+
+    for dispatch_index in range(dispatch_count):
+        lines.append(f'    printf("Dispatch {dispatch_index + 1}: ");\n')
         lines.append(f"    for (int i = 0; i < {bench}; i++) {{\n")
-        lines.append(f'        printf("%.0f,", dense_block_times[{block_index}][i]);\n')
+        part_indices = parts_by_dispatch.get(dispatch_index, [])
+        if part_indices:
+            sum_expr = " + ".join(f"dispatch_part_times[{pi}][i]" for pi in part_indices)
+        else:
+            sum_expr = "0"
+        lines.append(f'        printf("%.0f,", {sum_expr});\n')
+        lines.append("    }\n")
+        lines.append('    printf("\\n");\n')
+    for timed_call in calls:
+        if len(parts_by_dispatch.get(timed_call.dispatch_index, [])) <= 1:
+            continue
+        lines.append(f'    printf("Dispatch {timed_call.dispatch_index + 1} Part {timed_call.part_ordinal}: ");\n')
+        lines.append(f"    for (int i = 0; i < {bench}; i++) {{\n")
+        lines.append(f'        printf("%.0f,", dispatch_part_times[{timed_call.part_index}][i]);\n')
         lines.append("    }\n")
         lines.append('    printf("\\n");\n')
     lines.append('    printf("\\n");\n')
@@ -456,9 +631,7 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
 
     for binding in bindings:
         lines.append(f"    free({binding.c_name});\n")
-    lines.append("    free(dense_block_times);\n")
-    lines.append("    free(dense_times);\n")
-    lines.append("    free(sparse_times);\n")
+    lines.append("    free(dispatch_part_times);\n")
     lines.append("    free(x);\n")
     lines.append("    free(y);\n")
     lines.append("    return 0;\n")

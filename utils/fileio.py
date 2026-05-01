@@ -1,7 +1,7 @@
 import os
 import pathlib
 import re
-from typing import List, Tuple
+from typing import Any, List, Tuple
 
 import yaml
 
@@ -28,13 +28,13 @@ def write_dense_matrix(val: float, m: int, n: int):
 
 def parse_yaml_blocks(yaml_path: str) -> List[Tuple[int, int, int, int]]:
     """
-    Parse YAML file to extract dense block coordinates.
+    Parse YAML file to extract block coordinates.
     
     Args:
         yaml_path: Path to YAML file containing block information
     
     Returns:
-        List of dense block coordinates as (row_start, row_end, col_start, col_end)
+        List of block coordinates as (row_start, row_end, col_start, col_end)
     """
     with open(yaml_path, 'r') as f:
         data = yaml.safe_load(f)
@@ -77,3 +77,10 @@ def parse_yaml_blocks(yaml_path: str) -> List[Tuple[int, int, int, int]]:
         blocks.append((row_start, row_end, col_start, col_end))
     
     return blocks
+
+
+def parse_yaml_bands(yaml_path: str) -> List[dict[str, Any]]:
+    """Parse a VDIA band result YAML file."""
+    with open(yaml_path, "r") as f:
+        data = yaml.safe_load(f) or {}
+    return list(data.get("bands") or [])

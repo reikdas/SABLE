@@ -16,6 +16,7 @@ from .vbr import (
     NaiveVBRSpmm,
     NaiveVBRSpmv,
 )
+from .vdia import NaiveVDIASpmm, NaiveVDIASpmv
 
 __all__ = [
     "MKLCSRSpmm",
@@ -26,6 +27,8 @@ __all__ = [
     "MixedVBRSpmv",
     "NaiveCSRSpmm",
     "NaiveCSRSpmv",
+    "NaiveVDIASpmm",
+    "NaiveVDIASpmv",
     "SPRegCSRSpmm",
     "UZPCSRSpmv",
     "NaiveVBRSpmm",

@@ -7,17 +7,28 @@ from enum import Enum
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 
-class SparseKernel(str, Enum):
+class CSRKernel(str, Enum):
     MKL = "mkl"
+    SPREG = "spreg"
     SPV8 = "spv8"
     UZP = "uzp"
     NAIVE = "naive"
 
 
-class DenseKernel(str, Enum):
-    NAIVE = "naive"
-    MIXED = "mixed"
-    MKL = "mkl"
+class VBRKernel(str, Enum):
+    NAIVE = "blocknaive"
+    MIXED = "blockmixed"
+    MKL = "blockmkl"
+
+    @classmethod
+    def _missing_(cls, value):
+        if value == "blocksmixed":
+            return cls.MIXED
+        return None
+
+
+class VDIAKernel(str, Enum):
+    NAIVE = "bandnaive"
 
 
 def _detect_mkl_config() -> tuple[list[str], bool]:

@@ -12,7 +12,7 @@ from utils.fileio import parse_yaml_blocks
 from sable.formats import Rep, VBR
 from sable.matrix import ResidualMatrix
 
-from .vbr_packing import convert_sparse_to_vbrc_with_blocks
+from .vbr_packing import convert_matrix_to_vbrc_with_blocks
 
 
 Block = tuple[int, int, int, int]
@@ -25,19 +25,19 @@ _PARTITIONER_BIN = _PARTITIONER_BUILD_DIR / "partition_matrix"
 
 def pack_blocks_as_vbr(A: ResidualMatrix, blocks: list[Block]) -> VBR:
     val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, _, _, _ = (
-        convert_sparse_to_vbrc_with_blocks(A.to_scipy(), blocks)
+        convert_matrix_to_vbrc_with_blocks(A.to_scipy(), blocks)
     )
     return VBR(
         nrows=A.nrows,
         ncols=A.ncols,
         val=Rep(list(map(float, val)), label="vbr_val"),
-        indx=Rep(list(map(int, indx)), label="vbr_indx"),
-        bindx=Rep(list(map(int, bindx)), label="vbr_bindx"),
-        rpntr=Rep(list(map(int, rpntr)), label="vbr_rpntr"),
-        cpntr=Rep(list(map(int, cpntr)), label="vbr_cpntr"),
-        bpntrb=Rep(list(map(int, bpntrb)), label="vbr_bpntrb"),
-        bpntre=Rep(list(map(int, bpntre)), label="vbr_bpntre"),
-        ublocks=Rep(list(map(int, ublocks)), label="vbr_ublocks"),
+        indx=list(map(int, indx)),
+        bindx=list(map(int, bindx)),
+        rpntr=list(map(int, rpntr)),
+        cpntr=list(map(int, cpntr)),
+        bpntrb=list(map(int, bpntrb)),
+        bpntre=list(map(int, bpntre)),
+        ublocks=list(map(int, ublocks)),
         blocks=list(blocks),
     )
 
@@ -76,7 +76,7 @@ def _ensure_partitioner(partitioner_path: str | os.PathLike[str] | None = None) 
     return _PARTITIONER_BIN
 
 
-def find_dense_blocks(
+def find_blocks(
     A: ResidualMatrix,
     min_density: float,
     min_area: int,
@@ -140,7 +140,7 @@ class BlockDetector:
         self.partitioner_path = partitioner_path
 
     def extract(self, A: ResidualMatrix) -> tuple[VBR, ResidualMatrix]:
-        blocks = find_dense_blocks(
+        blocks = find_blocks(
             A,
             self.min_density,
             self.min_area,

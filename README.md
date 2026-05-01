@@ -1,7 +1,7 @@
 ## Usage
 
-The SABLE frontend lets you split a sparse matrix into dense blocks and a
-sparse residual, dispatch each part to a different kernel, and compile
+The SABLE frontend lets you extract matrix regions into formats such as VBR,
+VDIA, and CSR, dispatch each format to a compatible kernel, and compile
 everything into a single timed C program.
 
 The example below runs **SpMM** (sparse matrix × dense matrix).  It assumes
@@ -32,8 +32,8 @@ plan.rhs(
 
 # ── 3. Extract formats ───────────────────────────────────────────────
 # BlockDetector (defined in sable/extractors/block_detector.py) runs
-# the native C++ partitioner in find-submatrices/ to discover dense
-# sub-blocks.  It returns a VBR format and shrinks the residual.
+# the native C++ partitioner in find-submatrices/ to discover block
+# regions. It returns a VBR format and shrinks the residual.
 vbr = plan.extract(
     BlockDetector(min_density=0.5, min_area=2500, threads=4)
 )
@@ -42,12 +42,12 @@ vbr = plan.extract(
 csr = plan.extract(CSRConvertor())
 
 # ── 4. Dispatch kernels ──────────────────────────────────────────────
-# MixedVBRSpmm uses a heuristic per dense block: blocks whose smallest
+# MixedVBRSpmm uses a heuristic per VBR block: blocks whose smallest
 # dimension ≥ 8 and aspect ratio ≤ 100 are multiplied with MKL's
 # cblas_dgemm; smaller or very thin blocks fall back to a naive loop.
 plan.dispatch(vbr, MixedVBRSpmm())
 
-# NaiveCSRSpmm multiplies the sparse residual with a triple-nested loop.
+# NaiveCSRSpmm multiplies the CSR residual with a triple-nested loop.
 plan.dispatch(csr, NaiveCSRSpmm())
 
 # ── 5. Compile, build, and run ───────────────────────────────────────
@@ -66,7 +66,7 @@ compiled independently:
 - `executor.build()` invokes the compiler with flags requested by the
   dispatched kernels, for example MKL include and link flags.
 - `executor.run()` executes the compiled binary, reads the dense RHS from disk,
-  runs the generated sparse computation for `bench` iterations, and returns the
+  runs the generated computation for `bench` iterations, and returns the
   program output.
 
 ### Writing an extractor
@@ -107,10 +107,15 @@ a `VBR` format.
 ### Writing a kernel
 
 A kernel tells the compiler what C code to emit for a given format.  Set
-`accepts` to the format type and `operation` to an operation type (`Operation.SPMV` or
-`Operation.SPMM` -- the user can write their own operation).  The frontend derives the expected RHS rank from that
-operation and checks that every dispatched kernel in a plan agrees.  The only
-required method is `emit_call`, which returns a C code string.
+`accepts` to the format type and `operation` to an operation type
+(`Operation.SPMV` or `Operation.SPMM`; users can add their own operation).
+The frontend derives the expected RHS rank from that operation and checks that
+every dispatched kernel in a plan agrees.
+
+The required method is `emit_call`.  It may return a C code string, an
+`out_of_line(...)` marker, or a list containing either kind.  Kernels can also
+implement `emit_timed_calls`; when present, each returned snippet is timed as a
+separate dispatch part.
 
 ```python
 from sable import Operation
@@ -149,6 +154,71 @@ for (int i = 0; i < {fmt.nrows}; i++) {{
     def runtime_env(self) -> dict[str, str]:
         return {}
 ```
+
+#### Moving generated code out of line
+
+Use `out_of_line(...)` when a generated snippet should be hoisted into a helper
+function instead of emitted directly in `main`.  This is useful for loop-heavy
+generated kernels where duplicating the loop body for every block or segment
+would grow the C source.  Plain strings stay inline, so a kernel can mix inline
+library calls with out-of-line loop bodies.
+
+```python
+from sable import out_of_line
+
+
+def emit_timed_calls(self, fmt, y: str, x: str, rhs) -> list:
+    calls = []
+    nrhs = rhs.shape[1]
+    for r0, r1, c0, c1, offset in self.blocks:
+        if self.use_blas(r0, r1, c0, c1):
+            calls.append(f"""\
+cblas_dgemm(...,
+    &{fmt.val}[{offset}], {r1} - {r0},
+    &{x}[{c0} * {nrhs}], {nrhs},
+    1.0,
+    &{y}[{r0} * {nrhs}], {nrhs});
+""")
+        else:
+            loop_body = f"""\
+for (int i = r0; i < r1; i++) {{
+    for (int j = c0; j < c1; j++) {{
+        double a = {fmt.val}[offset + (j - c0) * (r1 - r0) + (i - r0)];
+        for (int k = 0; k < nrhs; k++) {{
+            {y}[i * nrhs + k] += a * {x}[j * nrhs + k];
+        }}
+    }}
+}}
+"""
+            calls.append(
+                out_of_line(
+                    loop_body,
+                    name=f"{fmt.val}_spmm_naive_block",
+                    parameters=[
+                        "int r0",
+                        "int r1",
+                        "int c0",
+                        "int c1",
+                        "int offset",
+                        "int nrhs",
+                    ],
+                    arguments=[r0, r1, c0, c1, offset, nrhs],
+                )
+            )
+    return calls
+```
+
+The compiler automatically adds `double *y`, `const double *x`, and any staged
+`Rep` arrays referenced in the body to the helper signature.  `parameters` and
+`arguments` are for scalar values that vary between calls, such as bounds,
+bandwidths, and offsets.  Reusing the same `name` with the same body and
+signature creates one helper function and multiple calls; reusing a name with
+a different body or signature is rejected.
+
+Built-in VBR and VDIA kernels use this mechanism by default.  VBR naive loop
+blocks are dispatched through one parameterized helper per operation, while
+VBR MKL/CBLAS calls remain inline.  VDIA segment loops are also dispatched
+through one parameterized helper per operation.
 
 Kernels that need external libraries (MKL, spv8, sparse-register-tiling)
 return the appropriate flags from `compile_flags()` / `link_flags()` and
@@ -222,8 +292,10 @@ cd ../..
 
 ### 6. Configuration
 
-Shared compiler flags and MKL discovery live in `sable/build_config.py`.
-UZP, SPV8, MKL, and naive SpMV sparse dispatches are exposed through the frontend kernel API.
+Shared compiler flags, MKL discovery, and kernel-family enum names live in
+`sable/build_config.py`.  UZP, SPV8, MKL, naive CSR/VBR/VDIA, and mixed VBR
+kernels are exposed through the frontend kernel API.  Benchmark kernels are
+grouped by format family: CSR, VBR, and VDIA.
 
 ### 7. Running Benchmarks
 

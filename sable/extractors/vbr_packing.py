@@ -20,14 +20,14 @@ VBRCData = tuple[
 ]
 
 
-def _compute_partitioning_from_dense_blocks(
+def _compute_partitioning_from_blocks(
     mat: scipy.sparse.spmatrix,
-    dense_blocks: list[Block],
+    blocks: list[Block],
 ) -> tuple[list[int], list[int]]:
     row_boundaries = {0, mat.shape[0]}
     col_boundaries = {0, mat.shape[1]}
 
-    for row_start, row_end, col_start, col_end in dense_blocks:
+    for row_start, row_end, col_start, col_end in blocks:
         row_boundaries.add(row_start)
         row_boundaries.add(row_end)
         col_boundaries.add(col_start)
@@ -36,32 +36,32 @@ def _compute_partitioning_from_dense_blocks(
     return sorted(row_boundaries), sorted(col_boundaries)
 
 
-def convert_sparse_to_vbrc_with_blocks(
+def convert_matrix_to_vbrc_with_blocks(
     mat: scipy.sparse.spmatrix,
-    dense_blocks: list[Block],
+    blocks: list[Block],
 ) -> VBRCData:
-    rpntr, cpntr = _compute_partitioning_from_dense_blocks(mat, dense_blocks)
+    rpntr, cpntr = _compute_partitioning_from_blocks(mat, blocks)
 
     def block_processor(r_start: int, r_end: int, c_start: int, c_end: int):
         block = mat[r_start:r_end, c_start:c_end]
         if block.nnz == 0:
             return None
 
-        is_dense_block = any(
-            dense_r_start <= r_start
-            and r_end <= dense_r_end
-            and dense_c_start <= c_start
-            and c_end <= dense_c_end
-            for dense_r_start, dense_r_end, dense_c_start, dense_c_end in dense_blocks
+        is_selected_block = any(
+            selected_r_start <= r_start
+            and r_end <= selected_r_end
+            and selected_c_start <= c_start
+            and c_end <= selected_c_end
+            for selected_r_start, selected_r_end, selected_c_start, selected_c_end in blocks
         )
 
         coo_block = block.tocoo()
-        dense_elems = coo_block.data.tolist()
+        residual_elems = coo_block.data.tolist()
         idxs_i = (coo_block.row + r_start).tolist()
         idxs_j = (coo_block.col + c_start).tolist()
-        block_vals = block.todense().flatten(order="F").A1
+        block_vals = block.toarray().flatten(order="F")
 
-        return block_vals, dense_elems, idxs_i, idxs_j, is_dense_block
+        return block_vals, residual_elems, idxs_i, idxs_j, is_selected_block
 
     val: list[float] = []
     indx: list[int] = [0]
@@ -84,12 +84,12 @@ def convert_sparse_to_vbrc_with_blocks(
             if result is None:
                 continue
 
-            block_vals, dense_elems, idxs_i, idxs_j, is_dense_block = result
-            if is_dense_block:
+            block_vals, residual_elems, idxs_i, idxs_j, is_selected_block = result
+            if is_selected_block:
                 val.extend(block_vals)
                 indx.append(len(val))
             else:
-                coo_val.extend(dense_elems)
+                coo_val.extend(residual_elems)
                 ublocks.append(block_count)
                 coo_i.extend(idxs_i)
                 coo_j.extend(idxs_j)
@@ -121,7 +121,7 @@ def convert_sparse_to_vbrc_with_blocks(
     return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val
 
 
-def analyze_dense_blocks(
+def analyze_vbr_blocks(
     val: list[float],
     indx: list[int],
     bindx: list[int],
@@ -131,9 +131,9 @@ def analyze_dense_blocks(
     bpntre: list[int],
     ublocks: list[int],
 ) -> list[dict[str, float | int]]:
-    dense_blocks: list[dict[str, float | int]] = []
+    analyzed_blocks: list[dict[str, float | int]] = []
     nnz_block = 0
-    dense_count = 0
+    packed_block_count = 0
 
     for row_idx in range(len(rpntr) - 1):
         if bpntrb[row_idx] == -1:
@@ -146,11 +146,11 @@ def analyze_dense_blocks(
                 rows = rpntr[row_idx + 1] - rpntr[row_idx]
                 cols = cpntr[col_idx + 1] - cpntr[col_idx]
                 block_size = rows * cols
-                start = indx[dense_count]
-                end = indx[dense_count + 1] if dense_count + 1 < len(indx) else len(val)
+                start = indx[packed_block_count]
+                end = indx[packed_block_count + 1] if packed_block_count + 1 < len(indx) else len(val)
                 block_nnz = int(numpy.count_nonzero(val[start:end]))
                 density_percent = (block_nnz / block_size) * 100 if block_size else 0.0
-                dense_blocks.append(
+                analyzed_blocks.append(
                     {
                         "rows": rows,
                         "cols": cols,
@@ -158,7 +158,7 @@ def analyze_dense_blocks(
                         "nnz": block_nnz,
                     }
                 )
-                dense_count += 1
+                packed_block_count += 1
             nnz_block += 1
 
-    return dense_blocks
+    return analyzed_blocks

@@ -62,74 +62,73 @@ def remove_outliers_deciles(data):
     return [x for x in data if D1 <= x <= D9]
 
 
-def calculate_weighted_speedup_stats(individual_dense_block_timings):
+def calculate_weighted_speedup_stats(individual_format_region_timings):
     """
-    Helper function to calculate weighted speedup statistics from dense block timings.
+    Helper function to calculate weighted speedup statistics from format-region timings.
     
     Args:
-        individual_dense_block_timings: Dictionary mapping block_id to block data containing
-                                       'percentage_of_total_nnz' and 'predicted_speedup' keys
+        individual_format_region_timings: Dictionary mapping region_id to region data containing
+                                         'percentage_of_total_nnz' and 'predicted_speedup' keys
     
     Returns:
-        Tuple of (total_weighted_speedup, total_dense_nnz_percentage)
+        Tuple of (total_weighted_speedup, total_format_nnz_percentage)
     """
     total_weighted_speedup = 0.0
-    total_dense_nnz_percentage = 0.0
+    total_format_nnz_percentage = 0.0
     
-    for block_id, block_data in individual_dense_block_timings.items():
-        nnz_percentage = block_data.get("percentage_of_total_nnz", 0)
-        predicted_speedup = block_data.get("predicted_speedup", 0)
+    for region_id, region_data in individual_format_region_timings.items():
+        nnz_percentage = region_data.get("percentage_of_total_nnz", 0)
+        predicted_speedup = region_data.get("predicted_speedup", 0)
         
         # Weight the predicted speedup by the percentage of nnz it handles
         weighted_speedup = predicted_speedup * (nnz_percentage / 100.0)
         total_weighted_speedup += weighted_speedup
-        total_dense_nnz_percentage += nnz_percentage
+        total_format_nnz_percentage += nnz_percentage
     
-    return total_weighted_speedup, total_dense_nnz_percentage
+    return total_weighted_speedup, total_format_nnz_percentage
 
 
-def estimate_total_speedup(individual_dense_block_timings):
+def estimate_total_speedup(individual_format_region_timings):
     """
-    Estimate total speedup across the entire matrix based on individual block characteristics.
+    Estimate total speedup across the entire matrix based on individual region characteristics.
     
     Args:
-        individual_dense_block_timings: Dictionary mapping block_id to block data
+        individual_format_region_timings: Dictionary mapping region_id to region data
     
     Returns:
         Estimated total speedup (float)
     """
-    total_weighted_speedup, total_dense_nnz_percentage = calculate_weighted_speedup_stats(
-        individual_dense_block_timings
+    total_weighted_speedup, total_format_nnz_percentage = calculate_weighted_speedup_stats(
+        individual_format_region_timings
     )
     
-    # If no dense blocks, speedup is 1.0 (no improvement)
-    if total_dense_nnz_percentage == 0:
+    # If no format regions exist, speedup is 1.0 (no improvement)
+    if total_format_nnz_percentage == 0:
         return 1.0
     
-    estimated_speedup = 1.0 + (total_weighted_speedup - (total_dense_nnz_percentage / 100.0))
+    estimated_speedup = 1.0 + (total_weighted_speedup - (total_format_nnz_percentage / 100.0))
     
     return estimated_speedup
 
 
-def estimate_dense_speedup(individual_dense_block_timings):
+def estimate_format_region_speedup(individual_format_region_timings):
     """
-    Estimate speedup specifically for dense regions only.
+    Estimate speedup specifically for extracted format regions only.
     
     Args:
-        individual_dense_block_timings: Dictionary mapping block_id to block data
+        individual_format_region_timings: Dictionary mapping region_id to region data
     
     Returns:
-        Estimated dense speedup (float)
+        Estimated format-region speedup (float)
     """
-    total_weighted_speedup, total_dense_nnz_percentage = calculate_weighted_speedup_stats(
-        individual_dense_block_timings
+    total_weighted_speedup, total_format_nnz_percentage = calculate_weighted_speedup_stats(
+        individual_format_region_timings
     )
     
-    # If no dense blocks, speedup is 1.0 (no improvement)
-    if total_dense_nnz_percentage == 0:
+    # If no format regions exist, speedup is 1.0 (no improvement)
+    if total_format_nnz_percentage == 0:
         return 1.0
 
-    estimated_dense_speedup = total_weighted_speedup / (total_dense_nnz_percentage / 100.0)
+    estimated_region_speedup = total_weighted_speedup / (total_format_nnz_percentage / 100.0)
     
-    return estimated_dense_speedup
-
+    return estimated_region_speedup

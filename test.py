@@ -8,7 +8,7 @@ import scipy.sparse
 
 from sable.build_config import MKL_AVAILABLE as MKL_AVAILABLE
 from sable import Matrix, Plan
-from sable.extractors import BlockDetector, BlockDetectorSkip, CSRConvertor
+from sable.extractors import BandExtractorSkip, BlockDetector, BlockDetectorSkip, CSRConvertor
 from sable.kernels import (
     MKLCSRSpmm,
     MKLCSRSpmv,
@@ -18,6 +18,8 @@ from sable.kernels import (
     MixedVBRSpmv,
     NaiveCSRSpmm,
     NaiveCSRSpmv,
+    NaiveVDIASpmm,
+    NaiveVDIASpmv,
     NaiveVBRSpmm,
     NaiveVBRSpmv,
     SPRegCSRSpmm,
@@ -49,7 +51,7 @@ def _numeric_result_lines(output):
             continue
         if skip_timing:
             continue
-        if line.startswith("Sparse:") or line.startswith("Dense:") or line.startswith("Dense Block"):
+        if line.startswith("Dispatch"):
             continue
         try:
             float(line)
@@ -59,34 +61,48 @@ def _numeric_result_lines(output):
     return result_lines
 
 
-MIXED_DENSE_BLOCKS = [(0, 3, 0, 3), (3, 11, 3, 11)]
-MIXED_DENSE_NNZ = 9 + 64
-MIXED_SPARSE_REMAINDER_NNZ = 6
+MIXED_VBR_BLOCKS = [(0, 3, 0, 3), (3, 11, 3, 11)]
+MIXED_VBR_NNZ = 9 + 64
+MIXED_CSR_RESIDUAL_NNZ = 6
 
 
-def _mixed_dense_dispatch_csr(include_sparse_remainder: bool = False):
-    dense = numpy.zeros((11, 11), dtype=float)
-    dense[0:3, 0:3] = numpy.array(
+def _fully_dense_band(rows: int, cols: int):
+    return [
+        {
+            "diag_offset": 0,
+            "segments": [
+                {
+                    "rows": [0, rows],
+                    "bandwidth": [max(rows - 1, 0), max(cols - 1, 0)],
+                }
+            ],
+        }
+    ]
+
+
+def _mixed_vbr_dispatch_csr(include_csr_residual: bool = False):
+    values = numpy.zeros((11, 11), dtype=float)
+    values[0:3, 0:3] = numpy.array(
         [
             [1.0, 2.0, 3.0],
             [4.0, 5.0, 6.0],
             [7.0, 8.0, 9.0],
         ]
     )
-    dense[3:11, 3:11] = numpy.arange(1.0, 65.0).reshape(8, 8)
-    if include_sparse_remainder:
-        dense[0, 10] = 5.0
-        dense[1, 9] = 4.0
-        dense[2, 8] = 3.0
-        dense[8, 2] = 6.0
-        dense[9, 1] = 1.0
-        dense[10, 0] = 2.0
-    return scipy.sparse.csr_matrix(dense)
+    values[3:11, 3:11] = numpy.arange(1.0, 65.0).reshape(8, 8)
+    if include_csr_residual:
+        values[0, 10] = 5.0
+        values[1, 9] = 4.0
+        values[2, 8] = 3.0
+        values[8, 2] = 6.0
+        values[9, 1] = 1.0
+        values[10, 0] = 2.0
+    return scipy.sparse.csr_matrix(values)
 
 
-def _extract_mixed_dense_vbr(plan: Plan):
-    vbr = plan.extract(BlockDetectorSkip(blocks=MIXED_DENSE_BLOCKS))
-    assert len(vbr.val.values) == MIXED_DENSE_NNZ
+def _extract_mixed_vbr(plan: Plan):
+    vbr = plan.extract(BlockDetectorSkip(blocks=MIXED_VBR_BLOCKS))
+    assert len(vbr.val.values) == MIXED_VBR_NNZ
     return vbr
 
 
@@ -133,8 +149,8 @@ def _require_uzp_toolchain():
 # SpMV — frontend single-threaded dispatches
 # ---------------------------------------------------------------------------
 
-def test_spmv_single_threaded_naive_fully_dense():
-    """Test SpMV with handwritten VBR dense dispatch and no sparse remainder."""
+def test_spmv_single_threaded_blocknaive_fullydense():
+    """Test SpMV with handwritten VBR VBR dispatch and no residual."""
     dense = numpy.array(
         [
             [1.0, 2.0, 3.0],
@@ -142,7 +158,7 @@ def test_spmv_single_threaded_naive_fully_dense():
             [7.0, 8.0, 9.0],
         ]
     )
-    filename = "spmv_single_threaded_naive_fully_dense"
+    filename = "spmv_single_threaded_blocknaive_fullydense"
     matrix = Matrix(scipy.sparse.csr_matrix(dense), name=filename)
     cols = matrix.ncols
 
@@ -161,10 +177,38 @@ def test_spmv_single_threaded_naive_fully_dense():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_naive_fully_sparse():
-    """Test SpMV with handwritten CSR sparse dispatch and no dense blocks."""
+def test_spmv_single_threaded_bandnaive_fullydense():
+    """Test SpMV with naive VDIA band dispatch and no residual."""
+    dense = numpy.array(
+        [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+        ]
+    )
+    filename = "spmv_single_threaded_bandnaive_fullydense"
+    matrix = Matrix(scipy.sparse.csr_matrix(dense), name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    vdia = plan.extract(BandExtractorSkip(bands=_fully_dense_band(matrix.nrows, matrix.ncols)))
+    assert vdia.nsegments == 1
+    assert plan.residual.nnz == 0
+    plan.dispatch(vdia, NaiveVDIASpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = dense.dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmv_single_threaded_naive_csr_only():
+    """Test SpMV with handwritten CSR dispatch and no VBR/VDIA regions."""
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_naive_fully_sparse"
+    filename = "spmv_single_threaded_naive_csr_only"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -182,10 +226,10 @@ def test_spmv_single_threaded_naive_fully_sparse():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_naive_naive():
-    """Test SpMV with handwritten VBR dense dispatch + handwritten CSR sparse dispatch."""
+def test_spmv_single_threaded_blocknaive_naive():
+    """Test SpMV with handwritten VBR VBR dispatch + handwritten CSR dispatch."""
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_naive_naive"
+    filename = "spmv_single_threaded_blocknaive_naive"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -193,7 +237,7 @@ def test_spmv_single_threaded_naive_naive():
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, NaiveVBRSpmv())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, NaiveCSRSpmv())
@@ -205,12 +249,12 @@ def test_spmv_single_threaded_naive_naive():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_naive_mkl():
-    """Test SpMV with handwritten VBR dense dispatch + MKL CSR sparse dispatch."""
+def test_spmv_single_threaded_blocknaive_mkl():
+    """Test SpMV with handwritten VBR VBR dispatch + MKL CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_naive_mkl"
+    filename = "spmv_single_threaded_blocknaive_mkl"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -218,7 +262,7 @@ def test_spmv_single_threaded_naive_mkl():
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, NaiveVBRSpmv())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, MKLCSRSpmv())
@@ -230,11 +274,11 @@ def test_spmv_single_threaded_naive_mkl():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_naive_spv8():
-    """Test SpMV with handwritten VBR dense dispatch + SPV8 CSR sparse dispatch."""
+def test_spmv_single_threaded_blocknaive_spv8():
+    """Test SpMV with handwritten VBR VBR dispatch + SPV8 CSR dispatch."""
     _require_spv8_toolchain()
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_naive_spv8"
+    filename = "spmv_single_threaded_blocknaive_spv8"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -242,7 +286,7 @@ def test_spmv_single_threaded_naive_spv8():
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, NaiveVBRSpmv())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, SPV8CSRSpmv())
@@ -254,8 +298,8 @@ def test_spmv_single_threaded_naive_spv8():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mkl_fully_dense():
-    """Test SpMV with MKL VBR dense dispatch and no sparse remainder."""
+def test_spmv_single_threaded_blockmkl_fullydense():
+    """Test SpMV with MKL VBR VBR dispatch and no residual."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     dense = numpy.array(
@@ -265,7 +309,7 @@ def test_spmv_single_threaded_mkl_fully_dense():
             [7.0, 8.0, 9.0],
         ]
     )
-    filename = "spmv_single_threaded_mkl_fully_dense"
+    filename = "spmv_single_threaded_blockmkl_fullydense"
     matrix = Matrix(scipy.sparse.csr_matrix(dense), name=filename)
     cols = matrix.ncols
 
@@ -284,12 +328,12 @@ def test_spmv_single_threaded_mkl_fully_dense():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mkl_fully_sparse():
-    """Test SpMV with MKL CSR sparse dispatch and no dense blocks."""
+def test_spmv_single_threaded_mkl_csr_only():
+    """Test SpMV with MKL CSR dispatch and no VBR/VDIA regions."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_mkl_fully_sparse"
+    filename = "spmv_single_threaded_mkl_csr_only"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -307,11 +351,11 @@ def test_spmv_single_threaded_mkl_fully_sparse():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_spv8_fully_sparse():
-    """Test SpMV with SPV8 CSR sparse dispatch and no dense blocks."""
+def test_spmv_single_threaded_spv8_csr_only():
+    """Test SpMV with SPV8 CSR dispatch and no VBR/VDIA regions."""
     _require_spv8_toolchain()
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_spv8_fully_sparse"
+    filename = "spmv_single_threaded_spv8_csr_only"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -329,11 +373,11 @@ def test_spmv_single_threaded_spv8_fully_sparse():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_uzp_fully_sparse():
-    """Test SpMV with UZP CSR sparse dispatch and no dense blocks."""
+def test_spmv_single_threaded_uzp_csr_only():
+    """Test SpMV with UZP CSR dispatch and no VBR/VDIA regions."""
     _require_uzp_toolchain()
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_uzp_fully_sparse"
+    filename = "spmv_single_threaded_uzp_csr_only"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -351,12 +395,12 @@ def test_spmv_single_threaded_uzp_fully_sparse():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mkl_naive():
-    """Test SpMV with MKL VBR dense dispatch + handwritten CSR sparse dispatch."""
+def test_spmv_single_threaded_blockmkl_naive():
+    """Test SpMV with MKL VBR VBR dispatch + handwritten CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_mkl_naive"
+    filename = "spmv_single_threaded_blockmkl_naive"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -364,7 +408,7 @@ def test_spmv_single_threaded_mkl_naive():
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, MKLVBRSpmv())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, NaiveCSRSpmv())
@@ -376,12 +420,12 @@ def test_spmv_single_threaded_mkl_naive():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mkl_mkl():
-    """Test SpMV with MKL VBR dense dispatch + MKL CSR sparse dispatch."""
+def test_spmv_single_threaded_blockmkl_mkl():
+    """Test SpMV with MKL VBR VBR dispatch + MKL CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_mkl_mkl"
+    filename = "spmv_single_threaded_blockmkl_mkl"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -389,7 +433,7 @@ def test_spmv_single_threaded_mkl_mkl():
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, MKLVBRSpmv())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, MKLCSRSpmv())
@@ -401,13 +445,13 @@ def test_spmv_single_threaded_mkl_mkl():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mkl_spv8():
-    """Test SpMV with MKL VBR dense dispatch + SPV8 CSR sparse dispatch."""
+def test_spmv_single_threaded_blockmkl_spv8():
+    """Test SpMV with MKL VBR VBR dispatch + SPV8 CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     _require_spv8_toolchain()
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_mkl_spv8"
+    filename = "spmv_single_threaded_blockmkl_spv8"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -415,7 +459,7 @@ def test_spmv_single_threaded_mkl_spv8():
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, MKLVBRSpmv())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, SPV8CSRSpmv())
@@ -427,11 +471,11 @@ def test_spmv_single_threaded_mkl_spv8():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_naive_uzp():
-    """Test SpMV with handwritten VBR dense dispatch + UZP CSR sparse dispatch."""
+def test_spmv_single_threaded_blocknaive_uzp():
+    """Test SpMV with handwritten VBR VBR dispatch + UZP CSR dispatch."""
     _require_uzp_toolchain()
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmv_single_threaded_naive_uzp"
+    filename = "spmv_single_threaded_blocknaive_uzp"
     matrix = Matrix(mtx_path, name=filename)
     cols = matrix.ncols
 
@@ -439,7 +483,7 @@ def test_spmv_single_threaded_naive_uzp():
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, NaiveVBRSpmv())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, UZPCSRSpmv())
@@ -451,18 +495,18 @@ def test_spmv_single_threaded_naive_uzp():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mixed_fully_dense():
-    """Test SpMV with mixed VBR dense dispatch and no sparse remainder."""
+def test_spmv_single_threaded_blockmixed_fullydense():
+    """Test SpMV with mixed VBR dispatch and no residual."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    filename = "spmv_single_threaded_mixed_fully_dense"
-    matrix = Matrix(_mixed_dense_dispatch_csr(), name=filename)
+    filename = "spmv_single_threaded_blockmixed_fullydense"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(), name=filename)
     cols = matrix.ncols
 
     write_dense_vector(1.0, cols)
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     assert plan.residual.nnz == 0
     plan.dispatch(vbr, MixedVBRSpmv())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
@@ -473,21 +517,21 @@ def test_spmv_single_threaded_mixed_fully_dense():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mixed_naive():
-    """Test SpMV with mixed VBR dense dispatch + handwritten CSR sparse dispatch."""
+def test_spmv_single_threaded_blockmixed_naive():
+    """Test SpMV with mixed VBR dispatch + handwritten CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    filename = "spmv_single_threaded_mixed_naive"
-    matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
+    filename = "spmv_single_threaded_blockmixed_naive"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(include_csr_residual=True), name=filename)
     cols = matrix.ncols
 
     write_dense_vector(1.0, cols)
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     plan.dispatch(vbr, MixedVBRSpmv())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ
+    assert csr.nnz == MIXED_CSR_RESIDUAL_NNZ
     plan.dispatch(csr, NaiveCSRSpmv())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
@@ -497,21 +541,21 @@ def test_spmv_single_threaded_mixed_naive():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mixed_mkl():
-    """Test SpMV with mixed VBR dense dispatch + MKL CSR sparse dispatch."""
+def test_spmv_single_threaded_blockmixed_mkl():
+    """Test SpMV with mixed VBR dispatch + MKL CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    filename = "spmv_single_threaded_mixed_mkl"
-    matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
+    filename = "spmv_single_threaded_blockmixed_mkl"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(include_csr_residual=True), name=filename)
     cols = matrix.ncols
 
     write_dense_vector(1.0, cols)
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     plan.dispatch(vbr, MixedVBRSpmv())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ
+    assert csr.nnz == MIXED_CSR_RESIDUAL_NNZ
     plan.dispatch(csr, MKLCSRSpmv())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
@@ -521,22 +565,22 @@ def test_spmv_single_threaded_mixed_mkl():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mixed_spv8():
-    """Test SpMV with mixed VBR dense dispatch + SPV8 CSR sparse dispatch."""
+def test_spmv_single_threaded_blockmixed_spv8():
+    """Test SpMV with mixed VBR dispatch + SPV8 CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     _require_spv8_toolchain()
-    filename = "spmv_single_threaded_mixed_spv8"
-    matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
+    filename = "spmv_single_threaded_blockmixed_spv8"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(include_csr_residual=True), name=filename)
     cols = matrix.ncols
 
     write_dense_vector(1.0, cols)
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     plan.dispatch(vbr, MixedVBRSpmv())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ
+    assert csr.nnz == MIXED_CSR_RESIDUAL_NNZ
     plan.dispatch(csr, SPV8CSRSpmv())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
@@ -546,22 +590,22 @@ def test_spmv_single_threaded_mixed_spv8():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmv_single_threaded_mixed_uzp():
-    """Test SpMV with mixed VBR dense dispatch + UZP CSR sparse dispatch."""
+def test_spmv_single_threaded_blockmixed_uzp():
+    """Test SpMV with mixed VBR dispatch + UZP CSR dispatch."""
     _require_uzp_toolchain()
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    filename = "spmv_single_threaded_mixed_uzp"
-    matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
+    filename = "spmv_single_threaded_blockmixed_uzp"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(include_csr_residual=True), name=filename)
     cols = matrix.ncols
 
     write_dense_vector(1.0, cols)
     plan = Plan(matrix, artifact_dir="tests")
     plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     plan.dispatch(vbr, MixedVBRSpmv())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ
+    assert csr.nnz == MIXED_CSR_RESIDUAL_NNZ
     plan.dispatch(csr, UZPCSRSpmv())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
@@ -575,8 +619,8 @@ def test_spmv_single_threaded_mixed_uzp():
 # SpMM — frontend single-threaded dispatches
 # ---------------------------------------------------------------------------
 
-def test_spmm_single_threaded_naive_fully_dense():
-    """Test SpMM with handwritten VBR dense dispatch and no sparse remainder."""
+def test_spmm_single_threaded_blocknaive_fullydense():
+    """Test SpMM with handwritten VBR VBR dispatch and no residual."""
     dense = numpy.array(
         [
             [1.0, 2.0, 3.0],
@@ -584,7 +628,7 @@ def test_spmm_single_threaded_naive_fully_dense():
             [7.0, 8.0, 9.0],
         ]
     )
-    filename = "spmm_single_threaded_naive_fully_dense"
+    filename = "spmm_single_threaded_blocknaive_fullydense"
     matrix = Matrix(scipy.sparse.csr_matrix(dense), name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -609,10 +653,44 @@ def test_spmm_single_threaded_naive_fully_dense():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_naive_fully_sparse():
-    """Test SpMM with handwritten CSR sparse dispatch and no dense blocks."""
+def test_spmm_single_threaded_bandnaive_fullydense():
+    """Test SpMM with naive VDIA band dispatch and no residual."""
+    dense = numpy.array(
+        [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+        ]
+    )
+    filename = "spmm_single_threaded_bandnaive_fullydense"
+    matrix = Matrix(scipy.sparse.csr_matrix(dense), name=filename)
+    rows, cols = matrix.nrows, matrix.ncols
+
+    write_dense_matrix(1.0, cols, 512)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(
+        DenseInput.matrix(
+            _generated_matrix_path(cols, 512),
+            shape=(cols, 512),
+            layout=DenseLayout.ROW_MAJOR,
+        )
+    )
+    vdia = plan.extract(BandExtractorSkip(bands=_fully_dense_band(matrix.nrows, matrix.ncols)))
+    assert vdia.nsegments == 1
+    assert plan.residual.nnz == 0
+    plan.dispatch(vdia, NaiveVDIASpmm())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines]).reshape(rows, 512)
+    y_expected = dense.dot(numpy.ones((cols, 512)))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmm_single_threaded_naive_csr_only():
+    """Test SpMM with handwritten CSR dispatch and no VBR/VDIA regions."""
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_naive_fully_sparse"
+    filename = "spmm_single_threaded_naive_csr_only"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -636,10 +714,10 @@ def test_spmm_single_threaded_naive_fully_sparse():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_naive_naive():
-    """Test SpMM with handwritten VBR dense dispatch + handwritten CSR sparse dispatch."""
+def test_spmm_single_threaded_blocknaive_naive():
+    """Test SpMM with handwritten VBR VBR dispatch + handwritten CSR dispatch."""
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_naive_naive"
+    filename = "spmm_single_threaded_blocknaive_naive"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -653,7 +731,7 @@ def test_spmm_single_threaded_naive_naive():
         )
     )
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, NaiveVBRSpmm())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, NaiveCSRSpmm())
@@ -665,12 +743,12 @@ def test_spmm_single_threaded_naive_naive():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_naive_mkl():
-    """Test SpMM with handwritten VBR dense dispatch + MKL CSR sparse dispatch."""
+def test_spmm_single_threaded_blocknaive_mkl():
+    """Test SpMM with handwritten VBR VBR dispatch + MKL CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_naive_mkl"
+    filename = "spmm_single_threaded_blocknaive_mkl"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -684,7 +762,7 @@ def test_spmm_single_threaded_naive_mkl():
         )
     )
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, NaiveVBRSpmm())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, MKLCSRSpmm())
@@ -700,10 +778,10 @@ def test_spmm_single_threaded_naive_mkl():
     not _check_avx512_support(),
     reason="AVX512 not supported on this CPU"
 )
-def test_spmm_single_threaded_naive_spreg():
-    """Test SpMM with handwritten VBR dense dispatch + SPReg CSR sparse dispatch."""
+def test_spmm_single_threaded_blocknaive_spreg():
+    """Test SpMM with handwritten VBR VBR dispatch + SPReg CSR dispatch."""
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_naive_spreg"
+    filename = "spmm_single_threaded_blocknaive_spreg"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -717,10 +795,10 @@ def test_spmm_single_threaded_naive_spreg():
         )
     )
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, NaiveVBRSpmm())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz > 0, "Expected sparse residual for SPReg dispatch"
+    assert csr.nnz > 0, "Expected CSR residual for SPReg dispatch"
     plan.dispatch(csr, SPRegCSRSpmm())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
@@ -730,8 +808,8 @@ def test_spmm_single_threaded_naive_spreg():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_mkl_fully_dense():
-    """Test SpMM with MKL VBR dense dispatch and no sparse remainder."""
+def test_spmm_single_threaded_blockmkl_fullydense():
+    """Test SpMM with MKL VBR VBR dispatch and no residual."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     dense = numpy.array(
@@ -741,7 +819,7 @@ def test_spmm_single_threaded_mkl_fully_dense():
             [7.0, 8.0, 9.0],
         ]
     )
-    filename = "spmm_single_threaded_mkl_fully_dense"
+    filename = "spmm_single_threaded_blockmkl_fullydense"
     matrix = Matrix(scipy.sparse.csr_matrix(dense), name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -766,12 +844,12 @@ def test_spmm_single_threaded_mkl_fully_dense():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_mkl_fully_sparse():
-    """Test SpMM with MKL CSR sparse dispatch and no dense blocks."""
+def test_spmm_single_threaded_mkl_csr_only():
+    """Test SpMM with MKL CSR dispatch and no VBR/VDIA regions."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_mkl_fully_sparse"
+    filename = "spmm_single_threaded_mkl_csr_only"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -799,10 +877,10 @@ def test_spmm_single_threaded_mkl_fully_sparse():
     not _check_avx512_support(),
     reason="AVX512 not supported on this CPU"
 )
-def test_spmm_single_threaded_spreg_fully_sparse():
-    """Test SpMM with SPReg CSR sparse dispatch and no dense blocks."""
+def test_spmm_single_threaded_spreg_csr_only():
+    """Test SpMM with SPReg CSR dispatch and no VBR/VDIA regions."""
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_spreg_fully_sparse"
+    filename = "spmm_single_threaded_spreg_csr_only"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -826,12 +904,12 @@ def test_spmm_single_threaded_spreg_fully_sparse():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_mkl_naive():
-    """Test SpMM with MKL VBR dense dispatch + handwritten CSR sparse dispatch."""
+def test_spmm_single_threaded_blockmkl_naive():
+    """Test SpMM with MKL VBR VBR dispatch + handwritten CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_mkl_naive"
+    filename = "spmm_single_threaded_blockmkl_naive"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -845,7 +923,7 @@ def test_spmm_single_threaded_mkl_naive():
         )
     )
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, MKLVBRSpmm())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, NaiveCSRSpmm())
@@ -857,12 +935,12 @@ def test_spmm_single_threaded_mkl_naive():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_mkl_mkl():
-    """Test SpMM with MKL VBR dense dispatch + MKL CSR sparse dispatch."""
+def test_spmm_single_threaded_blockmkl_mkl():
+    """Test SpMM with MKL VBR VBR dispatch + MKL CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_mkl_mkl"
+    filename = "spmm_single_threaded_blockmkl_mkl"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -876,7 +954,7 @@ def test_spmm_single_threaded_mkl_mkl():
         )
     )
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, MKLVBRSpmm())
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, MKLCSRSpmm())
@@ -892,12 +970,12 @@ def test_spmm_single_threaded_mkl_mkl():
     not _check_avx512_support(),
     reason="AVX512 not supported on this CPU"
 )
-def test_spmm_single_threaded_mkl_spreg():
-    """Test SpMM with MKL VBR dense dispatch + SPReg CSR sparse dispatch."""
+def test_spmm_single_threaded_blockmkl_spreg():
+    """Test SpMM with MKL VBR VBR dispatch + SPReg CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
     mtx_path = os.path.join(BASE_PATH, "tests", "example3.mtx")
-    filename = "spmm_single_threaded_mkl_spreg"
+    filename = "spmm_single_threaded_blockmkl_spreg"
     matrix = Matrix(mtx_path, name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
@@ -911,10 +989,10 @@ def test_spmm_single_threaded_mkl_spreg():
         )
     )
     vbr = plan.extract(BlockDetector(min_density=0.5, min_area=9, threads=1, timeout_seconds=30))
-    assert len(vbr.val.values) > 0, "Expected split matrix with a dense block"
+    assert len(vbr.val.values) > 0, "Expected split matrix with a VBR block"
     plan.dispatch(vbr, MKLVBRSpmm())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz > 0, "Expected sparse residual for SPReg dispatch"
+    assert csr.nnz > 0, "Expected CSR residual for SPReg dispatch"
     plan.dispatch(csr, SPRegCSRSpmm())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
@@ -924,12 +1002,12 @@ def test_spmm_single_threaded_mkl_spreg():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_mixed_fully_dense():
-    """Test SpMM with mixed VBR dense dispatch and no sparse remainder."""
+def test_spmm_single_threaded_blockmixed_fullydense():
+    """Test SpMM with mixed VBR dispatch and no residual."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    filename = "spmm_single_threaded_mixed_fully_dense"
-    matrix = Matrix(_mixed_dense_dispatch_csr(), name=filename)
+    filename = "spmm_single_threaded_blockmixed_fullydense"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(), name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
     write_dense_matrix(1.0, cols, 512)
@@ -941,7 +1019,7 @@ def test_spmm_single_threaded_mixed_fully_dense():
             layout=DenseLayout.ROW_MAJOR,
         )
     )
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     assert plan.residual.nnz == 0
     plan.dispatch(vbr, MixedVBRSpmm())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
@@ -952,12 +1030,12 @@ def test_spmm_single_threaded_mixed_fully_dense():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_mixed_naive():
-    """Test SpMM with mixed VBR dense dispatch + handwritten CSR sparse dispatch."""
+def test_spmm_single_threaded_blockmixed_naive():
+    """Test SpMM with mixed VBR dispatch + handwritten CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    filename = "spmm_single_threaded_mixed_naive"
-    matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
+    filename = "spmm_single_threaded_blockmixed_naive"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(include_csr_residual=True), name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
     write_dense_matrix(1.0, cols, 512)
@@ -969,10 +1047,10 @@ def test_spmm_single_threaded_mixed_naive():
             layout=DenseLayout.ROW_MAJOR,
         )
     )
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     plan.dispatch(vbr, MixedVBRSpmm())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ
+    assert csr.nnz == MIXED_CSR_RESIDUAL_NNZ
     plan.dispatch(csr, NaiveCSRSpmm())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
@@ -982,12 +1060,12 @@ def test_spmm_single_threaded_mixed_naive():
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
-def test_spmm_single_threaded_mixed_mkl():
-    """Test SpMM with mixed VBR dense dispatch + MKL CSR sparse dispatch."""
+def test_spmm_single_threaded_blockmixed_mkl():
+    """Test SpMM with mixed VBR dispatch + MKL CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    filename = "spmm_single_threaded_mixed_mkl"
-    matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
+    filename = "spmm_single_threaded_blockmixed_mkl"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(include_csr_residual=True), name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
     write_dense_matrix(1.0, cols, 512)
@@ -999,10 +1077,10 @@ def test_spmm_single_threaded_mixed_mkl():
             layout=DenseLayout.ROW_MAJOR,
         )
     )
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     plan.dispatch(vbr, MixedVBRSpmm())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ
+    assert csr.nnz == MIXED_CSR_RESIDUAL_NNZ
     plan.dispatch(csr, MKLCSRSpmm())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
@@ -1016,12 +1094,12 @@ def test_spmm_single_threaded_mixed_mkl():
     not _check_avx512_support(),
     reason="AVX512 not supported on this CPU"
 )
-def test_spmm_single_threaded_mixed_spreg():
-    """Test SpMM with mixed VBR dense dispatch + SPReg CSR sparse dispatch."""
+def test_spmm_single_threaded_blockmixed_spreg():
+    """Test SpMM with mixed VBR dispatch + SPReg CSR dispatch."""
     if not MKL_AVAILABLE:
         pytest.skip("MKL not available")
-    filename = "spmm_single_threaded_mixed_spreg"
-    matrix = Matrix(_mixed_dense_dispatch_csr(include_sparse_remainder=True), name=filename)
+    filename = "spmm_single_threaded_blockmixed_spreg"
+    matrix = Matrix(_mixed_vbr_dispatch_csr(include_csr_residual=True), name=filename)
     rows, cols = matrix.nrows, matrix.ncols
 
     write_dense_matrix(1.0, cols, 512)
@@ -1033,10 +1111,10 @@ def test_spmm_single_threaded_mixed_spreg():
             layout=DenseLayout.ROW_MAJOR,
         )
     )
-    vbr = _extract_mixed_dense_vbr(plan)
+    vbr = _extract_mixed_vbr(plan)
     plan.dispatch(vbr, MixedVBRSpmm())
     csr = plan.extract(CSRConvertor())
-    assert csr.nnz == MIXED_SPARSE_REMAINDER_NNZ, "Expected sparse residual for SPReg dispatch"
+    assert csr.nnz == MIXED_CSR_RESIDUAL_NNZ, "Expected CSR residual for SPReg dispatch"
     plan.dispatch(csr, SPRegCSRSpmm())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 

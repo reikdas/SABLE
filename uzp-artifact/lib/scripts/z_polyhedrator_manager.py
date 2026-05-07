@@ -1,4 +1,5 @@
 import os
+import shutil
 import sys
 import subprocess
 from script_colors import SCRIPT_TAG, ERROR_TAG
@@ -51,7 +52,11 @@ class ZPolyhedratorManager:
 
         env = os.environ.copy()
         env["PATH"] = self._sanitize_path(env.get("PATH", ""))
-        
+
+        zpoly_bin = os.path.join(self.Z_POLYHEDRAL_DIR, self.TARGET_DIR)
+        need_build = not (os.path.isfile(zpoly_bin) and os.access(zpoly_bin, os.X_OK))
+        cargo_available = shutil.which("cargo") is not None
+
         # Check for rustup in various locations, including sourcing bashrc
         rustup_found = False
         rustup_path = None
@@ -80,8 +85,8 @@ class ZPolyhedratorManager:
                         rustup_path = path
                         break
         
-        # If rustup doesn't exist, install it first
-        if not rustup_found:
+        # If rustup doesn't exist, install it first (skipped when cargo is already in PATH)
+        if not rustup_found and not cargo_available:
             print(f"{SCRIPT_TAG} Installing rustup...")
             install_rustup_cmd = f"""
             export RUSTUP_HOME="{rustup_home}" && \
@@ -108,11 +113,11 @@ class ZPolyhedratorManager:
         env_with_rustflags = env.copy()
         env_with_rustflags["RUSTFLAGS"] = rustflags
 
-        zpoly_bin = os.path.join(self.Z_POLYHEDRAL_DIR, self.TARGET_DIR)
-
         try:
-            subprocess.run(["rustup", "install", "1.85.0"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env)
-            subprocess.run(["cargo", "build", "--release"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env_with_rustflags)
+            if need_build:
+                if not cargo_available:
+                    subprocess.run(["rustup", "install", "1.85.0"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env)
+                subprocess.run(["cargo", "build", "--release"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env_with_rustflags)
             subprocess.run(
                 [zpoly_bin, "search", pattern_file, input_matrix_file, "-w", output_file_name],
                 check=True,

@@ -16,11 +16,12 @@ from .vbr import (
     NaiveVBRSpmm,
     NaiveVBRSpmv,
 )
-from .vdia import NaiveVDIASpmm, NaiveVDIASpmv
+from .vdia import MKLDIASpmv, NaiveVDIASpmm, NaiveVDIASpmv
 
 __all__ = [
     "MKLCSRSpmm",
     "MKLCSRSpmv",
+    "MKLDIASpmv",
     "MKLVBRSpmm",
     "MKLVBRSpmv",
     "MixedVBRSpmm",

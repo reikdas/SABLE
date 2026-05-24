@@ -61,56 +61,55 @@ def pack_bands_as_vdia(A: ResidualMatrix, bands: list[Any]) -> VDIA:
     csr = A.to_csr()
     csr.sort_indices()
 
-    region_ptr: list[int] = [0]
-    diag_offsets: list[int] = []
-    row_start: list[int] = []
-    row_end: list[int] = []
-    lower_bw: list[int] = []
-    upper_bw: list[int] = []
-    data_ptr: list[int] = [0]
-    data: list[float] = []
+    seg_row_start: list[int] = []
+    seg_nrows: list[int] = []
+    seg_ndiags: list[int] = []
+    seg_val_ptr: list[int] = []
+    seg_idiag_ptr: list[int] = []
+    val: list[float] = []
+    idiag: list[int] = []
 
     for band in bands:
         diag_offset, segments = _normalise_band(band)
         if not segments:
             continue
 
-        diag_offsets.append(diag_offset)
         for r0, r1, lower, upper in segments:
             if r0 < 0 or r1 > A.nrows:
                 raise ValueError(f"Segment rows [{r0}, {r1}) are outside matrix with {A.nrows} rows")
 
-            row_start.append(r0)
-            row_end.append(r1)
-            lower_bw.append(lower)
-            upper_bw.append(upper)
-
             rows = r1 - r0
+            ndiags = lower + upper + 1
+
+            seg_row_start.append(r0)
+            seg_nrows.append(rows)
+            seg_ndiags.append(ndiags)
+            seg_val_ptr.append(len(val))
+            seg_idiag_ptr.append(len(idiag))
+
+            for delta in range(-lower, upper + 1):
+                idiag.append(diag_offset + delta)
+
             for delta in range(-lower, upper + 1):
                 actual_diag = diag_offset + delta
                 for row in range(r0, r1):
                     col = row + actual_diag
                     if 0 <= col < A.ncols:
-                        data.append(_csr_value(csr, row, col))
+                        val.append(_csr_value(csr, row, col))
                     else:
-                        data.append(0.0)
-            data_ptr.append(len(data))
-
-        region_ptr.append(len(row_start))
+                        val.append(0.0)
 
     return VDIA(
         nrows=A.nrows,
         ncols=A.ncols,
-        nregions=len(diag_offsets),
-        nsegments=len(row_start),
-        region_ptr=region_ptr,
-        diag_offsets=diag_offsets,
-        row_start=row_start,
-        row_end=row_end,
-        lower_bw=lower_bw,
-        upper_bw=upper_bw,
-        data_ptr=data_ptr,
-        data=Rep(data, label="vdia_data"),
+        nsegments=len(seg_row_start),
+        seg_row_start=seg_row_start,
+        seg_nrows=seg_nrows,
+        seg_ndiags=seg_ndiags,
+        seg_val_ptr=seg_val_ptr,
+        seg_idiag_ptr=seg_idiag_ptr,
+        val=Rep(val, label="vdia_val"),
+        idiag=Rep(idiag, label="vdia_idiag"),
     )
 
 

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <mkl.h>
 
 
 static void skip_to_array(FILE *file) {
@@ -71,56 +72,74 @@ static void read_dense_input(FILE *file, double *out, int size) {
     }
 }
 
-static void vdia_val_spmv_naive_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off) {
-for (int d = 0; d < ndiags; d++) {
-    int diag = vdia_idiag[idiag_off + d];
-    for (int row = 0; row < nrows; row++) {
-        int col = row0 + row + diag;
-        if (0 <= col && col < 14) {
-            y[row0 + row] += vdia_val[val_off + d * nrows + row] * x[col];
-        }
-    }
+static void vdia_val_spmv_mkl_dia_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off) {
+{
+MKL_INT mkl_m = nrows;
+MKL_INT mkl_k = 6;
+MKL_INT mkl_lval = nrows;
+MKL_INT mkl_ndiag = ndiags;
+double mkl_alpha = 1.0;
+double mkl_beta = 1.0;
+char mkl_transa = 'N';
+char mkl_matdescra[6] = {'G', ' ', ' ', 'C', ' ', ' '};
+mkl_ddiamv(&mkl_transa, &mkl_m, &mkl_k, &mkl_alpha, mkl_matdescra,
+           &vdia_val[val_off], &mkl_lval, (MKL_INT *)&vdia_idiag[idiag_off], &mkl_ndiag,
+           &x[0], &mkl_beta, &y[row0]);
 }
 }
 
 
 int main(void) {
-    double *y = (double *)calloc(14, sizeof(double));
-    double *x = (double *)malloc(14 * sizeof(double));
+    double *y = (double *)calloc(6, sizeof(double));
+    double *x = (double *)malloc(6 * sizeof(double));
     assert(y != NULL);
     assert(x != NULL);
-    double *vdia_val = (double *)malloc(15 * sizeof(double));
+    double *vdia_val = (double *)malloc(12 * sizeof(double));
     assert(vdia_val != NULL);
-    int *vdia_idiag = (int *)malloc(5 * sizeof(int));
+    int *vdia_idiag = (int *)malloc(4 * sizeof(int));
     assert(vdia_idiag != NULL);
     FILE *matrix_file = fopen("<PATH>/fixture.sabledata", "r");
     assert(matrix_file != NULL);
-    read_double_array(matrix_file, vdia_val, 15);
-    read_int_array(matrix_file, vdia_idiag, 5);
+    read_double_array(matrix_file, vdia_val, 12);
+    read_int_array(matrix_file, vdia_idiag, 4);
     fclose(matrix_file);
     FILE *rhs_file = fopen("<PATH>/x.vector", "r");
     assert(rhs_file != NULL);
-    read_dense_input(rhs_file, x, 14);
+    read_dense_input(rhs_file, x, 6);
     fclose(rhs_file);
 
     struct timespec t1, t2;
-    double (*dispatch_part_times)[1] = (double (*)[1])calloc(1, 1 * sizeof(double));
+    double (*dispatch_part_times)[1] = (double (*)[1])calloc(2, 1 * sizeof(double));
     assert(dispatch_part_times != NULL);
     for (int iter = 0; iter < 1; iter++) {
-        memset(y, 0, 14 * sizeof(double));
+        memset(y, 0, 6 * sizeof(double));
         clock_gettime(CLOCK_MONOTONIC, &t1);
-vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 0, 3, 5, 0, 0);
+vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 0, 3, 2, 0, 0);
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
+vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6);
+        clock_gettime(CLOCK_MONOTONIC, &t2);
+        dispatch_part_times[1][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
     }
 
     printf("Dispatch 1: ");
     for (int i = 0; i < 1; i++) {
+        printf("%.0f,", dispatch_part_times[0][i] + dispatch_part_times[1][i]);
+    }
+    printf("\n");
+    printf("Dispatch 1 Part 1: ");
+    for (int i = 0; i < 1; i++) {
         printf("%.0f,", dispatch_part_times[0][i]);
     }
     printf("\n");
+    printf("Dispatch 1 Part 2: ");
+    for (int i = 0; i < 1; i++) {
+        printf("%.0f,", dispatch_part_times[1][i]);
+    }
     printf("\n");
-    for (int i = 0; i < 14; i++) {
+    printf("\n");
+    for (int i = 0; i < 6; i++) {
         printf("%.17g\n", y[i]);
     }
     free(vdia_val);

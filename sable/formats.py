@@ -45,13 +45,11 @@ class VBR(Format):
 
 @dataclass
 class VDIA(Format):
-    nregions: int
     nsegments: int
-    region_ptr: list[int]
-    diag_offsets: list[int]
-    row_start: list[int]
-    row_end: list[int]
-    lower_bw: list[int]
-    upper_bw: list[int]
-    data_ptr: list[int]
-    data: Rep[float]
+    seg_row_start: list[int]
+    seg_nrows: list[int]
+    seg_ndiags: list[int]
+    seg_val_ptr: list[int]
+    seg_idiag_ptr: list[int]
+    val: Rep[float]
+    idiag: Rep[int]

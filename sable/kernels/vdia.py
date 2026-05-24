@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from sable.build_config import MKL_FLAGS
 from sable.codegen import OutOfLineCode, out_of_line
 from sable.formats import VDIA
 from sable.kernels.base import SpmmKernel, SpmvKernel
@@ -13,75 +14,62 @@ def _empty_dict() -> dict[str, str]:
     return {}
 
 
-def _vdia_segments(fmt: VDIA):
-    for region, diag_center in enumerate(fmt.diag_offsets):
-        for segment in range(fmt.region_ptr[region], fmt.region_ptr[region + 1]):
-            yield (
-                diag_center,
-                fmt.row_start[segment],
-                fmt.row_end[segment],
-                fmt.lower_bw[segment],
-                fmt.upper_bw[segment],
-                fmt.data_ptr[segment],
-            )
+def _mkl_compile_flags() -> list[str]:
+    return [flag for flag in MKL_FLAGS if flag.startswith("-I")]
 
 
-def _vdia_loop_helper_name(fmt: VDIA, operation: str) -> str:
-    return f"{fmt.data}_{operation}_naive_segment"
+def _mkl_link_flags() -> list[str]:
+    return [flag for flag in MKL_FLAGS if not flag.startswith("-I")]
 
 
-def _vdia_loop_parameters(operation: str) -> list[str]:
-    parameters = [
-        "int ncols",
-        "int diag_center",
-        "int row0",
-        "int row1",
-        "int lower",
-        "int upper",
-        "int base",
-    ]
-    if operation == "spmm":
-        parameters.append("int nrhs")
-    return parameters
+# ---------------------------------------------------------------------------
+# Naive SpMV out-of-line helpers
+# ---------------------------------------------------------------------------
 
-
-def _vdia_loop_arguments(operation: str, fmt: VDIA, segment: tuple[int, int, int, int, int, int], rhs) -> list[int]:
-    arguments = [fmt.ncols, *segment]
-    if operation == "spmm":
-        arguments.append(rhs.shape[1])
-    return arguments
-
-
-def _emit_spmv_naive_vdia_loop(fmt: VDIA, y: str, x: str) -> str:
+def _spmv_naive_body(fmt: VDIA, y: str, x: str) -> str:
     return f"""\
-int rows = row1 - row0;
-int ndiags = lower + upper + 1;
-int diag_start = diag_center - lower;
-for (int local_diag = 0; local_diag < ndiags; local_diag++) {{
-    int diag = diag_start + local_diag;
-    for (int row = row0; row < row1; row++) {{
-        int col = row + diag;
-        if (0 <= col && col < ncols) {{
-            {y}[row] += {fmt.data}[base + local_diag * rows + (row - row0)] * {x}[col];
+for (int d = 0; d < ndiags; d++) {{
+    int diag = {fmt.idiag}[idiag_off + d];
+    for (int row = 0; row < nrows; row++) {{
+        int col = row0 + row + diag;
+        if (0 <= col && col < {fmt.ncols}) {{
+            {y}[row0 + row] += {fmt.val}[val_off + d * nrows + row] * {x}[col];
         }}
     }}
 }}
 """
 
 
-def _emit_spmm_naive_vdia_loop(fmt: VDIA, y: str, x: str) -> str:
+def _spmv_naive_helper_name(fmt: VDIA) -> str:
+    return f"{fmt.val}_spmv_naive_segment"
+
+
+_SPMV_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
+
+
+def _spmv_naive_args(fmt: VDIA, seg_idx: int) -> list[int]:
+    return [
+        fmt.seg_row_start[seg_idx],
+        fmt.seg_nrows[seg_idx],
+        fmt.seg_ndiags[seg_idx],
+        fmt.seg_idiag_ptr[seg_idx],
+        fmt.seg_val_ptr[seg_idx],
+    ]
+
+
+# ---------------------------------------------------------------------------
+# Naive SpMM out-of-line helpers
+# ---------------------------------------------------------------------------
+
+def _spmm_naive_body(fmt: VDIA, y: str, x: str) -> str:
     return f"""\
-int rows = row1 - row0;
-int ndiags = lower + upper + 1;
-int diag_start = diag_center - lower;
-for (int local_diag = 0; local_diag < ndiags; local_diag++) {{
-    int diag = diag_start + local_diag;
-    for (int row = row0; row < row1; row++) {{
-        int col = row + diag;
-        if (0 <= col && col < ncols) {{
-            double a = {fmt.data}[base + local_diag * rows + (row - row0)];
+for (int row = 0; row < nrows; row++) {{
+    for (int d = 0; d < ndiags; d++) {{
+        int col = row0 + row + {fmt.idiag}[idiag_off + d];
+        if (0 <= col && col < {fmt.ncols}) {{
+            double a = {fmt.val}[val_off + d * nrows + row];
             for (int rhs_col = 0; rhs_col < nrhs; rhs_col++) {{
-                {y}[row * nrhs + rhs_col] += a * {x}[col * nrhs + rhs_col];
+                {y}[(row0 + row) * nrhs + rhs_col] += a * {x}[col * nrhs + rhs_col];
             }}
         }}
     }}
@@ -89,20 +77,62 @@ for (int local_diag = 0; local_diag < ndiags; local_diag++) {{
 """
 
 
-def _emit_vdia_timed_calls(fmt: VDIA, y: str, x: str, rhs, operation: str) -> list[OutOfLineCode]:
-    if operation == "spmv":
-        body = _emit_spmv_naive_vdia_loop(fmt, y, x)
-    else:
-        body = _emit_spmm_naive_vdia_loop(fmt, y, x)
+def _spmm_naive_helper_name(fmt: VDIA) -> str:
+    return f"{fmt.val}_spmm_naive_segment"
+
+
+_SPMM_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off", "int nrhs"]
+
+
+def _spmm_naive_args(fmt: VDIA, seg_idx: int, nrhs: int) -> list[int]:
     return [
-        out_of_line(
-            body,
-            name=_vdia_loop_helper_name(fmt, operation),
-            parameters=_vdia_loop_parameters(operation),
-            arguments=_vdia_loop_arguments(operation, fmt, segment, rhs),
-        )
-        for segment in _vdia_segments(fmt)
+        fmt.seg_row_start[seg_idx],
+        fmt.seg_nrows[seg_idx],
+        fmt.seg_ndiags[seg_idx],
+        fmt.seg_idiag_ptr[seg_idx],
+        fmt.seg_val_ptr[seg_idx],
+        nrhs,
     ]
+
+
+# ---------------------------------------------------------------------------
+# MKL DIA SpMV out-of-line helpers
+# ---------------------------------------------------------------------------
+
+def _spmv_mkl_body(fmt: VDIA, y: str, x: str) -> str:
+    return f"""\
+{{
+MKL_INT mkl_m = nrows;
+MKL_INT mkl_k = {fmt.ncols};
+MKL_INT mkl_lval = nrows;
+MKL_INT mkl_ndiag = ndiags;
+double mkl_alpha = 1.0;
+double mkl_beta = 1.0;
+char mkl_transa = 'N';
+char mkl_matdescra[6] = {{'G', ' ', ' ', 'C', ' ', ' '}};
+mkl_ddiamv(&mkl_transa, &mkl_m, &mkl_k, &mkl_alpha, mkl_matdescra,
+           &{fmt.val}[val_off], &mkl_lval, (MKL_INT *)&{fmt.idiag}[idiag_off], &mkl_ndiag,
+           &{x}[0], &mkl_beta, &{y}[row0]);
+}}
+"""
+
+
+def _spmv_mkl_helper_name(fmt: VDIA) -> str:
+    return f"{fmt.val}_spmv_mkl_dia_segment"
+
+
+_SPMV_MKL_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
+
+
+def _spmv_mkl_args(fmt: VDIA, seg_idx: int) -> list[int]:
+    return [
+        fmt.seg_row_start[seg_idx],
+        fmt.seg_nrows[seg_idx],
+        fmt.seg_ndiags[seg_idx],
+        fmt.seg_idiag_ptr[seg_idx],
+        fmt.seg_val_ptr[seg_idx],
+    ]
+
 
 
 class _BaseVDIAKernel:
@@ -122,7 +152,15 @@ class NaiveVDIASpmv(_BaseVDIAKernel, SpmvKernel):
         return ""
 
     def emit_timed_calls(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
-        return _emit_vdia_timed_calls(fmt, y, x, rhs, "spmv")
+        return [
+            out_of_line(
+                _spmv_naive_body(fmt, y, x),
+                name=_spmv_naive_helper_name(fmt),
+                parameters=_SPMV_NAIVE_PARAMS,
+                arguments=_spmv_naive_args(fmt, i),
+            )
+            for i in range(fmt.nsegments)
+        ]
 
     def emit_call(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
         return self.emit_timed_calls(fmt, y, x, rhs)
@@ -148,7 +186,16 @@ class NaiveVDIASpmm(_BaseVDIAKernel, SpmmKernel):
         return ""
 
     def emit_timed_calls(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
-        return _emit_vdia_timed_calls(fmt, y, x, rhs, "spmm")
+        nrhs = rhs.shape[1]
+        return [
+            out_of_line(
+                _spmm_naive_body(fmt, y, x),
+                name=_spmm_naive_helper_name(fmt),
+                parameters=_SPMM_NAIVE_PARAMS,
+                arguments=_spmm_naive_args(fmt, i, nrhs),
+            )
+            for i in range(fmt.nsegments)
+        ]
 
     def emit_call(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
         return self.emit_timed_calls(fmt, y, x, rhs)
@@ -159,3 +206,44 @@ class NaiveVDIASpmm(_BaseVDIAKernel, SpmmKernel):
     compile_flags = staticmethod(_empty_list)
     link_flags = staticmethod(_empty_list)
     runtime_env = staticmethod(_empty_dict)
+
+
+class MKLDIASpmv(_BaseVDIAKernel, SpmvKernel):
+    accepts = VDIA
+
+    def emit_includes(self) -> list[str]:
+        return ["#include <mkl.h>"]
+
+    def emit_helpers(self, fmt: VDIA, rhs) -> str:
+        return ""
+
+    def emit_setup(self, fmt: VDIA, rhs) -> str:
+        return ""
+
+    def emit_timed_calls(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
+        return [
+            out_of_line(
+                _spmv_mkl_body(fmt, y, x),
+                name=_spmv_mkl_helper_name(fmt),
+                parameters=_SPMV_MKL_PARAMS,
+                arguments=_spmv_mkl_args(fmt, i),
+            )
+            for i in range(fmt.nsegments)
+        ]
+
+    def emit_call(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
+        return self.emit_timed_calls(fmt, y, x, rhs)
+
+    def emit_teardown(self, fmt: VDIA, rhs) -> str:
+        return ""
+
+    def compile_flags(self) -> list[str]:
+        return _mkl_compile_flags()
+
+    def link_flags(self) -> list[str]:
+        return _mkl_link_flags()
+
+    def runtime_env(self) -> dict[str, str]:
+        return {"MKL_THREADING_LAYER": "GNU"}
+
+

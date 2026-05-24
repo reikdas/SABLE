@@ -29,6 +29,7 @@ class VBRKernel(str, Enum):
 
 class VDIAKernel(str, Enum):
     NAIVE = "bandnaive"
+    MKL_DIA = "bandmkl"
 
 
 def _detect_mkl_config() -> tuple[list[str], bool]:

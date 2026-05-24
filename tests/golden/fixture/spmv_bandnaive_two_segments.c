@@ -71,16 +71,13 @@ static void read_dense_input(FILE *file, double *out, int size) {
     }
 }
 
-static void vdia_data_spmv_naive_segment(double *y, const double *x, const double *vdia_data, int ncols, int diag_center, int row0, int row1, int lower, int upper, int base) {
-int rows = row1 - row0;
-int ndiags = lower + upper + 1;
-int diag_start = diag_center - lower;
-for (int local_diag = 0; local_diag < ndiags; local_diag++) {
-    int diag = diag_start + local_diag;
-    for (int row = row0; row < row1; row++) {
-        int col = row + diag;
-        if (0 <= col && col < ncols) {
-            y[row] += vdia_data[base + local_diag * rows + (row - row0)] * x[col];
+static void vdia_val_spmv_naive_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off) {
+for (int d = 0; d < ndiags; d++) {
+    int diag = vdia_idiag[idiag_off + d];
+    for (int row = 0; row < nrows; row++) {
+        int col = row0 + row + diag;
+        if (0 <= col && col < 6) {
+            y[row0 + row] += vdia_val[val_off + d * nrows + row] * x[col];
         }
     }
 }
@@ -92,11 +89,14 @@ int main(void) {
     double *x = (double *)malloc(6 * sizeof(double));
     assert(y != NULL);
     assert(x != NULL);
-    double *vdia_data = (double *)malloc(12 * sizeof(double));
-    assert(vdia_data != NULL);
+    double *vdia_val = (double *)malloc(12 * sizeof(double));
+    assert(vdia_val != NULL);
+    int *vdia_idiag = (int *)malloc(4 * sizeof(int));
+    assert(vdia_idiag != NULL);
     FILE *matrix_file = fopen("<PATH>/fixture.sabledata", "r");
     assert(matrix_file != NULL);
-    read_double_array(matrix_file, vdia_data, 12);
+    read_double_array(matrix_file, vdia_val, 12);
+    read_int_array(matrix_file, vdia_idiag, 4);
     fclose(matrix_file);
     FILE *rhs_file = fopen("<PATH>/x.vector", "r");
     assert(rhs_file != NULL);
@@ -109,11 +109,11 @@ int main(void) {
     for (int iter = 0; iter < 1; iter++) {
         memset(y, 0, 6 * sizeof(double));
         clock_gettime(CLOCK_MONOTONIC, &t1);
-vdia_data_spmv_naive_segment(y, x, vdia_data, 6, 0, 0, 3, 0, 1, 0);
+vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 0, 3, 2, 0, 0);
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);
-vdia_data_spmv_naive_segment(y, x, vdia_data, 6, 0, 3, 6, 1, 0, 6);
+vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6);
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[1][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
     }
@@ -137,7 +137,8 @@ vdia_data_spmv_naive_segment(y, x, vdia_data, 6, 0, 3, 6, 1, 0, 6);
     for (int i = 0; i < 6; i++) {
         printf("%.17g\n", y[i]);
     }
-    free(vdia_data);
+    free(vdia_val);
+    free(vdia_idiag);
     free(dispatch_part_times);
     free(x);
     free(y);

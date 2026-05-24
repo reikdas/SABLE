@@ -218,9 +218,9 @@ def test_vdia_kernel_uses_parameterized_out_of_line_helper(tmp_path):
     call_plan.dispatch(call_vdia, NaiveVDIASpmv())
     call_source = pathlib.Path(call_plan.compile(filename="vdia_call", bench=1).c_path).read_text()
 
-    assert call_source.count("static void vdia_data_spmv_naive_segment(") == 1
-    assert "vdia_data_spmv_naive_segment(y, x, vdia_data, 4, 0, 0, 2, 0, 0, 0);" in call_source
-    assert "vdia_data_spmv_naive_segment(y, x, vdia_data, 4, 0, 2, 4, 0, 0, 2);" in call_source
+    assert call_source.count("static void vdia_val_spmv_naive_segment(") == 1
+    assert "vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 0, 2, 1, 0, 0);" in call_source
+    assert "vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 2, 2, 1, 1, 2);" in call_source
 
 
 def test_plan_rejects_mixed_kernel_operations(tmp_path):
@@ -362,16 +362,14 @@ def test_band_extractor_skip_packs_vdia_and_tracks_remainder():
     vdia = plan.extract(BandExtractorSkip(bands=bands))
 
     assert isinstance(vdia, VDIA)
-    assert vdia.nregions == 1
     assert vdia.nsegments == 1
-    assert vdia.region_ptr == [0, 1]
-    assert vdia.diag_offsets == [0]
-    assert vdia.row_start == [0]
-    assert vdia.row_end == [3]
-    assert vdia.lower_bw == [2]
-    assert vdia.upper_bw == [2]
-    assert vdia.data_ptr == [0, 15]
-    assert vdia.data.values == [
+    assert vdia.seg_row_start == [0]
+    assert vdia.seg_nrows == [3]
+    assert vdia.seg_ndiags == [5]
+    assert vdia.seg_val_ptr == [0]
+    assert vdia.seg_idiag_ptr == [0]
+    assert vdia.idiag.values == [-2, -1, 0, 1, 2]
+    assert vdia.val.values == [
         0.0,
         0.0,
         7.0,

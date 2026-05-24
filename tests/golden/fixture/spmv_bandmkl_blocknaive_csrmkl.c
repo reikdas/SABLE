@@ -73,15 +73,19 @@ static void read_dense_input(FILE *file, double *out, int size) {
     }
 }
 
-static void vdia_val_spmv_naive_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off) {
-for (int d = 0; d < ndiags; d++) {
-    int diag = vdia_idiag[idiag_off + d];
-    for (int row = 0; row < nrows; row++) {
-        int col = row0 + row + diag;
-        if (0 <= col && col < 14) {
-            y[row0 + row] += vdia_val[val_off + d * nrows + row] * x[col];
-        }
-    }
+static void vdia_val_spmv_mkl_dia_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off) {
+{
+MKL_INT mkl_m = nrows;
+MKL_INT mkl_k = 14;
+MKL_INT mkl_lval = nrows;
+MKL_INT mkl_ndiag = ndiags;
+double mkl_alpha = 1.0;
+double mkl_beta = 1.0;
+char mkl_transa = 'N';
+char mkl_matdescra[6] = {'G', ' ', ' ', 'C', ' ', ' '};
+mkl_ddiamv(&mkl_transa, &mkl_m, &mkl_k, &mkl_alpha, mkl_matdescra,
+           &vdia_val[val_off], &mkl_lval, (MKL_INT *)&vdia_idiag[idiag_off], &mkl_ndiag,
+           &x[0], &mkl_beta, &y[row0]);
 }
 }
 
@@ -140,7 +144,7 @@ mkl_sparse_d_create_csr(&csr_handle, SPARSE_INDEX_BASE_ZERO,
     for (int iter = 0; iter < 1; iter++) {
         memset(y, 0, 14 * sizeof(double));
         clock_gettime(CLOCK_MONOTONIC, &t1);
-vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 0, 3, 5, 0, 0);
+vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 0, 3, 5, 0, 0);
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);

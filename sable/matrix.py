@@ -50,17 +50,17 @@ class ResidualMatrix:
             return self.empty_residual()
         if isinstance(fmt, VDIA):
             reduced = self._data.tolil(copy=True)
-            for region_idx, diag_offset in enumerate(fmt.diag_offsets):
-                seg_start = fmt.region_ptr[region_idx]
-                seg_end = fmt.region_ptr[region_idx + 1]
-                for segment_idx in range(seg_start, seg_end):
-                    lower = fmt.lower_bw[segment_idx]
-                    upper = fmt.upper_bw[segment_idx]
-                    for row in range(fmt.row_start[segment_idx], fmt.row_end[segment_idx]):
-                        col_start = max(0, row + diag_offset - lower)
-                        col_end = min(self.ncols, row + diag_offset + upper + 1)
-                        if col_start < col_end:
-                            reduced[row, col_start:col_end] = 0
+            for seg_idx in range(fmt.nsegments):
+                row0 = fmt.seg_row_start[seg_idx]
+                nrows = fmt.seg_nrows[seg_idx]
+                ndiags = fmt.seg_ndiags[seg_idx]
+                idiag_base = fmt.seg_idiag_ptr[seg_idx]
+                for d in range(ndiags):
+                    diag = fmt.idiag.values[idiag_base + d]
+                    for row in range(row0, row0 + nrows):
+                        col = row + diag
+                        if 0 <= col < self.ncols:
+                            reduced[row, col] = 0
             csr = reduced.tocsr()
             csr.eliminate_zeros()
             return ResidualMatrix(csr, name=self.name)

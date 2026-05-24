@@ -67,9 +67,11 @@ SPMM_NRHS = 512
 SPMV_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPV8, CSRKernel.UZP)
 SPMM_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPREG)
 
-SUITESPARSE_DIR = FILEPATH / "Suitesparse"
+SUITESPARSE_DIR = pathlib.Path(os.environ.get("SABLE_SUITESPARSE_DIR") or str(FILEPATH / "Suitesparse"))
 RESULTS_DIR = FILEPATH / "find-submatrices" / "results"
 BANDS_RESULTS_DIR = FILEPATH / "find-submatrices" / "results_bands"
+DEFAULT_BASELINE_RESULTS_DIR = FILEPATH / "results"
+_RESULTS_JSON_CACHE: dict[pathlib.Path, list[dict[str, Any]]] = {}
 
 
 # ---------------------------------------------------------------------------
@@ -78,11 +80,13 @@ BANDS_RESULTS_DIR = FILEPATH / "find-submatrices" / "results_bands"
 
 
 def _generated_vector_path(size: int) -> str:
-    return os.path.abspath(os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_vector_{size}.vector"))
+    dense_dir = os.environ.get("SABLE_DENSE_TENSOR_DIR") or os.path.join(BASE_PATH, "Generated_dense_tensors")
+    return os.path.abspath(os.path.join(dense_dir, f"generated_vector_{size}.vector"))
 
 
 def _generated_matrix_path(rows: int, cols: int) -> str:
-    return os.path.abspath(os.path.join(BASE_PATH, "Generated_dense_tensors", f"generated_matrix_{rows}x{cols}.matrix"))
+    dense_dir = os.environ.get("SABLE_DENSE_TENSOR_DIR") or os.path.join(BASE_PATH, "Generated_dense_tensors")
+    return os.path.abspath(os.path.join(dense_dir, f"generated_matrix_{rows}x{cols}.matrix"))
 
 
 def _executor_env(command: list[str], runtime_env: dict[str, str]) -> dict[str, str] | None:
@@ -123,6 +127,69 @@ def _parse_timing_output(
                 dispatch_part_times.setdefault((dispatch_id, part_id), []).extend(
                     _parse_timing_values(part_match.group(3))
                 )
+
+
+def _thread_key(num_threads: int) -> str:
+    return f"{num_threads} thread"
+
+
+def _load_results_json(path: pathlib.Path) -> list[dict[str, Any]]:
+    path = path.resolve()
+    cached = _RESULTS_JSON_CACHE.get(path)
+    if cached is not None:
+        return cached
+    with open(path) as f:
+        data = json.load(f)
+    if not isinstance(data, list):
+        raise ValueError(f"{path} should contain a JSON list")
+    _RESULTS_JSON_CACHE[path] = data
+    return data
+
+
+def _baseline_result_file(
+    operation: Operation,
+    csr_kernel: CSRKernel,
+    baseline_results_dir: pathlib.Path,
+) -> pathlib.Path:
+    preferred = baseline_results_dir / f"sable_{operation.value}_mkl_{csr_kernel.value}.json"
+    if preferred.exists():
+        return preferred
+
+    candidates = sorted(baseline_results_dir.glob(f"sable_{operation.value}_*_{csr_kernel.value}.json"))
+    for candidate in candidates:
+        try:
+            data = _load_results_json(candidate)
+        except Exception:
+            continue
+        if any("fully_sparse_time" in timing for entry in data for timing in entry.get("timing", {}).values()):
+            return candidate
+
+    raise FileNotFoundError(
+        f"No fully sparse baseline file found for {operation.value}/{csr_kernel.value} in {baseline_results_dir}"
+    )
+
+
+def _lookup_fully_sparse_baseline(
+    operation: Operation,
+    csr_kernel: CSRKernel,
+    matrix_name: str,
+    num_threads: int,
+    baseline_results_dir: pathlib.Path,
+) -> tuple[float, str]:
+    baseline_file = _baseline_result_file(operation, csr_kernel, baseline_results_dir)
+    thread_key = _thread_key(num_threads)
+    for entry in _load_results_json(baseline_file):
+        if entry.get("matrix_name") != matrix_name:
+            continue
+        thread_timing = entry.get("timing", {}).get(thread_key)
+        if thread_timing is None:
+            raise KeyError(f"{baseline_file} has no '{thread_key}' baseline for {matrix_name}")
+        if "fully_sparse_time" not in thread_timing:
+            raise KeyError(f"{baseline_file} has no fully_sparse_time for {matrix_name} ({thread_key})")
+        baseline_time = float(thread_timing["fully_sparse_time"])
+        source = f"{baseline_file.name}:{matrix_name}:{thread_key}:fully_sparse_time"
+        return baseline_time, source
+    raise KeyError(f"{baseline_file} has no baseline entry for matrix {matrix_name}")
 
 
 # ---------------------------------------------------------------------------
@@ -263,6 +330,9 @@ def _vbr_spmv_kernel(vbr_kernel: VBRKernel):
 def _vdia_spmv_kernel(vdia_kernel: VDIAKernel):
     if vdia_kernel == VDIAKernel.NAIVE:
         return NaiveVDIASpmv()
+    if vdia_kernel == VDIAKernel.MKL_DIA:
+        from sable.kernels import MKLDIASpmv
+        return MKLDIASpmv()
     raise ValueError(f"Unknown SpMV VDIA kernel: {vdia_kernel}")
 
 
@@ -458,6 +528,7 @@ def _build_matrix_result(
     compile_time_baseline_ns: float,
     codegen_time_composed_ms: int,
     codegen_time_baseline_ms: int,
+    baseline_source: str,
 ) -> Dict[str, Any]:
     total_time = sum(dispatch_times.values())
     baseline_time = sum(baseline_dispatch_times.values())
@@ -493,6 +564,8 @@ def _build_matrix_result(
             "dispatch_times": dispatch_timing,
             "dispatch_part_times": {key: round(value, 2) for key, value in sorted(dispatch_part_times.items())},
             "csr_baseline_time_ns": round(baseline_time, 2),
+            "fully_sparse_baseline_time_ns": round(baseline_time, 2),
+            "fully_sparse_baseline_source": baseline_source,
             "csr_baseline_dispatch_times": baseline_timing,
             "speedup": round((baseline_time / total_time), 3) if total_time > 0 else 0,
             "compile_time_composed_s": compile_time_composed_ns / 1e9 if compile_time_composed_ns else 0.0,
@@ -524,6 +597,9 @@ def _process_and_benchmark_frontend(
     format_kernel,
     csr_kernel,
     threads: int = 1,
+    baseline_source_mode: str = "run",
+    baseline_results_dir: pathlib.Path = DEFAULT_BASELINE_RESULTS_DIR,
+    allow_baseline_run_on_missing: bool = False,
 ) -> Optional[Dict[str, Any]]:
     if threads != 1:
         raise ValueError("The frontend benchmark path is single-threaded for now")
@@ -539,11 +615,13 @@ def _process_and_benchmark_frontend(
 
     format_kind = composed_data["format_kind"]
     variant_name = f"{format_kernel.value}_{csr_label}"
-    base_codegen_dir = FILEPATH / f"{dir_prefix}_{format_kernel.value}_{csr_label}"
+    codegen_root = pathlib.Path(os.environ.get("SABLE_CODEGEN_DIR") or str(FILEPATH))
+    base_codegen_dir = codegen_root / f"{dir_prefix}_{format_kernel.value}_{csr_label}"
     codegen_dir_composed = str(base_codegen_dir / "composed")
     codegen_dir_baseline = str(base_codegen_dir / "csr_baseline")
     os.makedirs(codegen_dir_composed, exist_ok=True)
-    os.makedirs(codegen_dir_baseline, exist_ok=True)
+    if baseline_source_mode == "run" or allow_baseline_run_on_missing:
+        os.makedirs(codegen_dir_baseline, exist_ok=True)
 
     print(f"  [{variant_name}] Generating frontend C code (composed)...")
     composed_executor = compile_fn(
@@ -562,22 +640,48 @@ def _process_and_benchmark_frontend(
         composed_executor, bench_iterations, threads=threads
     )
 
-    print(f"  [{variant_name}] Generating frontend C code (CSR baseline)...")
-    baseline_executor = compile_fn(
-        matrix_name,
-        baseline_data["matrix"],
-        format_kind,
-        [],
-        codegen_dir_baseline,
-        format_kernel,
-        csr_kernel,
-        bench_iterations,
-    )
+    baseline_dispatch_times: dict[int, float]
+    compile_time_baseline_ns = 0.0
+    codegen_time_baseline_ms = 0
+    baseline_source = ""
 
-    print(f"  [{variant_name}] Evaluating CSR baseline...")
-    baseline_dispatch_times, _, compile_time_baseline_ns = eval_frontend_executor_timings(
-        baseline_executor, bench_iterations, threads=threads
-    )
+    if baseline_source_mode == "existing":
+        try:
+            baseline_time_ns, baseline_source = _lookup_fully_sparse_baseline(
+                operation,
+                csr_kernel,
+                matrix_name,
+                threads,
+                baseline_results_dir,
+            )
+            baseline_dispatch_times = {1: baseline_time_ns}
+            print(f"  [{variant_name}] Using existing fully sparse baseline: {baseline_source}")
+        except Exception as exc:
+            if not allow_baseline_run_on_missing:
+                print(f"  [{variant_name}] Missing existing fully sparse baseline: {exc}")
+                return None
+            print(f"  [{variant_name}] Existing baseline missing ({exc}); running CSR baseline instead")
+            baseline_source_mode = "run"
+
+    if baseline_source_mode == "run":
+        print(f"  [{variant_name}] Generating frontend C code (CSR baseline)...")
+        baseline_executor = compile_fn(
+            matrix_name,
+            baseline_data["matrix"],
+            format_kind,
+            [],
+            codegen_dir_baseline,
+            format_kernel,
+            csr_kernel,
+            bench_iterations,
+        )
+
+        print(f"  [{variant_name}] Evaluating CSR baseline...")
+        baseline_dispatch_times, _, compile_time_baseline_ns = eval_frontend_executor_timings(
+            baseline_executor, bench_iterations, threads=threads
+        )
+        codegen_time_baseline_ms = baseline_executor.codegen_time_ms
+        baseline_source = "measured_in_this_run"
 
     return _build_matrix_result(
         matrix_name,
@@ -591,7 +695,8 @@ def _process_and_benchmark_frontend(
         compile_time_composed_ns,
         compile_time_baseline_ns,
         composed_executor.codegen_time_ms,
-        baseline_executor.codegen_time_ms,
+        codegen_time_baseline_ms,
+        baseline_source,
     )
 
 
@@ -696,6 +801,7 @@ def main() -> int:
             "Examples:\n"
             "  %(prog)s --operation spmv,spmm eris1176 bloweybl\n"
             "  %(prog)s --operation spmv --csr-kernels naive,mkl,spv8 --vbr-kernels blocknaive,blockmkl --vdia-kernels bandnaive\n"
+            "  %(prog)s --operation spmv,spmm --vbr-kernels none --vdia-kernels bandnaive --baseline-source existing bcsstk13\n"
             "  %(prog)s  # both operations, all matrices, all kernels"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -714,7 +820,22 @@ def main() -> int:
     parser.add_argument("--vdia-kernels", type=str, default="all",
                         help="bandnaive, all, none, or comma-separated")
     parser.add_argument("--threads", type=str, default="1")
+    parser.add_argument("--baseline-source", choices=("existing", "run"), default="run",
+                        help="Use fully sparse timings from --baseline-results-dir, or rerun CSR baselines (default: run)")
+    parser.add_argument("--baseline-results-dir", type=str, default=str(DEFAULT_BASELINE_RESULTS_DIR),
+                        help="Directory containing sable_<op>_mkl_<csr>.json fully sparse timing files")
+    parser.add_argument("--allow-baseline-run-on-missing", action="store_true",
+                        help="If --baseline-source existing is missing an entry, run the CSR baseline instead")
+    parser.add_argument("--bands-results-dir", type=str, default=None,
+                        help="Override directory for band YAML files (default: find-submatrices/results_bands/)")
     args = parser.parse_args()
+
+    global BANDS_RESULTS_DIR
+    if args.bands_results_dir:
+        _bands_path = pathlib.Path(args.bands_results_dir)
+        if not _bands_path.is_absolute():
+            _bands_path = FILEPATH / _bands_path
+        BANDS_RESULTS_DIR = _bands_path
 
     operations = [Operation(op.strip()) for op in args.operation.split(",")]
 
@@ -743,6 +864,9 @@ def main() -> int:
     print(f"[{ops_label}] Will process {len(matrices)} matrices")
     output_dir = pathlib.Path(args.output_dir)
     output_dir.mkdir(exist_ok=True)
+    baseline_results_dir = pathlib.Path(args.baseline_results_dir)
+    if not baseline_results_dir.is_absolute():
+        baseline_results_dir = FILEPATH / baseline_results_dir
     SUITESPARSE_DIR.mkdir(exist_ok=True)
 
     all_results: dict[str, list[dict[str, Any]]] = {}
@@ -825,6 +949,9 @@ def main() -> int:
                                 format_kernel=format_kernel,
                                 csr_kernel=csr_kernel,
                                 threads=num_threads,
+                                baseline_source_mode=args.baseline_source,
+                                baseline_results_dir=baseline_results_dir,
+                                allow_baseline_run_on_missing=args.allow_baseline_run_on_missing,
                             )
 
                             if result:
@@ -839,9 +966,10 @@ def main() -> int:
             traceback.print_exc()
         finally:
             if "matrix_info" in locals() and matrix_info is not None:
-                print(f"  Cleaning up downloaded files for {matrix_name}...")
-                if tar_path is not None or matrix_subdir is not None:
-                    cleanup_matrix_files(tar_path, matrix_subdir)
+                if not os.environ.get("SABLE_NO_CLEANUP"):
+                    print(f"  Cleaning up downloaded files for {matrix_name}...")
+                    if tar_path is not None or matrix_subdir is not None:
+                        cleanup_matrix_files(tar_path, matrix_subdir)
 
     print("\n" + "=" * 60)
     print(f"Benchmark Summary ({ops_label})")

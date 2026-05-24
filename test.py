@@ -12,6 +12,7 @@ from sable.extractors import BandExtractorSkip, BlockDetector, BlockDetectorSkip
 from sable.kernels import (
     MKLCSRSpmm,
     MKLCSRSpmv,
+    MKLDIASpmv,
     MKLVBRSpmm,
     MKLVBRSpmv,
     MixedVBRSpmm,
@@ -74,6 +75,50 @@ def _fully_dense_band(rows: int, cols: int):
                 {
                     "rows": [0, rows],
                     "bandwidth": [max(rows - 1, 0), max(cols - 1, 0)],
+                }
+            ],
+        }
+    ]
+
+
+def _tridiag_band(n: int):
+    return [
+        {
+            "diag_offset": 0,
+            "segments": [
+                {
+                    "rows": [0, n],
+                    "bandwidth": [1, 1],
+                }
+            ],
+        }
+    ]
+
+
+def _partial_band_matrix():
+    """11x11 matrix: tridiagonal band in rows [0,6), random elsewhere."""
+    values = numpy.zeros((11, 11), dtype=float)
+    for i in range(6):
+        for delta in [-1, 0, 1]:
+            col = i + delta
+            if 0 <= col < 11:
+                values[i, col] = (i + 1) * 1.0 + delta * 0.5
+    values[6, 0] = 3.0
+    values[7, 10] = 2.0
+    values[8, 3] = 4.0
+    values[9, 5] = 1.0
+    values[10, 7] = 5.0
+    return scipy.sparse.csr_matrix(values)
+
+
+def _partial_band():
+    return [
+        {
+            "diag_offset": 0,
+            "segments": [
+                {
+                    "rows": [0, 6],
+                    "bandwidth": [1, 1],
                 }
             ],
         }
@@ -202,6 +247,84 @@ def test_spmv_single_threaded_bandnaive_fullydense():
     result_lines = _numeric_result_lines(output)
     y_generated = numpy.array([float(x) for x in result_lines])
     y_expected = dense.dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmv_single_threaded_bandmkl_fullydense():
+    """Test SpMV with MKL DIA band dispatch and no residual."""
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
+    dense = numpy.array(
+        [
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0],
+            [7.0, 8.0, 9.0],
+        ]
+    )
+    filename = "spmv_single_threaded_bandmkl_fullydense"
+    matrix = Matrix(scipy.sparse.csr_matrix(dense), name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    vdia = plan.extract(BandExtractorSkip(bands=_fully_dense_band(matrix.nrows, matrix.ncols)))
+    assert vdia.nsegments == 1
+    assert plan.residual.nnz == 0
+    plan.dispatch(vdia, MKLDIASpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = dense.dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmv_single_threaded_bandnaive_naive():
+    """Test SpMV with naive VDIA band dispatch + naive CSR dispatch."""
+    filename = "spmv_single_threaded_bandnaive_naive"
+    matrix = Matrix(_partial_band_matrix(), name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    vdia = plan.extract(BandExtractorSkip(bands=_partial_band()))
+    assert vdia.nsegments == 1
+    assert plan.residual.nnz > 0
+    plan.dispatch(vdia, NaiveVDIASpmv())
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, NaiveCSRSpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = matrix.to_scipy().dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmv_single_threaded_bandmkl_naive():
+    """Test SpMV with MKL DIA band dispatch + naive CSR dispatch."""
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
+    filename = "spmv_single_threaded_bandmkl_naive"
+    matrix = Matrix(_partial_band_matrix(), name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    vdia = plan.extract(BandExtractorSkip(bands=_partial_band()))
+    assert vdia.nsegments == 1
+    assert plan.residual.nnz > 0
+    plan.dispatch(vdia, MKLDIASpmv())
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, NaiveCSRSpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = matrix.to_scipy().dot(numpy.ones(cols))
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
 
 
@@ -685,6 +808,37 @@ def test_spmm_single_threaded_bandnaive_fullydense():
     y_generated = numpy.array([float(x) for x in result_lines]).reshape(rows, 512)
     y_expected = dense.dot(numpy.ones((cols, 512)))
     numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+
+def test_spmm_single_threaded_bandnaive_naive():
+    """Test SpMM with naive VDIA band dispatch + naive CSR dispatch."""
+    filename = "spmm_single_threaded_bandnaive_naive"
+    matrix = Matrix(_partial_band_matrix(), name=filename)
+    rows, cols = matrix.nrows, matrix.ncols
+
+    write_dense_matrix(1.0, cols, 512)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(
+        DenseInput.matrix(
+            _generated_matrix_path(cols, 512),
+            shape=(cols, 512),
+            layout=DenseLayout.ROW_MAJOR,
+        )
+    )
+    vdia = plan.extract(BandExtractorSkip(bands=_partial_band()))
+    assert vdia.nsegments == 1
+    assert plan.residual.nnz > 0
+    plan.dispatch(vdia, NaiveVDIASpmm())
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, NaiveCSRSpmm())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines]).reshape(rows, 512)
+    y_expected = matrix.to_scipy().dot(numpy.ones((cols, 512)))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
 
 
 def test_spmm_single_threaded_naive_csr_only():

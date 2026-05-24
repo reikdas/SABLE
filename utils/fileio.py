@@ -8,23 +8,39 @@ import yaml
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
+def _generated_dense_tensors_dir() -> str:
+    return os.environ.get("SABLE_DENSE_TENSOR_DIR") or os.path.join(BASE_PATH, "Generated_dense_tensors")
+
+
+def _write_repeated_values(path: str, val: float, size: int, chunk_size: int = 65536) -> None:
+    value = str(val)
+    with open(path, "w") as f:
+        written = 0
+        first = True
+        while written < size:
+            chunk_count = min(chunk_size, size - written)
+            chunk = ",".join([value] * chunk_count)
+            if not first:
+                f.write(",")
+            f.write(chunk)
+            first = False
+            written += chunk_count
+        f.write("\n")
+
+
 def write_dense_vector(val: float, size: int):
     filename = f"generated_vector_{size}.vector"
-    dir_name = os.path.join(BASE_PATH, "Generated_dense_tensors")
+    dir_name = _generated_dense_tensors_dir()
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    with open(os.path.join(dir_name, filename), "w") as f:
-        x = [val] * size
-        f.write(f"{','.join(map(str, x))}\n")
+    _write_repeated_values(os.path.join(dir_name, filename), val, size)
 
 def write_dense_matrix(val: float, m: int, n: int):
     filename = f"generated_matrix_{m}x{n}.matrix"
-    dir_name = os.path.join(BASE_PATH, "Generated_dense_tensors")
+    dir_name = _generated_dense_tensors_dir()
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-    with open(os.path.join(dir_name, filename), "w") as f:
-        x = [val] * n * m
-        f.write(f"{','.join(map(str, x))}\n")
+    _write_repeated_values(os.path.join(dir_name, filename), val, n * m)
 
 def parse_yaml_blocks(yaml_path: str) -> List[Tuple[int, int, int, int]]:
     """

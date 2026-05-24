@@ -216,14 +216,19 @@ def _bind_reps(plan: Plan) -> list[RepBinding]:
     return bindings
 
 
-def _format_array(values: list[Any]) -> str:
-    return ",".join(map(str, values))
+def _write_array_values(file, values: list[Any], chunk_size: int = 65536) -> None:
+    for start in range(0, len(values), chunk_size):
+        if start:
+            file.write(",")
+        file.write(",".join(map(str, values[start:start + chunk_size])))
 
 
 def _write_sabledata(data_path: str, bindings: list[RepBinding]) -> None:
     with open(data_path, "w") as f:
         for binding in bindings:
-            f.write(f"{binding.label}=[{_format_array(binding.rep.values)}]\n")
+            f.write(f"{binding.label}=[")
+            _write_array_values(f, binding.rep.values)
+            f.write("]\n")
 
 
 def _c_string(value: str) -> str:
@@ -447,7 +452,49 @@ def _lower_kernel_snippet(
     return _emit_out_of_line_call(name, used_bindings, snippet.arguments)
 
 
-def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: int) -> str:
+def _interpret_ool_group(
+    snippets: list[OutOfLineCode],
+    dispatch_index: int,
+    fmt: Format,
+    bindings: list[RepBinding],
+    helpers: list[str],
+    helper_definitions: dict[str, str],
+) -> str:
+    n_calls = len(snippets)
+    representative = snippets[0]
+    name = _out_of_line_helper_name(representative, dispatch_index, None)
+    used_bindings = _bindings_used_by_body(representative.body, fmt, bindings)
+    helper = _emit_out_of_line_helper(name, representative.body, used_bindings, representative.parameters)
+    existing = helper_definitions.get(name)
+    if existing is None:
+        helper_definitions[name] = helper
+        helpers.append(helper)
+    elif existing != helper:
+        raise ValueError(f"Conflicting out_of_line helper definition for {name}")
+
+    call_args = ["y", "x"]
+    call_args.extend(b.c_name for b in used_bindings)
+
+    for param_idx, param_decl in enumerate(representative.parameters):
+        parts = param_decl.strip().split()
+        c_type = parts[0]
+        param_name = parts[-1]
+        values = [s.arguments[param_idx] for s in snippets]
+
+        c_name = f"_interp_{name}_{param_name}"
+        parsed = [int(v) if c_type == "int" else float(v) for v in values]
+        rep = Rep(values=parsed, label=c_name, c_name=c_name)
+        bindings.append(RepBinding(rep=rep, label=c_name, c_name=c_name, c_type=c_type))
+        call_args.append(f"{c_name}[_interp_s]")
+
+    return (
+        f"for (int _interp_s = 0; _interp_s < {n_calls}; _interp_s++) {{\n"
+        f"    {name}({', '.join(call_args)});\n"
+        f"}}\n"
+    )
+
+
+def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: int, interpreted: bool = False) -> str:
     rhs = plan.rhs_input
     y_size = _output_size(plan)
     x_size = _input_size(plan)
@@ -473,49 +520,41 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
         call = getattr(dispatch.kernel, "emit_call", None)
         if call is None:
             raise TypeError(f"{type(dispatch.kernel).__name__} must implement emit_call(...)")
-        timed_calls = getattr(dispatch.kernel, "emit_timed_calls", None)
-        if callable(timed_calls):
-            snippets = _normalize_kernel_snippets(timed_calls(dispatch.fmt, "y", "x", rhs))
-            for part_ordinal, snippet in enumerate(snippets, start=1):
-                lowered = _lower_kernel_snippet(
-                    snippet,
-                    dispatch_index,
-                    part_ordinal,
-                    dispatch.fmt,
-                    bindings,
-                    helpers,
-                    out_of_line_helper_definitions,
-                )
-                calls.append(
-                    TimedCall(
-                        dispatch_index=dispatch_index,
-                        snippet=lowered or "",
-                        part_index=part_count,
-                        part_ordinal=part_ordinal,
-                    )
-                )
-                part_count += 1
-        else:
-            snippets = _normalize_kernel_snippets(call(dispatch.fmt, "y", "x", rhs))
-            if len(snippets) <= 1:
-                snippet = snippets[0] if snippets else ""
-                lowered = _lower_kernel_snippet(
-                    snippet,
-                    dispatch_index,
-                    1,
-                    dispatch.fmt,
-                    bindings,
-                    helpers,
-                    out_of_line_helper_definitions,
-                )
-                calls.append(TimedCall(
-                    dispatch_index=dispatch_index,
-                    snippet=lowered or "",
-                    part_index=part_count,
-                    part_ordinal=1,
-                ))
-                part_count += 1
+
+        if interpreted:
+            timed_calls_method = getattr(dispatch.kernel, "emit_timed_calls", None)
+            if callable(timed_calls_method):
+                raw_snippets = _normalize_kernel_snippets(timed_calls_method(dispatch.fmt, "y", "x", rhs))
             else:
+                raw_snippets = _normalize_kernel_snippets(call(dispatch.fmt, "y", "x", rhs))
+
+            ool_snippets = [s for s in raw_snippets if isinstance(s, OutOfLineCode)]
+            ool_names = set(s.name for s in ool_snippets)
+            if len(ool_snippets) == len(raw_snippets) and len(ool_snippets) >= 1 and len(ool_names) == 1:
+                combined = _interpret_ool_group(
+                    ool_snippets, dispatch_index, dispatch.fmt, bindings,
+                    helpers, out_of_line_helper_definitions,
+                )
+            else:
+                combined = "\n".join(
+                    _lower_kernel_snippet(
+                        s, dispatch_index, i + 1, dispatch.fmt, bindings,
+                        helpers, out_of_line_helper_definitions,
+                    )
+                    for i, s in enumerate(raw_snippets) if s
+                )
+            calls.append(TimedCall(
+                dispatch_index=dispatch_index,
+                snippet=combined,
+                part_index=part_count,
+                part_ordinal=1,
+            ))
+            part_count += 1
+        else:
+
+            timed_calls = getattr(dispatch.kernel, "emit_timed_calls", None)
+            if callable(timed_calls):
+                snippets = _normalize_kernel_snippets(timed_calls(dispatch.fmt, "y", "x", rhs))
                 for part_ordinal, snippet in enumerate(snippets, start=1):
                     lowered = _lower_kernel_snippet(
                         snippet,
@@ -533,6 +572,46 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
                             part_index=part_count,
                             part_ordinal=part_ordinal,
                         )
+                    )
+                    part_count += 1
+            else:
+                snippets = _normalize_kernel_snippets(call(dispatch.fmt, "y", "x", rhs))
+                if len(snippets) <= 1:
+                    snippet = snippets[0] if snippets else ""
+                    lowered = _lower_kernel_snippet(
+                        snippet,
+                        dispatch_index,
+                        1,
+                        dispatch.fmt,
+                        bindings,
+                        helpers,
+                        out_of_line_helper_definitions,
+                    )
+                    calls.append(TimedCall(
+                        dispatch_index=dispatch_index,
+                        snippet=lowered or "",
+                        part_index=part_count,
+                        part_ordinal=1,
+                    ))
+                    part_count += 1
+                else:
+                    for part_ordinal, snippet in enumerate(snippets, start=1):
+                        lowered = _lower_kernel_snippet(
+                            snippet,
+                            dispatch_index,
+                            part_ordinal,
+                            dispatch.fmt,
+                            bindings,
+                            helpers,
+                            out_of_line_helper_definitions,
+                        )
+                        calls.append(
+                            TimedCall(
+                                dispatch_index=dispatch_index,
+                                snippet=lowered or "",
+                                part_index=part_count,
+                                part_ordinal=part_ordinal,
+                            )
                     )
                     part_count += 1
         teardown.append(_kernel_text(dispatch.kernel, "emit_teardown", dispatch.fmt, rhs))
@@ -657,6 +736,40 @@ def compile(plan: Plan, filename: str | None = None, bench: int = 5, threads: in
     bindings = _bind_reps(plan)
     _write_sabledata(data_path, bindings)
     source = _emit_source(plan, data_path, bindings, bench)
+    with open(c_path, "w") as f:
+        f.write(source)
+    end = time.time_ns() // 1_000_000
+
+    return CompiledExecutor(
+        c_path=c_path,
+        data_path=data_path,
+        artifact_dir=plan.artifact_dir,
+        filename=filename,
+        codegen_time_ms=end - start,
+        plan=plan,
+        runtime_env=_collect_runtime_env(plan),
+        runtime_cwd=_collect_runtime_cwd(plan),
+    )
+
+
+def interpret(plan: Plan, filename: str | None = None, bench: int = 5, threads: int = 1) -> CompiledExecutor:
+    if threads != 1:
+        raise ValueError("The frontend compiler is single-threaded for now")
+    if bench <= 0:
+        raise ValueError("bench must be positive")
+
+    _ = plan.rhs_input
+    plan.ensure_complete()
+
+    os.makedirs(plan.artifact_dir, exist_ok=True)
+    filename = filename or plan.matrix.name
+    data_path = os.path.join(plan.artifact_dir, f"{filename}.sabledata")
+    c_path = os.path.join(plan.artifact_dir, f"{filename}.c")
+
+    start = time.time_ns() // 1_000_000
+    bindings = _bind_reps(plan)
+    source = _emit_source(plan, data_path, bindings, bench, interpreted=True)
+    _write_sabledata(data_path, bindings)
     with open(c_path, "w") as f:
         f.write(source)
     end = time.time_ns() // 1_000_000

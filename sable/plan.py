@@ -112,3 +112,8 @@ class Plan:
         from .compiler import compile as compile_plan
 
         return compile_plan(self, filename=filename, bench=bench, threads=threads)
+
+    def interpret(self, filename: str | None = None, bench: int = 5, threads: int = 1):
+        from .compiler import interpret as interpret_plan
+
+        return interpret_plan(self, filename=filename, bench=bench, threads=threads)

@@ -69,7 +69,7 @@ SPMM_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPREG)
 
 SUITESPARSE_DIR = pathlib.Path(os.environ.get("SABLE_SUITESPARSE_DIR") or str(FILEPATH / "Suitesparse"))
 RESULTS_DIR = FILEPATH / "find-submatrices" / "results"
-BANDS_RESULTS_DIR = FILEPATH / "find-submatrices" / "results_bands"
+BANDS_RESULTS_DIR = FILEPATH / "find-submatrices" / "results_bands_075"
 DEFAULT_BASELINE_RESULTS_DIR = FILEPATH / "results"
 _RESULTS_JSON_CACHE: dict[pathlib.Path, list[dict[str, Any]]] = {}
 
@@ -364,6 +364,9 @@ def _vbr_spmm_kernel(vbr_kernel: VBRKernel):
 def _vdia_spmm_kernel(vdia_kernel: VDIAKernel):
     if vdia_kernel == VDIAKernel.NAIVE:
         return NaiveVDIASpmm()
+    if vdia_kernel == VDIAKernel.MKL_DIA:
+        from sable.kernels import MKLDIASpmm
+        return MKLDIASpmm()
     raise ValueError(f"Unknown SpMM VDIA kernel: {vdia_kernel}")
 
 

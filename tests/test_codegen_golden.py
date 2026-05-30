@@ -17,6 +17,7 @@ from sable.extractors import BandExtractorSkip, BlockDetectorSkip, CSRConvertor
 from sable.kernels import (
     MKLCSRSpmm,
     MKLCSRSpmv,
+    MKLDIASpmm,
     MKLDIASpmv,
     MKLVBRSpmm,
     MKLVBRSpmv,
@@ -129,6 +130,7 @@ SPMV_KERNELS = {
 SPMM_KERNELS = {
     "band": {
         "bandnaive": NaiveVDIASpmm,
+        "bandmkl": MKLDIASpmm,
     },
     "block": {
         "blocknaive": NaiveVBRSpmm,
@@ -319,12 +321,26 @@ def _generate_two_vdia_mkl_c(tmpdir: pathlib.Path) -> str:
     return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
 
 
+def _generate_two_vdia_mkl_spmm_c(tmpdir: pathlib.Path) -> str:
+    A = _two_segment_vdia_matrix()
+    plan = Plan(Matrix(A, name="fixture"), artifact_dir=str(tmpdir / "codegen"))
+    rhs_path = tmpdir / "x.matrix"
+    _write_matrix(rhs_path, A.shape[1], 4)
+    plan.rhs(DenseInput.matrix(str(rhs_path), shape=(A.shape[1], 4), layout=DenseLayout.ROW_MAJOR))
+
+    vdia = plan.extract(BandExtractorSkip(bands=TWO_VDIA_SEGMENTS))
+    plan.dispatch(vdia, MKLDIASpmm())
+    executor = plan.compile(filename="fixture", bench=1)
+    return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
+
+
 PARAMETERIZED_OUT_OF_LINE_VARIANTS = {
     "spmv_blocknaive_two_blocks": lambda tmpdir: _generate_two_vbr_c("spmv", tmpdir),
     "spmm_blocknaive_two_blocks": lambda tmpdir: _generate_two_vbr_c("spmm", tmpdir),
     "spmv_bandnaive_two_segments": lambda tmpdir: _generate_two_vdia_c("spmv", tmpdir),
     "spmm_bandnaive_two_segments": lambda tmpdir: _generate_two_vdia_c("spmm", tmpdir),
     "spmv_bandmkl_two_segments": lambda tmpdir: _generate_two_vdia_mkl_c(tmpdir),
+    "spmm_bandmkl_two_segments": lambda tmpdir: _generate_two_vdia_mkl_spmm_c(tmpdir),
 }
 
 
@@ -425,6 +441,11 @@ def _assert_parameterized_out_of_line_shape(variant: str, source: str) -> None:
         assert "vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 0, 3, 2, 0, 0);" in source
         assert "vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6);" in source
         assert "vdia_val_spmv_mkl_dia_segment_0" not in source
+    elif variant == "spmm_bandmkl_two_segments":
+        assert source.count("static void vdia_val_spmm_mkl_dia_segment(") == 1
+        assert "vdia_val_spmm_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 0, 3, 2, 0, 0, 4);" in source
+        assert "vdia_val_spmm_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6, 4);" in source
+        assert "vdia_val_spmm_mkl_dia_segment_0" not in source
     else:
         raise AssertionError(f"Unhandled parameterized out_of_line variant: {variant}")
 

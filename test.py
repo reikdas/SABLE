@@ -12,6 +12,7 @@ from sable.extractors import BandExtractorSkip, BlockDetector, BlockDetectorSkip
 from sable.kernels import (
     MKLCSRSpmm,
     MKLCSRSpmv,
+    MKLDIASpmm,
     MKLDIASpmv,
     MKLVBRSpmm,
     MKLVBRSpmv,
@@ -1270,6 +1271,142 @@ def test_spmm_single_threaded_blockmixed_spreg():
     csr = plan.extract(CSRConvertor())
     assert csr.nnz == MIXED_CSR_RESIDUAL_NNZ, "Expected CSR residual for SPReg dispatch"
     plan.dispatch(csr, SPRegCSRSpmm())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines]).reshape(rows, 512)
+    y_expected = matrix.to_scipy().dot(numpy.ones((cols, 512)))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+# ---------------------------------------------------------------------------
+# MKL DIA value tests: multi-segment bands (row0 != 0) and VDIA+VBR+CSR.
+#
+# These exercise paths the single-segment band tests above miss: mkl_ddiamv /
+# mkl_ddiamm must shift idiag by each segment's row0, and mkl_ddiamm's dense
+# operands are column-major (its SpMM lowering transposes the RHS once in setup
+# and folds a column-major accumulator back in teardown).
+# ---------------------------------------------------------------------------
+
+
+def _two_segment_band_matrix():
+    """6x6 with two row-disjoint band segments, so the second has row0 = 3."""
+    values = numpy.zeros((6, 6), dtype=float)
+    for i, j, x in [(0, 0, 1), (0, 1, 2), (1, 1, 3), (1, 2, 4), (2, 2, 5), (2, 3, 6),
+                    (3, 2, 7), (3, 3, 8), (4, 3, 9), (4, 4, 10), (5, 4, 11), (5, 5, 12)]:
+        values[i, j] = x
+    return scipy.sparse.csr_matrix(values)
+
+
+def _two_segment_band():
+    return [{
+        "diag_offset": 0,
+        "segments": [
+            {"rows": [0, 3], "bandwidth": [0, 1]},
+            {"rows": [3, 6], "bandwidth": [1, 0]},
+        ],
+    }]
+
+
+def _vdia_vbr_csr_matrix():
+    """14x14: VDIA band (rows 0..3) + two VBR blocks + scattered CSR residual."""
+    values = numpy.zeros((14, 14), dtype=float)
+    values[0:3, 0:3] = numpy.array([[1, 2, 3], [4, 5, 6], [7, 8, 9]], dtype=float)
+    values[3:6, 3:6] = numpy.arange(101, 110, dtype=float).reshape(3, 3)
+    values[6:14, 6:14] = numpy.arange(201, 265, dtype=float).reshape(8, 8)
+    for r, c, v in [(0, 13, 5.0), (1, 12, 4.0), (2, 11, 3.0), (11, 2, 6.0), (12, 1, 1.0), (13, 0, 2.0)]:
+        values[r, c] = v
+    return scipy.sparse.csr_matrix(values)
+
+
+_VDIA_VBR_CSR_BAND = [{"diag_offset": 0, "segments": [{"rows": [0, 3], "bandwidth": [2, 2]}]}]
+_VDIA_VBR_CSR_BLOCKS = [(3, 6, 3, 6), (6, 14, 6, 14)]
+
+
+def test_spmv_single_threaded_bandmkl_two_segments():
+    """SpMV with MKL DIA over a multi-segment band (row0 != 0) + naive CSR."""
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
+    filename = "spmv_single_threaded_bandmkl_two_segments"
+    matrix = Matrix(_two_segment_band_matrix(), name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    vdia = plan.extract(BandExtractorSkip(bands=_two_segment_band()))
+    assert vdia.nsegments == 2
+    plan.dispatch(vdia, MKLDIASpmv())
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, NaiveCSRSpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = matrix.to_scipy().dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmm_single_threaded_bandmkl_two_segments():
+    """SpMM with MKL DIA over a multi-segment band (row0 != 0) + naive CSR."""
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
+    filename = "spmm_single_threaded_bandmkl_two_segments"
+    matrix = Matrix(_two_segment_band_matrix(), name=filename)
+    rows, cols = matrix.nrows, matrix.ncols
+
+    write_dense_matrix(1.0, cols, 512)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.matrix(_generated_matrix_path(cols, 512), shape=(cols, 512), layout=DenseLayout.ROW_MAJOR))
+    vdia = plan.extract(BandExtractorSkip(bands=_two_segment_band()))
+    assert vdia.nsegments == 2
+    plan.dispatch(vdia, MKLDIASpmm())
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, NaiveCSRSpmm())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines]).reshape(rows, 512)
+    y_expected = matrix.to_scipy().dot(numpy.ones((cols, 512)))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmv_single_threaded_bandmkl_blockmixed_csrnaive():
+    """SpMV composing MKL DIA + mixed VBR + naive CSR."""
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
+    filename = "spmv_single_threaded_bandmkl_blockmixed_csrnaive"
+    matrix = Matrix(_vdia_vbr_csr_matrix(), name=filename)
+    cols = matrix.ncols
+
+    write_dense_vector(1.0, cols)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+    plan.dispatch(plan.extract(BandExtractorSkip(bands=_VDIA_VBR_CSR_BAND)), MKLDIASpmv())
+    plan.dispatch(plan.extract(BlockDetectorSkip(_VDIA_VBR_CSR_BLOCKS)), MixedVBRSpmv())
+    plan.dispatch(plan.extract(CSRConvertor()), NaiveCSRSpmv())
+    output = plan.compile(filename=filename, bench=1).build().run().split("\n")
+
+    result_lines = _numeric_result_lines(output)
+    y_generated = numpy.array([float(x) for x in result_lines])
+    y_expected = matrix.to_scipy().dot(numpy.ones(cols))
+    numpy.testing.assert_allclose(y_generated, y_expected, rtol=1e-10, atol=1e-10)
+
+
+def test_spmm_single_threaded_bandmkl_blockmixed_csrnaive():
+    """SpMM composing MKL DIA + mixed VBR + naive CSR."""
+    if not MKL_AVAILABLE:
+        pytest.skip("MKL not available")
+    filename = "spmm_single_threaded_bandmkl_blockmixed_csrnaive"
+    matrix = Matrix(_vdia_vbr_csr_matrix(), name=filename)
+    rows, cols = matrix.nrows, matrix.ncols
+
+    write_dense_matrix(1.0, cols, 512)
+    plan = Plan(matrix, artifact_dir="tests")
+    plan.rhs(DenseInput.matrix(_generated_matrix_path(cols, 512), shape=(cols, 512), layout=DenseLayout.ROW_MAJOR))
+    plan.dispatch(plan.extract(BandExtractorSkip(bands=_VDIA_VBR_CSR_BAND)), MKLDIASpmm())
+    plan.dispatch(plan.extract(BlockDetectorSkip(_VDIA_VBR_CSR_BLOCKS)), MixedVBRSpmm())
+    plan.dispatch(plan.extract(CSRConvertor()), NaiveCSRSpmm())
     output = plan.compile(filename=filename, bench=1).build().run().split("\n")
 
     result_lines = _numeric_result_lines(output)

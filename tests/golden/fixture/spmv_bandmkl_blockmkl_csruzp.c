@@ -75,7 +75,9 @@ static void read_dense_input(FILE *file, double *out, int size) {
     }
 }
 
-static void vdia_val_spmv_mkl_dia_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off) {
+static const MKL_INT vdia_val_mkl_diag[] = {-2, -1, 0, 1, 2};
+
+static void vdia_val_spmv_mkl_dia_segment(double *y, const double *x, const double *vdia_val, int row0, int nrows, int ndiags, int idiag_off, int val_off) {
 {
 MKL_INT mkl_m = nrows;
 MKL_INT mkl_k = 14;
@@ -86,7 +88,7 @@ double mkl_beta = 1.0;
 char mkl_transa = 'N';
 char mkl_matdescra[6] = {'G', ' ', ' ', 'C', ' ', ' '};
 mkl_ddiamv(&mkl_transa, &mkl_m, &mkl_k, &mkl_alpha, mkl_matdescra,
-           &vdia_val[val_off], &mkl_lval, (MKL_INT *)&vdia_idiag[idiag_off], &mkl_ndiag,
+           &vdia_val[val_off], &mkl_lval, (MKL_INT *)&vdia_val_mkl_diag[idiag_off], &mkl_ndiag,
            &x[0], &mkl_beta, &y[row0]);
 }
 }
@@ -166,7 +168,7 @@ assert(csr_indptr_spf_mat != NULL);
     for (int iter = 0; iter < 1; iter++) {
         memset(y, 0, 14 * sizeof(double));
         clock_gettime(CLOCK_MONOTONIC, &t1);
-vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 0, 3, 5, 0, 0);
+vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, 0, 3, 5, 0, 0);
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);

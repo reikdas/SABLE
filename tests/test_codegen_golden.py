@@ -437,15 +437,27 @@ def _assert_parameterized_out_of_line_shape(variant: str, source: str) -> None:
         assert "vdia_val_spmm_naive_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6, 4);" in source
         assert "vdia_val_spmm_naive_segment_0" not in source
     elif variant == "spmv_bandmkl_two_segments":
+        # One shared helper; idiag is now read from a row0-shifted file-scope
+        # array (vdia_val_mkl_diag), so it is no longer passed as an argument.
         assert source.count("static void vdia_val_spmv_mkl_dia_segment(") == 1
-        assert "vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 0, 3, 2, 0, 0);" in source
-        assert "vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6);" in source
-        assert "vdia_val_spmv_mkl_dia_segment_0" not in source
+        assert "static const MKL_INT vdia_val_mkl_diag[] = {0, 1, 2, 3};" in source
+        assert "vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, 0, 3, 2, 0, 0);" in source
+        assert "vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, 3, 3, 2, 2, 6);" in source
+        assert "(MKL_INT *)&vdia_val_mkl_diag[idiag_off]" in source
     elif variant == "spmm_bandmkl_two_segments":
-        assert source.count("static void vdia_val_spmm_mkl_dia_segment(") == 1
-        assert "vdia_val_spmm_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 0, 3, 2, 0, 0, 4);" in source
-        assert "vdia_val_spmm_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6, 4);" in source
-        assert "vdia_val_spmm_mkl_dia_segment_0" not in source
+        # SpMM emits inline per-segment mkl_ddiamm against a column-major copy
+        # of x (transposed once in setup) and a column-major accumulator yc
+        # folded back into y in teardown -- no out-of-line helper.
+        assert "static void vdia_val_spmm_mkl_dia_segment(" not in source
+        assert "static const MKL_INT vdia_val_mkl_diag[] = {0, 1, 2, 3};" in source
+        assert "double *vdia_val_mkl_xc = (double *)malloc((long)6 * 4 * sizeof(double));" in source
+        assert "double *vdia_val_mkl_yc = (double *)calloc((long)6 * 4, sizeof(double));" in source
+        assert source.count("mkl_ddiamm(") == 2
+        assert "(MKL_INT *)&vdia_val_mkl_diag[0]" in source
+        assert "(MKL_INT *)&vdia_val_mkl_diag[2]" in source
+        assert "&vdia_val_mkl_yc[0], &mkl_ldc);" in source
+        assert "&vdia_val_mkl_yc[3], &mkl_ldc);" in source
+        assert "free(vdia_val_mkl_xc);" in source
     else:
         raise AssertionError(f"Unhandled parameterized out_of_line variant: {variant}")
 

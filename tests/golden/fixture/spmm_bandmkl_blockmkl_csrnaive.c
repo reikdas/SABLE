@@ -73,24 +73,7 @@ static void read_dense_input(FILE *file, double *out, int size) {
     }
 }
 
-static void vdia_val_spmm_mkl_dia_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off, int nrhs) {
-{
-MKL_INT mkl_m = nrows;
-MKL_INT mkl_n = nrhs;
-MKL_INT mkl_k = 14;
-MKL_INT mkl_lval = nrows;
-MKL_INT mkl_ndiag = ndiags;
-MKL_INT mkl_ldb = nrhs;
-MKL_INT mkl_ldc = nrhs;
-double mkl_alpha = 1.0;
-double mkl_beta = 1.0;
-char mkl_transa = 'N';
-char mkl_matdescra[6] = {'G', ' ', ' ', 'C', ' ', ' '};
-mkl_ddiamm(&mkl_transa, &mkl_m, &mkl_n, &mkl_k, &mkl_alpha, mkl_matdescra,
-           &vdia_val[val_off], &mkl_lval, (MKL_INT *)&vdia_idiag[idiag_off], &mkl_ndiag,
-           &x[0], &mkl_ldb, &mkl_beta, &y[row0 * nrhs], &mkl_ldc);
-}
-}
+static const MKL_INT vdia_val_mkl_diag[] = {-2, -1, 0, 1, 2};
 
 
 int main(void) {
@@ -124,13 +107,34 @@ int main(void) {
     read_dense_input(rhs_file, x, 7168);
     fclose(rhs_file);
 
+double *vdia_val_mkl_xc = (double *)malloc((long)14 * 512 * sizeof(double));
+double *vdia_val_mkl_yc = (double *)calloc((long)14 * 512, sizeof(double));
+assert(vdia_val_mkl_xc != NULL && vdia_val_mkl_yc != NULL);
+for (int _c = 0; _c < 14; _c++)
+    for (int _r = 0; _r < 512; _r++)
+        vdia_val_mkl_xc[_c + (long)_r * 14] = x[(long)_c * 512 + _r];
     struct timespec t1, t2;
     double (*dispatch_part_times)[1] = (double (*)[1])calloc(4, 1 * sizeof(double));
     assert(dispatch_part_times != NULL);
     for (int iter = 0; iter < 1; iter++) {
         memset(y, 0, 7168 * sizeof(double));
         clock_gettime(CLOCK_MONOTONIC, &t1);
-vdia_val_spmm_mkl_dia_segment(y, x, vdia_val, vdia_idiag, 0, 3, 5, 0, 0, 512);
+{
+MKL_INT mkl_m = 3;
+MKL_INT mkl_n = 512;
+MKL_INT mkl_k = 14;
+MKL_INT mkl_lval = 3;
+MKL_INT mkl_ndiag = 5;
+MKL_INT mkl_ldb = 14;
+MKL_INT mkl_ldc = 14;
+double mkl_alpha = 1.0;
+double mkl_beta = 0.0;
+char mkl_transa = 'N';
+char mkl_matdescra[6] = {'G', ' ', ' ', 'C', ' ', ' '};
+mkl_ddiamm(&mkl_transa, &mkl_m, &mkl_n, &mkl_k, &mkl_alpha, mkl_matdescra,
+           &vdia_val[0], &mkl_lval, (MKL_INT *)&vdia_val_mkl_diag[0], &mkl_ndiag,
+           &vdia_val_mkl_xc[0], &mkl_ldb, &mkl_beta, &vdia_val_mkl_yc[0], &mkl_ldc);
+}
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);
@@ -167,6 +171,11 @@ for (int i = 0; i < 14; i++) {
         dispatch_part_times[3][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
     }
 
+for (int _row = 0; _row < 14; _row++)
+    for (int _r = 0; _r < 512; _r++)
+        y[(long)_row * 512 + _r] += vdia_val_mkl_yc[(long)_row + (long)_r * 14];
+free(vdia_val_mkl_xc);
+free(vdia_val_mkl_yc);
     printf("Dispatch 1: ");
     for (int i = 0; i < 1; i++) {
         printf("%.0f,", dispatch_part_times[0][i]);

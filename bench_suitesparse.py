@@ -26,8 +26,7 @@ from scipy.io import mmread
 from scipy.sparse import csc_matrix
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "find-submatrices"))
-from find_matrices import cleanup_matrix_files, get_matrix_info, get_matrix_paths
-from ssgetpy import fetch
+from find_matrices import cleanup_matrix_files, get_matrix_info
 
 from sable import Matrix, Operation, Plan
 from sable.build_config import CSRKernel, VBRKernel, VDIAKernel
@@ -247,7 +246,7 @@ def eval_frontend_executor_timings(
         try:
             output = subprocess.check_output(
                 run_cmd,
-                cwd=executor.artifact_dir,
+                cwd=executor.runtime_cwd or executor.artifact_dir,
                 env=_executor_env(executor.compile_command or [], executor.runtime_env),
                 preexec_fn=set_ulimit,
             ).decode("utf-8").split("\n")
@@ -279,33 +278,33 @@ def eval_frontend_executor_timings(
 def download_matrix_from_suitesparse(matrix_name: str) -> Optional[Tuple[str, Any, Optional[str], Optional[str]]]:
     SUITESPARSE_DIR.mkdir(exist_ok=True)
 
-    original_ssgetpy_dir = os.environ.get("SSGETPY_DIR")
-    try:
-        os.environ["SSGETPY_DIR"] = str(SUITESPARSE_DIR)
-        matrix_info = get_matrix_info(matrix_name)
-        if matrix_info is None:
-            return None
+    matrix_info = get_matrix_info(matrix_name)
+    if matrix_info is None:
+        return None
 
-        fetch(matrix_name)
-        tar_path, tar_dir, matrix_subdir, matrix_path = get_matrix_paths(matrix_info)
+    # 1. Prefer the shared ssgetpy cache (~/.ssgetpy), which find_vdia.py and
+    #    other tools populate. If the matrix is already extracted there, reuse it
+    #    and return tar_path/matrix_subdir as None so the caller's cleanup step
+    #    leaves the shared copy untouched.
+    cache_subdir, _ = matrix_info.localpath(format="MM", extract=True)
+    cache_mtx = os.path.join(cache_subdir, f"{matrix_info.name}.mtx")
+    if os.path.exists(cache_mtx):
+        print(f"  Using cached matrix from {cache_mtx}")
+        return cache_mtx, matrix_info, None, None
 
-        if not os.path.exists(matrix_path):
-            expected_path = SUITESPARSE_DIR / matrix_info.name / f"{matrix_info.name}.mtx"
-            if expected_path.exists():
-                matrix_path = str(expected_path)
-                matrix_subdir = str(expected_path.parent)
-                tar_candidates = list(SUITESPARSE_DIR.glob(f"{matrix_info.name}*.tar.gz"))
-                tar_path = str(tar_candidates[0]) if tar_candidates else None
-            else:
-                print(f"Error: Matrix file not found at {matrix_path} or {expected_path}")
-                return None
+    # 2. Otherwise download into the project-local Suitesparse/ directory. These
+    #    files are owned by this run and get cleaned up afterward (unless
+    #    SABLE_NO_CLEANUP is set).
+    destpath = str(SUITESPARSE_DIR / "MM" / matrix_info.group)
+    print(f"  Not in cache; downloading {matrix_name} into {destpath} ...")
+    matrix_subdir, tar_path = matrix_info.download(format="MM", destpath=destpath, extract=True)
+    matrix_path = os.path.join(matrix_subdir, f"{matrix_info.name}.mtx")
 
-        return matrix_path, matrix_info, tar_path, matrix_subdir
-    finally:
-        if original_ssgetpy_dir is not None:
-            os.environ["SSGETPY_DIR"] = original_ssgetpy_dir
-        elif "SSGETPY_DIR" in os.environ:
-            del os.environ["SSGETPY_DIR"]
+    if not os.path.exists(matrix_path):
+        print(f"Error: Matrix file not found at {matrix_path}")
+        return None
+
+    return matrix_path, matrix_info, tar_path, matrix_subdir
 
 
 def get_available_matrices() -> List[str]:
@@ -859,7 +858,12 @@ def main() -> int:
     if specific_matrices_requested and len(matrices) == 1:
         output_suffix = f"_{matrices[0]}"
     elif specific_matrices_requested:
-        output_suffix = "_" + "_".join(matrices)
+        joined = "_".join(matrices)
+        if len(joined) > 100:
+            import hashlib
+            output_suffix = f"_{len(matrices)}matrices_{hashlib.md5(joined.encode()).hexdigest()[:8]}"
+        else:
+            output_suffix = "_" + joined
     else:
         output_suffix = ""
 

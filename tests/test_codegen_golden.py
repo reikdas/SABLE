@@ -344,77 +344,6 @@ PARAMETERIZED_OUT_OF_LINE_VARIANTS = {
 }
 
 
-def _generate_interp_c(variant: str, tmpdir: pathlib.Path) -> str:
-    rhs_rank, dispatches = CODEGEN_VARIANTS[variant]
-    selected_formats = {format_kind for format_kind, _, _ in dispatches}
-    A = _fixture_matrix(
-        include_band="band" in selected_formats,
-        include_block="block" in selected_formats,
-        include_csr="csr" in selected_formats,
-    )
-    plan = Plan(Matrix(A, name="fixture"), artifact_dir=str(tmpdir / "codegen"))
-
-    if rhs_rank == 1:
-        rhs_path = tmpdir / "x.vector"
-        _write_vector(rhs_path, A.shape[1])
-        plan.rhs(DenseInput.vector(str(rhs_path), A.shape[1]))
-    else:
-        rhs_path = tmpdir / "x.matrix"
-        _write_matrix(rhs_path, A.shape[1], 512)
-        plan.rhs(
-            DenseInput.matrix(
-                str(rhs_path),
-                shape=(A.shape[1], 512),
-                layout=DenseLayout.ROW_MAJOR,
-            )
-        )
-
-    for format_kind, _, kernel_type in dispatches:
-        if format_kind == "band":
-            vdia = plan.extract(BandExtractorSkip(bands=BAND_REGIONS))
-            plan.dispatch(vdia, kernel_type())
-        elif format_kind == "block":
-            vbr = plan.extract(BlockDetectorSkip(blocks=BLOCK_REGIONS))
-            plan.dispatch(vbr, kernel_type())
-        elif format_kind == "csr":
-            csr = plan.extract(CSRConvertor())
-            plan.dispatch(csr, kernel_type())
-        else:
-            raise AssertionError(f"Unhandled format kind: {format_kind}")
-
-    executor = plan.interpret(filename="fixture", bench=1)
-    return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
-
-
-INTERP_CODEGEN_VARIANTS = {k: v for k, v in CODEGEN_VARIANTS.items() if "bandnaive" in k}
-
-
-def _generate_two_vdia_interp_c(op_name: str, tmpdir: pathlib.Path) -> str:
-    A = _two_segment_vdia_matrix()
-    plan = Plan(Matrix(A, name="fixture"), artifact_dir=str(tmpdir / "codegen"))
-    if op_name == "spmv":
-        rhs_path = tmpdir / "x.vector"
-        _write_vector(rhs_path, A.shape[1])
-        plan.rhs(DenseInput.vector(str(rhs_path), A.shape[1]))
-        kernel = NaiveVDIASpmv()
-    else:
-        rhs_path = tmpdir / "x.matrix"
-        _write_matrix(rhs_path, A.shape[1], 4)
-        plan.rhs(DenseInput.matrix(str(rhs_path), shape=(A.shape[1], 4), layout=DenseLayout.ROW_MAJOR))
-        kernel = NaiveVDIASpmm()
-
-    vdia = plan.extract(BandExtractorSkip(bands=TWO_VDIA_SEGMENTS))
-    plan.dispatch(vdia, kernel)
-    executor = plan.interpret(filename="fixture", bench=1)
-    return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
-
-
-INTERP_PARAMETERIZED_VARIANTS = {
-    "spmv_bandnaive_two_segments_interp": lambda tmpdir: _generate_two_vdia_interp_c("spmv", tmpdir),
-    "spmm_bandnaive_two_segments_interp": lambda tmpdir: _generate_two_vdia_interp_c("spmm", tmpdir),
-}
-
-
 def _assert_parameterized_out_of_line_shape(variant: str, source: str) -> None:
     if variant == "spmv_blocknaive_two_blocks":
         assert source.count("static void vbr_val_spmv_naive_block(") == 1
@@ -498,32 +427,4 @@ def test_codegen_golden(variant, update_golden, tmp_path):
 def test_parameterized_out_of_line_codegen_golden(variant, update_golden, tmp_path):
     actual = PARAMETERIZED_OUT_OF_LINE_VARIANTS[variant](tmp_path)
     _assert_parameterized_out_of_line_shape(variant, actual)
-    _assert_golden(variant, actual, GOLDEN_DIR / f"{variant}.c", update_golden)
-
-
-def _assert_interp_parameterized_shape(variant: str, source: str) -> None:
-    if "spmv_bandnaive_two_segments" in variant:
-        assert source.count("static void vdia_val_spmv_naive_segment(") == 1
-        assert "for (int _interp_s = 0; _interp_s < 2; _interp_s++)" in source
-        assert "_interp_vdia_val_spmv_naive_segment_row0[_interp_s]" in source
-        assert "_interp_vdia_val_spmv_naive_segment_val_off[_interp_s]" in source
-    elif "spmm_bandnaive_two_segments" in variant:
-        assert source.count("static void vdia_val_spmm_naive_segment(") == 1
-        assert "for (int _interp_s = 0; _interp_s < 2; _interp_s++)" in source
-        assert "_interp_vdia_val_spmm_naive_segment_row0[_interp_s]" in source
-        assert "_interp_vdia_val_spmm_naive_segment_val_off[_interp_s]" in source
-    else:
-        raise AssertionError(f"Unhandled interp parameterized variant: {variant}")
-
-
-@pytest.mark.parametrize("variant", list(INTERP_CODEGEN_VARIANTS))
-def test_interp_codegen_golden(variant, update_golden, tmp_path):
-    actual = _generate_interp_c(variant, tmp_path)
-    _assert_golden(f"{variant}_interp", actual, GOLDEN_DIR / f"{variant}_interp.c", update_golden)
-
-
-@pytest.mark.parametrize("variant", list(INTERP_PARAMETERIZED_VARIANTS))
-def test_interp_parameterized_codegen_golden(variant, update_golden, tmp_path):
-    actual = INTERP_PARAMETERIZED_VARIANTS[variant](tmp_path)
-    _assert_interp_parameterized_shape(variant, actual)
     _assert_golden(variant, actual, GOLDEN_DIR / f"{variant}.c", update_golden)

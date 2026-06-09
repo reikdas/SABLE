@@ -1,22 +1,19 @@
 from __future__ import annotations
 
-import numpy
 import scipy.sparse
 
 
 Block = tuple[int, int, int, int]
 VBRCData = tuple[
-    list[float],
-    list[int],
-    list[int],
-    list[int],
-    list[int],
-    list[int],
-    list[int],
-    list[int],
-    list[int],
-    list[int],
-    list[float],
+    list[float],  # val           (packed dense-block values, column-major)
+    list[int],    # indx          (offsets into val, one per packed block + 1)
+    list[int],    # bindx         (block-column of each packed block)
+    list[int],    # rpntr
+    list[int],    # cpntr
+    list[int],    # bpntrb        (CSR-style row pointer into bindx/indx, len nbrows+1)
+    list[int],    # csr_indptr    (residual)
+    list[int],    # csr_indices   (residual)
+    list[float],  # csr_val       (residual)
 ]
 
 
@@ -67,15 +64,19 @@ def convert_matrix_to_vbrc_with_blocks(
     indx: list[int] = [0]
     bindx: list[int] = []
     bpntrb: list[int] = []
-    bpntre: list[int] = []
-    ublocks: list[int] = []
     coo_i: list[int] = []
     coo_j: list[int] = []
     coo_val: list[float] = []
-    block_count = 0
+    packed_count = 0
 
+    # VBR holds *only* the selected dense blocks.  Everything else (including
+    # non-selected sub-blocks of the partition) goes to the CSR residual, so
+    # there is no ublocks list.  bpntrb is a standard CSR-style row pointer of
+    # length nbrows+1 (row x's packed blocks are bindx[bpntrb[x]:bpntrb[x+1]]);
+    # an empty block-row is just a zero-length range, so no -1 sentinel and no
+    # separate bpntre is needed.
     for row_idx in range(len(rpntr) - 1):
-        row_start_block = block_count
+        bpntrb.append(packed_count)
         r_start, r_end = rpntr[row_idx], rpntr[row_idx + 1]
 
         for col_idx in range(len(cpntr) - 1):
@@ -88,20 +89,14 @@ def convert_matrix_to_vbrc_with_blocks(
             if is_selected_block:
                 val.extend(block_vals)
                 indx.append(len(val))
+                bindx.append(col_idx)
+                packed_count += 1
             else:
                 coo_val.extend(residual_elems)
-                ublocks.append(block_count)
                 coo_i.extend(idxs_i)
                 coo_j.extend(idxs_j)
-            bindx.append(col_idx)
-            block_count += 1
 
-        if row_start_block < block_count:
-            bpntrb.append(row_start_block)
-            bpntre.append(block_count)
-        else:
-            bpntrb.append(-1)
-            bpntre.append(-1)
+    bpntrb.append(packed_count)
 
     if coo_i:
         if (rpntr[-1] - 1) not in coo_i or (cpntr[-1] - 1) not in coo_j:
@@ -118,47 +113,4 @@ def convert_matrix_to_vbrc_with_blocks(
         indices = []
         csr_val = []
 
-    return val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, indptr, indices, csr_val
-
-
-def analyze_vbr_blocks(
-    val: list[float],
-    indx: list[int],
-    bindx: list[int],
-    rpntr: list[int],
-    cpntr: list[int],
-    bpntrb: list[int],
-    bpntre: list[int],
-    ublocks: list[int],
-) -> list[dict[str, float | int]]:
-    analyzed_blocks: list[dict[str, float | int]] = []
-    nnz_block = 0
-    packed_block_count = 0
-
-    for row_idx in range(len(rpntr) - 1):
-        if bpntrb[row_idx] == -1:
-            continue
-        valid_cols = bindx[bpntrb[row_idx] : bpntre[row_idx]]
-        for col_idx in range(len(cpntr) - 1):
-            if col_idx not in valid_cols:
-                continue
-            if nnz_block not in ublocks:
-                rows = rpntr[row_idx + 1] - rpntr[row_idx]
-                cols = cpntr[col_idx + 1] - cpntr[col_idx]
-                block_size = rows * cols
-                start = indx[packed_block_count]
-                end = indx[packed_block_count + 1] if packed_block_count + 1 < len(indx) else len(val)
-                block_nnz = int(numpy.count_nonzero(val[start:end]))
-                density_percent = (block_nnz / block_size) * 100 if block_size else 0.0
-                analyzed_blocks.append(
-                    {
-                        "rows": rows,
-                        "cols": cols,
-                        "density_percent": density_percent,
-                        "nnz": block_nnz,
-                    }
-                )
-                packed_block_count += 1
-            nnz_block += 1
-
-    return analyzed_blocks
+    return val, indx, bindx, rpntr, cpntr, bpntrb, indptr, indices, csr_val

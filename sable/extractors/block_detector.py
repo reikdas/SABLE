@@ -24,7 +24,7 @@ _PARTITIONER_BIN = _PARTITIONER_BUILD_DIR / "partition_matrix"
 
 
 def pack_blocks_as_vbr(A: ResidualMatrix, blocks: list[Block]) -> VBR:
-    val, indx, bindx, rpntr, cpntr, bpntrb, bpntre, ublocks, _, _, _ = (
+    val, indx, bindx, rpntr, cpntr, bpntrb, _, _, _ = (
         convert_matrix_to_vbrc_with_blocks(A.to_scipy(), blocks)
     )
     return VBR(
@@ -36,8 +36,6 @@ def pack_blocks_as_vbr(A: ResidualMatrix, blocks: list[Block]) -> VBR:
         rpntr=list(map(int, rpntr)),
         cpntr=list(map(int, cpntr)),
         bpntrb=list(map(int, bpntrb)),
-        bpntre=list(map(int, bpntre)),
-        ublocks=list(map(int, ublocks)),
         blocks=list(blocks),
     )
 

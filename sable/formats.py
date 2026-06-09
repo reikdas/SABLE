@@ -38,8 +38,6 @@ class VBR(Format):
     rpntr: list[int]
     cpntr: list[int]
     bpntrb: list[int]
-    bpntre: list[int]
-    ublocks: list[int]
     blocks: list[tuple[int, int, int, int]]
 
 

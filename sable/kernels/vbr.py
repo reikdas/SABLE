@@ -31,28 +31,19 @@ def _should_use_mkl_for_block(rows: int, cols: int) -> bool:
 
 
 def _vbr_blocks(fmt: VBR):
-    packed_block_count = 0
-    nnz_block = 0
-    residual_blocks = set(fmt.ublocks)
+    # VBR stores only packed dense blocks; bpntrb is a CSR-style row pointer, so
+    # row `block_row`'s packed blocks are bindx[bpntrb[x]:bpntrb[x+1]] and the
+    # k-th packed block reads its values at val offset indx[k].
     for block_row in range(len(fmt.rpntr) - 1):
-        start = fmt.bpntrb[block_row]
-        end = fmt.bpntre[block_row]
-        if start == -1:
-            continue
-        valid_cols = fmt.bindx[start:end]
-        for block_col in range(len(fmt.cpntr) - 1):
-            if block_col not in valid_cols:
-                continue
-            if nnz_block not in residual_blocks:
-                yield (
-                    fmt.rpntr[block_row],
-                    fmt.rpntr[block_row + 1],
-                    fmt.cpntr[block_col],
-                    fmt.cpntr[block_col + 1],
-                    fmt.indx[packed_block_count],
-                )
-                packed_block_count += 1
-            nnz_block += 1
+        for k in range(fmt.bpntrb[block_row], fmt.bpntrb[block_row + 1]):
+            block_col = fmt.bindx[k]
+            yield (
+                fmt.rpntr[block_row],
+                fmt.rpntr[block_row + 1],
+                fmt.cpntr[block_col],
+                fmt.cpntr[block_col + 1],
+                fmt.indx[k],
+            )
 
 
 def _emit_spmv_naive_block(fmt: VBR, y: str, x: str, r0: int, r1: int, c0: int, c1: int, offset: int) -> str:

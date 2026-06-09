@@ -691,7 +691,10 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
         if part_indices:
             sum_expr = " + ".join(f"dispatch_part_times[{pi}][i]" for pi in part_indices)
         else:
-            sum_expr = "0"
+            # A dispatch with no timed parts (e.g. an empty VBR) does no work, so
+            # it takes 0 ns.  Emit a double literal: "%.0f" against an int 0 is
+            # undefined behaviour and prints stale garbage from an SSE register.
+            sum_expr = "0.0"
         lines.append(f'        printf("%.0f,", {sum_expr});\n')
         lines.append("    }\n")
         lines.append('    printf("\\n");\n')

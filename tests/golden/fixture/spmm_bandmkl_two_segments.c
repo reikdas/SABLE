@@ -101,7 +101,7 @@ for (int _c = 0; _c < 6; _c++)
     for (int _r = 0; _r < 4; _r++)
         vdia_val_mkl_xc[_c + (long)_r * 6] = x[(long)_c * 4 + _r];
     struct timespec t1, t2;
-    double (*dispatch_part_times)[1] = (double (*)[1])calloc(2, 1 * sizeof(double));
+    double (*dispatch_part_times)[1] = (double (*)[1])calloc(3, 1 * sizeof(double));
     assert(dispatch_part_times != NULL);
     for (int iter = 0; iter < 1; iter++) {
         memset(y, 0, 24 * sizeof(double));
@@ -143,16 +143,19 @@ mkl_ddiamm(&mkl_transa, &mkl_m, &mkl_n, &mkl_k, &mkl_alpha, mkl_matdescra,
 }
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[1][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
-    }
-
+        clock_gettime(CLOCK_MONOTONIC, &t1);
 for (int _row = 0; _row < 6; _row++)
     for (int _r = 0; _r < 4; _r++)
         y[(long)_row * 4 + _r] += vdia_val_mkl_yc[(long)_row + (long)_r * 6];
+        clock_gettime(CLOCK_MONOTONIC, &t2);
+        dispatch_part_times[2][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+    }
+
 free(vdia_val_mkl_xc);
 free(vdia_val_mkl_yc);
     printf("Dispatch 1: ");
     for (int i = 0; i < 1; i++) {
-        printf("%.0f,", dispatch_part_times[0][i] + dispatch_part_times[1][i]);
+        printf("%.0f,", dispatch_part_times[0][i] + dispatch_part_times[1][i] + dispatch_part_times[2][i]);
     }
     printf("\n");
     printf("Dispatch 1 Part 1: ");
@@ -163,6 +166,11 @@ free(vdia_val_mkl_yc);
     printf("Dispatch 1 Part 2: ");
     for (int i = 0; i < 1; i++) {
         printf("%.0f,", dispatch_part_times[1][i]);
+    }
+    printf("\n");
+    printf("Dispatch 1 Part 3: ");
+    for (int i = 0; i < 1; i++) {
+        printf("%.0f,", dispatch_part_times[2][i]);
     }
     printf("\n");
     printf("\n");

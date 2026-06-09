@@ -54,8 +54,10 @@ def _emit_mkl_idiag_decl(fmt: VDIA) -> str:
 # mkl_ddiamm's deprecated Sparse BLAS interface stores the dense operands B and C
 # COLUMN-major (ldb >= k, ldc >= m), unlike SABLE's row-major SpMM pipeline.  The
 # SpMM kernel therefore works against a column-major copy of x (xc, transposed
-# once in setup) and a column-major accumulator yc, folded into the row-major y
-# in teardown -- both outside the timed loop.
+# once in setup) and a column-major scratch yc; each segment's mkl_ddiamm result
+# is folded back into the row-major y immediately after the call, so the fold is
+# timed as part of the VDIA dispatch.  (Only the one-time x transpose stays in
+# setup, outside the timed loop.)
 
 def _mkl_xc_name(fmt: VDIA) -> str:
     return f"{fmt.val}_mkl_xc"
@@ -198,9 +200,6 @@ def _emit_spmm_mkl_teardown(fmt: VDIA, nrhs: int) -> str:
     xc = _mkl_xc_name(fmt)
     yc = _mkl_yc_name(fmt)
     return f"""\
-for (int _row = 0; _row < {fmt.nrows}; _row++)
-    for (int _r = 0; _r < {nrhs}; _r++)
-        y[(long)_row * {nrhs} + _r] += {yc}[(long)_row + (long)_r * {fmt.nrows}];
 free({xc});
 free({yc});
 """
@@ -216,8 +215,10 @@ def _emit_spmm_mkl_segment(fmt: VDIA, seg_idx: int, nrhs: int) -> str:
     xc = _mkl_xc_name(fmt)
     yc = _mkl_yc_name(fmt)
     # Emitted inline (not out-of-line) so the column-major xc/yc buffers from
-    # setup are in scope.  beta=0 overwrites this segment's row block each
-    # iteration; rows not covered by any segment stay zero from the calloc.
+    # setup are in scope.  beta=0 writes this segment's rows into the column-major
+    # yc; the fold of yc into the row-major y is emitted once (see
+    # _emit_spmm_mkl_fold) after the last segment, and is timed with the VDIA
+    # dispatch.  Segments are row-disjoint, so non-segment yc rows stay zero.
     return f"""\
 {{
 MKL_INT mkl_m = {nrows};
@@ -235,6 +236,17 @@ mkl_ddiamm(&mkl_transa, &mkl_m, &mkl_n, &mkl_k, &mkl_alpha, mkl_matdescra,
            &{fmt.val}[{val_off}], &mkl_lval, (MKL_INT *)&{idiag}[{idiag_off}], &mkl_ndiag,
            &{xc}[0], &mkl_ldb, &mkl_beta, &{yc}[{row0}], &mkl_ldc);
 }}
+"""
+
+
+def _emit_spmm_mkl_fold(fmt: VDIA, nrhs: int) -> str:
+    """Fold the column-major yc accumulator into the row-major y, once.  Emitted
+    as the final VDIA snippet so the fold is timed with the VDIA dispatch."""
+    yc = _mkl_yc_name(fmt)
+    return f"""\
+for (int _row = 0; _row < {fmt.nrows}; _row++)
+    for (int _r = 0; _r < {nrhs}; _r++)
+        y[(long)_row * {nrhs} + _r] += {yc}[(long)_row + (long)_r * {fmt.nrows}];
 """
 
 
@@ -365,8 +377,10 @@ class MKLDIASpmm(_BaseVDIAKernel, SpmmKernel):
     def emit_timed_calls(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
         nrhs = rhs.shape[1]
         # Emitted inline (not out-of-line) so the column-major xc/yc buffers
-        # allocated in emit_setup are in scope at each call site.
-        return [_emit_spmm_mkl_segment(fmt, i, nrhs) for i in range(fmt.nsegments)]
+        # allocated in emit_setup are in scope at each call site.  A single fold
+        # of yc into y is appended as the last VDIA part (timed with the dispatch).
+        return ([_emit_spmm_mkl_segment(fmt, i, nrhs) for i in range(fmt.nsegments)]
+                + [_emit_spmm_mkl_fold(fmt, nrhs)])
 
     def emit_call(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
         return self.emit_timed_calls(fmt, y, x, rhs)

@@ -124,7 +124,7 @@ mkl_sparse_d_create_csr(&csr_handle, SPARSE_INDEX_BASE_ZERO,
     csr_indptr, csr_indptr + 1,
     csr_indices, csr_val);
     struct timespec t1, t2;
-    double (*dispatch_part_times)[1] = (double (*)[1])calloc(4, 1 * sizeof(double));
+    double (*dispatch_part_times)[1] = (double (*)[1])calloc(5, 1 * sizeof(double));
     assert(dispatch_part_times != NULL);
     for (int iter = 0; iter < 1; iter++) {
         memset(y, 0, 7168 * sizeof(double));
@@ -148,6 +148,12 @@ mkl_ddiamm(&mkl_transa, &mkl_m, &mkl_n, &mkl_k, &mkl_alpha, mkl_matdescra,
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);
+for (int _row = 0; _row < 14; _row++)
+    for (int _r = 0; _r < 512; _r++)
+        y[(long)_row * 512 + _r] += vdia_val_mkl_yc[(long)_row + (long)_r * 14];
+        clock_gettime(CLOCK_MONOTONIC, &t2);
+        dispatch_part_times[1][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+        clock_gettime(CLOCK_MONOTONIC, &t1);
 cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
     6 - 3, 512, 6 - 3,
     1.0,
@@ -156,7 +162,7 @@ cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
     1.0,
     &y[3 * 512], 512);
         clock_gettime(CLOCK_MONOTONIC, &t2);
-        dispatch_part_times[1][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+        dispatch_part_times[2][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);
 cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
     14 - 6, 512, 14 - 6,
@@ -166,43 +172,50 @@ cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
     1.0,
     &y[6 * 512], 512);
         clock_gettime(CLOCK_MONOTONIC, &t2);
-        dispatch_part_times[2][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+        dispatch_part_times[3][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);
 mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_handle, csr_descr,
     SPARSE_LAYOUT_ROW_MAJOR, x, 512, 512, 1.0, y, 512);
         clock_gettime(CLOCK_MONOTONIC, &t2);
-        dispatch_part_times[3][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
+        dispatch_part_times[4][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
     }
 
-for (int _row = 0; _row < 14; _row++)
-    for (int _r = 0; _r < 512; _r++)
-        y[(long)_row * 512 + _r] += vdia_val_mkl_yc[(long)_row + (long)_r * 14];
 free(vdia_val_mkl_xc);
 free(vdia_val_mkl_yc);
 mkl_sparse_destroy(csr_handle);
     printf("Dispatch 1: ");
     for (int i = 0; i < 1; i++) {
-        printf("%.0f,", dispatch_part_times[0][i]);
+        printf("%.0f,", dispatch_part_times[0][i] + dispatch_part_times[1][i]);
     }
     printf("\n");
     printf("Dispatch 2: ");
     for (int i = 0; i < 1; i++) {
-        printf("%.0f,", dispatch_part_times[1][i] + dispatch_part_times[2][i]);
+        printf("%.0f,", dispatch_part_times[2][i] + dispatch_part_times[3][i]);
     }
     printf("\n");
     printf("Dispatch 3: ");
     for (int i = 0; i < 1; i++) {
-        printf("%.0f,", dispatch_part_times[3][i]);
+        printf("%.0f,", dispatch_part_times[4][i]);
     }
     printf("\n");
-    printf("Dispatch 2 Part 1: ");
+    printf("Dispatch 1 Part 1: ");
+    for (int i = 0; i < 1; i++) {
+        printf("%.0f,", dispatch_part_times[0][i]);
+    }
+    printf("\n");
+    printf("Dispatch 1 Part 2: ");
     for (int i = 0; i < 1; i++) {
         printf("%.0f,", dispatch_part_times[1][i]);
     }
     printf("\n");
-    printf("Dispatch 2 Part 2: ");
+    printf("Dispatch 2 Part 1: ");
     for (int i = 0; i < 1; i++) {
         printf("%.0f,", dispatch_part_times[2][i]);
+    }
+    printf("\n");
+    printf("Dispatch 2 Part 2: ");
+    for (int i = 0; i < 1; i++) {
+        printf("%.0f,", dispatch_part_times[3][i]);
     }
     printf("\n");
     printf("\n");

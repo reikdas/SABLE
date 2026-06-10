@@ -420,11 +420,13 @@ class SPRegCSRSpmm(SpmmKernel):
         return _spreg_source_files()
 
     def compile_flags(self) -> list[str]:
+        mapping_dir = os.path.join(_SPREG_BASE, "mappings")
         return [
             "-std=c++17",
             "-DRTE_CACHE_LINE_SIZE=64",
             "-DENABLE_AVX512",
             "-mavx512f",
+            f'-DSPREG_MAPPING_DIR=\\"{mapping_dir}\\"',
             *_spreg_include_flags(),
         ]
 

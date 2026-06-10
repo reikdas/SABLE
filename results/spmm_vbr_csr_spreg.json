@@ -1,0 +1,3146 @@
+[
+  {
+    "matrix_name": "eris1176",
+    "matrix_dimensions": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552,
+      "density": 0.013
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 4351963.01,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 341213.56,
+            "percentage_of_total_time": 7.84
+          },
+          "dispatch_2": {
+            "time_ns": 4010749.45,
+            "percentage_of_total_time": 92.16
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 98871.06,
+          "dispatch_1_part_2": 75246.74,
+          "dispatch_1_part_3": 132501.34
+        },
+        "csr_baseline_time_ns": 7870626.85,
+        "fully_sparse_baseline_time_ns": 7870626.85,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 7870626.85
+        },
+        "speedup": 1.809,
+        "compile_time_composed_s": 0.651632632,
+        "compile_time_csr_baseline_s": 0.165179762,
+        "codegen_time_composed_ms": 8,
+        "codegen_time_csr_baseline_ms": 9
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 10428,
+      "residual_nnz": 8124,
+      "format_area": 15408,
+      "extra_values": 4980,
+      "format_claimed_nnz_perc": 56.21,
+      "residual_nnz_perc": 43.79
+    }
+  },
+  {
+    "matrix_name": "c-30",
+    "matrix_dimensions": {
+      "rows": 5321,
+      "cols": 5321,
+      "nnz": 65693,
+      "density": 0.002
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 96094645.44,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 2279369.09,
+            "percentage_of_total_time": 2.372
+          },
+          "dispatch_2": {
+            "time_ns": 93815276.35,
+            "percentage_of_total_time": 97.628
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 1041783.44,
+          "dispatch_1_part_2": 348718.71
+        },
+        "csr_baseline_time_ns": 99845589.62,
+        "fully_sparse_baseline_time_ns": 99845589.62,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 99845589.62
+        },
+        "speedup": 1.039,
+        "compile_time_composed_s": 0.653452095,
+        "compile_time_csr_baseline_s": 0.163883839,
+        "codegen_time_composed_ms": 39,
+        "codegen_time_csr_baseline_ms": 45
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 27532,
+      "residual_nnz": 38161,
+      "format_area": 29092,
+      "extra_values": 1560,
+      "format_claimed_nnz_perc": 41.91,
+      "residual_nnz_perc": 58.09
+    }
+  },
+  {
+    "matrix_name": "lowThrust_3",
+    "matrix_dimensions": {
+      "rows": 7064,
+      "cols": 7064,
+      "nnz": 80645,
+      "density": 0.002
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 139894192.47,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4897417.94,
+            "percentage_of_total_time": 3.501
+          },
+          "dispatch_2": {
+            "time_ns": 134996774.54,
+            "percentage_of_total_time": 96.499
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 2791090.04,
+          "dispatch_1_part_2": 638101.81
+        },
+        "csr_baseline_time_ns": 146928596.49,
+        "fully_sparse_baseline_time_ns": 146928596.49,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 146928596.49
+        },
+        "speedup": 1.05,
+        "compile_time_composed_s": 0.642729919,
+        "compile_time_csr_baseline_s": 0.167857109,
+        "codegen_time_composed_ms": 59,
+        "codegen_time_csr_baseline_ms": 60
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 10976,
+      "residual_nnz": 69669,
+      "format_area": 10976,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 13.61,
+      "residual_nnz_perc": 86.39
+    }
+  },
+  {
+    "matrix_name": "jendrec1",
+    "matrix_dimensions": {
+      "rows": 2109,
+      "cols": 4228,
+      "nnz": 89608,
+      "density": 0.01
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 43051500.5,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 6400173.56,
+            "percentage_of_total_time": 14.866
+          },
+          "dispatch_2": {
+            "time_ns": 36651326.94,
+            "percentage_of_total_time": 85.134
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 44001212.91,
+        "fully_sparse_baseline_time_ns": 44001212.91,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 44001212.91
+        },
+        "speedup": 1.022,
+        "compile_time_composed_s": 0.613269689,
+        "compile_time_csr_baseline_s": 0.16550212,
+        "codegen_time_composed_ms": 37,
+        "codegen_time_csr_baseline_ms": 43
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 78935,
+      "residual_nnz": 10673,
+      "format_area": 141236,
+      "extra_values": 62301,
+      "format_claimed_nnz_perc": 88.09,
+      "residual_nnz_perc": 11.91
+    }
+  },
+  {
+    "matrix_name": "orani678",
+    "matrix_dimensions": {
+      "rows": 2529,
+      "cols": 2529,
+      "nnz": 90158,
+      "density": 0.014
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 34938223.49,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 1653627.94,
+            "percentage_of_total_time": 4.733
+          },
+          "dispatch_2": {
+            "time_ns": 33284595.55,
+            "percentage_of_total_time": 95.267
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 38357290.35,
+        "fully_sparse_baseline_time_ns": 38357290.35,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 38357290.35
+        },
+        "speedup": 1.098,
+        "compile_time_composed_s": 0.628724303,
+        "compile_time_csr_baseline_s": 0.168721102,
+        "codegen_time_composed_ms": 52,
+        "codegen_time_csr_baseline_ms": 55
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 39081,
+      "residual_nnz": 51077,
+      "format_area": 45400,
+      "extra_values": 6319,
+      "format_claimed_nnz_perc": 43.35,
+      "residual_nnz_perc": 56.65
+    }
+  },
+  {
+    "matrix_name": "vsp_c-30_data_data",
+    "matrix_dimensions": {
+      "rows": 11023,
+      "cols": 11023,
+      "nnz": 124368,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 466467600.76,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 3719707.05,
+            "percentage_of_total_time": 0.797
+          },
+          "dispatch_2": {
+            "time_ns": 462747893.71,
+            "percentage_of_total_time": 99.203
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 3110094.65,
+          "dispatch_1_part_2": 412300.58
+        },
+        "csr_baseline_time_ns": 386775597.93,
+        "fully_sparse_baseline_time_ns": 386775597.93,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 386775597.93
+        },
+        "speedup": 0.829,
+        "compile_time_composed_s": 0.640004218,
+        "compile_time_csr_baseline_s": 0.166124099,
+        "codegen_time_composed_ms": 36,
+        "codegen_time_csr_baseline_ms": 38
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 27532,
+      "residual_nnz": 96836,
+      "format_area": 29092,
+      "extra_values": 1560,
+      "format_claimed_nnz_perc": 22.14,
+      "residual_nnz_perc": 77.86
+    }
+  },
+  {
+    "matrix_name": "lp_fit2d",
+    "matrix_dimensions": {
+      "rows": 25,
+      "cols": 10524,
+      "nnz": 129042,
+      "density": 0.49
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 12826915.15,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 2796907.14,
+            "percentage_of_total_time": 21.805
+          },
+          "dispatch_2": {
+            "time_ns": 10030008.01,
+            "percentage_of_total_time": 78.195
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 8855708.39,
+        "fully_sparse_baseline_time_ns": 8855708.39,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 8855708.39
+        },
+        "speedup": 0.69,
+        "compile_time_composed_s": 0.623687175,
+        "compile_time_csr_baseline_s": 0.157430996,
+        "codegen_time_composed_ms": 37,
+        "codegen_time_csr_baseline_ms": 42
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 10500,
+      "residual_nnz": 118542,
+      "format_area": 10500,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 8.14,
+      "residual_nnz_perc": 91.86
+    }
+  },
+  {
+    "matrix_name": "lp_osa_07",
+    "matrix_dimensions": {
+      "rows": 1118,
+      "cols": 25067,
+      "nnz": 144812,
+      "density": 0.005
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 106971129.04,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 12589393.03,
+            "percentage_of_total_time": 11.769
+          },
+          "dispatch_2": {
+            "time_ns": 94381736.01,
+            "percentage_of_total_time": 88.231
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 100356581.9,
+        "fully_sparse_baseline_time_ns": 100356581.9,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 100356581.9
+        },
+        "speedup": 0.938,
+        "compile_time_composed_s": 0.613563191,
+        "compile_time_csr_baseline_s": 0.169975318,
+        "codegen_time_composed_ms": 43,
+        "codegen_time_csr_baseline_ms": 42
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 17609,
+      "residual_nnz": 127203,
+      "format_area": 23943,
+      "extra_values": 6334,
+      "format_claimed_nnz_perc": 12.16,
+      "residual_nnz_perc": 87.84
+    }
+  },
+  {
+    "matrix_name": "cari",
+    "matrix_dimensions": {
+      "rows": 400,
+      "cols": 1200,
+      "nnz": 152800,
+      "density": 0.318
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 4504662.19,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 3731313.81,
+            "percentage_of_total_time": 82.832
+          },
+          "dispatch_2": {
+            "time_ns": 773348.38,
+            "percentage_of_total_time": 17.168
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 6796856.84,
+        "fully_sparse_baseline_time_ns": 6796856.84,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 6796856.84
+        },
+        "speedup": 1.509,
+        "compile_time_composed_s": 0.637898542,
+        "compile_time_csr_baseline_s": 0.212835839,
+        "codegen_time_composed_ms": 42,
+        "codegen_time_csr_baseline_ms": 57
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 152000,
+      "residual_nnz": 800,
+      "format_area": 160000,
+      "extra_values": 8000,
+      "format_claimed_nnz_perc": 99.48,
+      "residual_nnz_perc": 0.52
+    }
+  },
+  {
+    "matrix_name": "lowThrust_4",
+    "matrix_dimensions": {
+      "rows": 13562,
+      "cols": 13562,
+      "nnz": 160947,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 84069313.1,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 8443185.62,
+            "percentage_of_total_time": 10.043
+          },
+          "dispatch_2": {
+            "time_ns": 75626127.47,
+            "percentage_of_total_time": 89.957
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 5166606.2,
+          "dispatch_1_part_2": 1326441.49
+        },
+        "csr_baseline_time_ns": 86993192.22,
+        "fully_sparse_baseline_time_ns": 86993192.22,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 86993192.22
+        },
+        "speedup": 1.035,
+        "compile_time_composed_s": 0.664941847,
+        "compile_time_csr_baseline_s": 0.17726355,
+        "codegen_time_composed_ms": 98,
+        "codegen_time_csr_baseline_ms": 93
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 21084,
+      "residual_nnz": 139863,
+      "format_area": 21084,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 13.1,
+      "residual_nnz_perc": 86.9
+    }
+  },
+  {
+    "matrix_name": "c-45",
+    "matrix_dimensions": {
+      "rows": 13206,
+      "cols": 13206,
+      "nnz": 174452,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 461881485.05,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4191591.64,
+            "percentage_of_total_time": 0.908
+          },
+          "dispatch_2": {
+            "time_ns": 457689893.41,
+            "percentage_of_total_time": 99.092
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 1518017.62,
+          "dispatch_1_part_2": 543873.72,
+          "dispatch_1_part_3": 521744.3,
+          "dispatch_1_part_4": 252360.61,
+          "dispatch_1_part_5": 357602.84
+        },
+        "csr_baseline_time_ns": 463896203.49,
+        "fully_sparse_baseline_time_ns": 463896203.49,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 463896203.49
+        },
+        "speedup": 1.004,
+        "compile_time_composed_s": 0.656159721,
+        "compile_time_csr_baseline_s": 0.177362303,
+        "codegen_time_composed_ms": 85,
+        "codegen_time_csr_baseline_ms": 100
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 45009,
+      "residual_nnz": 129443,
+      "format_area": 51305,
+      "extra_values": 6296,
+      "format_claimed_nnz_perc": 25.8,
+      "residual_nnz_perc": 74.2
+    }
+  },
+  {
+    "matrix_name": "brainpc2",
+    "matrix_dimensions": {
+      "rows": 27607,
+      "cols": 27607,
+      "nnz": 179395,
+      "density": 0.0
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 1763210227.26,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 13715190.66,
+            "percentage_of_total_time": 0.778
+          },
+          "dispatch_2": {
+            "time_ns": 1749495036.6,
+            "percentage_of_total_time": 99.222
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 9045944.64,
+          "dispatch_1_part_2": 2621455.83
+        },
+        "csr_baseline_time_ns": 1777029276.51,
+        "fully_sparse_baseline_time_ns": 1777029276.51,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 1777029276.51
+        },
+        "speedup": 1.008,
+        "compile_time_composed_s": 0.673554055,
+        "compile_time_csr_baseline_s": 0.173961976,
+        "codegen_time_composed_ms": 64,
+        "codegen_time_csr_baseline_ms": 60
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 55192,
+      "residual_nnz": 124203,
+      "format_area": 55192,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 30.77,
+      "residual_nnz_perc": 69.23
+    }
+  },
+  {
+    "matrix_name": "lowThrust_5",
+    "matrix_dimensions": {
+      "rows": 16262,
+      "cols": 16262,
+      "nnz": 198369,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 668502036.56,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 9992002.86,
+            "percentage_of_total_time": 1.495
+          },
+          "dispatch_2": {
+            "time_ns": 658510033.7,
+            "percentage_of_total_time": 98.505
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 5705654.01,
+          "dispatch_1_part_2": 2216128.86
+        },
+        "csr_baseline_time_ns": 656208249.11,
+        "fully_sparse_baseline_time_ns": 656208249.11,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 656208249.11
+        },
+        "speedup": 0.982,
+        "compile_time_composed_s": 0.644572908,
+        "compile_time_csr_baseline_s": 0.176161792,
+        "codegen_time_composed_ms": 104,
+        "codegen_time_csr_baseline_ms": 122
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 25284,
+      "residual_nnz": 173085,
+      "format_area": 25284,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.75,
+      "residual_nnz_perc": 87.25
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b162_c1",
+    "matrix_dimensions": {
+      "rows": 5374,
+      "cols": 5374,
+      "nnz": 205399,
+      "density": 0.007
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 76690665.68,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 1980197.65,
+            "percentage_of_total_time": 2.582
+          },
+          "dispatch_2": {
+            "time_ns": 74710468.03,
+            "percentage_of_total_time": 97.418
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 88726388.34,
+        "fully_sparse_baseline_time_ns": 88726388.34,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 88726388.34
+        },
+        "speedup": 1.157,
+        "compile_time_composed_s": 0.607883227,
+        "compile_time_csr_baseline_s": 0.172732388,
+        "codegen_time_composed_ms": 117,
+        "codegen_time_csr_baseline_ms": 131
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 62500,
+      "residual_nnz": 142899,
+      "format_area": 62500,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 30.43,
+      "residual_nnz_perc": 69.57
+    }
+  },
+  {
+    "matrix_name": "lowThrust_6",
+    "matrix_dimensions": {
+      "rows": 16928,
+      "cols": 16928,
+      "nnz": 207349,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 723478206.84,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 10664325.95,
+            "percentage_of_total_time": 1.474
+          },
+          "dispatch_2": {
+            "time_ns": 712813880.89,
+            "percentage_of_total_time": 98.526
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 6296899.76,
+          "dispatch_1_part_2": 2392781.1
+        },
+        "csr_baseline_time_ns": 709795413.55,
+        "fully_sparse_baseline_time_ns": 709795413.55,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 709795413.55
+        },
+        "speedup": 0.981,
+        "compile_time_composed_s": 0.632164533,
+        "compile_time_csr_baseline_s": 0.175648474,
+        "codegen_time_composed_ms": 112,
+        "codegen_time_csr_baseline_ms": 123
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 26320,
+      "residual_nnz": 181029,
+      "format_area": 26320,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.69,
+      "residual_nnz_perc": 87.31
+    }
+  },
+  {
+    "matrix_name": "lowThrust_7",
+    "matrix_dimensions": {
+      "rows": 17378,
+      "cols": 17378,
+      "nnz": 211561,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 417969718.28,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 8712914.97,
+            "percentage_of_total_time": 2.085
+          },
+          "dispatch_2": {
+            "time_ns": 409256803.3,
+            "percentage_of_total_time": 97.915
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 5343396.85,
+          "dispatch_1_part_2": 1844753.9
+        },
+        "csr_baseline_time_ns": 384836908.85,
+        "fully_sparse_baseline_time_ns": 384836908.85,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 384836908.85
+        },
+        "speedup": 0.921,
+        "compile_time_composed_s": 0.565386015,
+        "compile_time_csr_baseline_s": 0.139897461,
+        "codegen_time_composed_ms": 144,
+        "codegen_time_csr_baseline_ms": 152
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 27020,
+      "residual_nnz": 184541,
+      "format_area": 27020,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.77,
+      "residual_nnz_perc": 87.23
+    }
+  },
+  {
+    "matrix_name": "lowThrust_8",
+    "matrix_dimensions": {
+      "rows": 17702,
+      "cols": 17702,
+      "nnz": 216445,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 62445114.21,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4024734.9,
+            "percentage_of_total_time": 6.445
+          },
+          "dispatch_2": {
+            "time_ns": 58420379.31,
+            "percentage_of_total_time": 93.555
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 2182422.91,
+          "dispatch_1_part_2": 1843131.5
+        },
+        "csr_baseline_time_ns": 60092067.01,
+        "fully_sparse_baseline_time_ns": 60092067.01,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 60092067.01
+        },
+        "speedup": 0.962,
+        "compile_time_composed_s": 0.548923127,
+        "compile_time_csr_baseline_s": 0.138056692,
+        "codegen_time_composed_ms": 155,
+        "codegen_time_csr_baseline_ms": 155
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 27524,
+      "residual_nnz": 188921,
+      "format_area": 27524,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.72,
+      "residual_nnz_perc": 87.28
+    }
+  },
+  {
+    "matrix_name": "lowThrust_9",
+    "matrix_dimensions": {
+      "rows": 18044,
+      "cols": 18044,
+      "nnz": 219589,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 391328545.38,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 5178276.26,
+            "percentage_of_total_time": 1.323
+          },
+          "dispatch_2": {
+            "time_ns": 386150269.11,
+            "percentage_of_total_time": 98.677
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 3261767.7,
+          "dispatch_1_part_2": 1918949.71
+        },
+        "csr_baseline_time_ns": 389323259.2,
+        "fully_sparse_baseline_time_ns": 389323259.2,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 389323259.2
+        },
+        "speedup": 0.995,
+        "compile_time_composed_s": 0.54866387,
+        "compile_time_csr_baseline_s": 0.135851355,
+        "codegen_time_composed_ms": 147,
+        "codegen_time_csr_baseline_ms": 156
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 28056,
+      "residual_nnz": 191533,
+      "format_area": 28056,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.78,
+      "residual_nnz_perc": 87.22
+    }
+  },
+  {
+    "matrix_name": "lowThrust_10",
+    "matrix_dimensions": {
+      "rows": 18260,
+      "cols": 18260,
+      "nnz": 222005,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 91627262.5,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4479445.19,
+            "percentage_of_total_time": 4.889
+          },
+          "dispatch_2": {
+            "time_ns": 87147817.31,
+            "percentage_of_total_time": 95.111
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 2542096.01,
+          "dispatch_1_part_2": 1940304.09
+        },
+        "csr_baseline_time_ns": 92648438.5,
+        "fully_sparse_baseline_time_ns": 92648438.5,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 92648438.5
+        },
+        "speedup": 1.011,
+        "compile_time_composed_s": 0.56627527,
+        "compile_time_csr_baseline_s": 0.145963213,
+        "codegen_time_composed_ms": 143,
+        "codegen_time_csr_baseline_ms": 161
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 28392,
+      "residual_nnz": 193613,
+      "format_area": 28392,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.79,
+      "residual_nnz_perc": 87.21
+    }
+  },
+  {
+    "matrix_name": "lowThrust_11",
+    "matrix_dimensions": {
+      "rows": 18368,
+      "cols": 18368,
+      "nnz": 223801,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 70050045.6,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4306519.94,
+            "percentage_of_total_time": 6.148
+          },
+          "dispatch_2": {
+            "time_ns": 65743525.66,
+            "percentage_of_total_time": 93.852
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 2365412.75,
+          "dispatch_1_part_2": 1942607.48
+        },
+        "csr_baseline_time_ns": 70849613.08,
+        "fully_sparse_baseline_time_ns": 70849613.08,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 70849613.08
+        },
+        "speedup": 1.011,
+        "compile_time_composed_s": 0.55661122,
+        "compile_time_csr_baseline_s": 0.137980118,
+        "codegen_time_composed_ms": 159,
+        "codegen_time_csr_baseline_ms": 155
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 28560,
+      "residual_nnz": 195241,
+      "format_area": 28560,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.76,
+      "residual_nnz_perc": 87.24
+    }
+  },
+  {
+    "matrix_name": "lowThrust_12",
+    "matrix_dimensions": {
+      "rows": 18458,
+      "cols": 18458,
+      "nnz": 224593,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 211702837.9,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4893838.95,
+            "percentage_of_total_time": 2.312
+          },
+          "dispatch_2": {
+            "time_ns": 206808998.95,
+            "percentage_of_total_time": 97.688
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 2946620.58,
+          "dispatch_1_part_2": 1950955.06
+        },
+        "csr_baseline_time_ns": 214756294.44,
+        "fully_sparse_baseline_time_ns": 214756294.44,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 214756294.44
+        },
+        "speedup": 1.014,
+        "compile_time_composed_s": 0.561827362,
+        "compile_time_csr_baseline_s": 0.138805588,
+        "codegen_time_composed_ms": 149,
+        "codegen_time_csr_baseline_ms": 159
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 28700,
+      "residual_nnz": 195893,
+      "format_area": 28700,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.78,
+      "residual_nnz_perc": 87.22
+    }
+  },
+  {
+    "matrix_name": "lowThrust_13",
+    "matrix_dimensions": {
+      "rows": 18476,
+      "cols": 18476,
+      "nnz": 224897,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 411066724.31,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 5256177.1,
+            "percentage_of_total_time": 1.279
+          },
+          "dispatch_2": {
+            "time_ns": 405810547.21,
+            "percentage_of_total_time": 98.721
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 3281671.92,
+          "dispatch_1_part_2": 1976455.55
+        },
+        "csr_baseline_time_ns": 408224137.38,
+        "fully_sparse_baseline_time_ns": 408224137.38,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 408224137.38
+        },
+        "speedup": 0.993,
+        "compile_time_composed_s": 0.557785827,
+        "compile_time_csr_baseline_s": 0.144191161,
+        "codegen_time_composed_ms": 146,
+        "codegen_time_csr_baseline_ms": 163
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 28728,
+      "residual_nnz": 196169,
+      "format_area": 28728,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 12.77,
+      "residual_nnz_perc": 87.23
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b39_c7",
+    "matrix_dimensions": {
+      "rows": 14098,
+      "cols": 14098,
+      "nnz": 252446,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 240543855.32,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 2364366.31,
+            "percentage_of_total_time": 0.983
+          },
+          "dispatch_2": {
+            "time_ns": 238179489.01,
+            "percentage_of_total_time": 99.017
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 240440312.36,
+        "fully_sparse_baseline_time_ns": 240440312.36,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 240440312.36
+        },
+        "speedup": 1.0,
+        "compile_time_composed_s": 0.543589223,
+        "compile_time_csr_baseline_s": 0.138864753,
+        "codegen_time_composed_ms": 164,
+        "codegen_time_csr_baseline_ms": 183
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 70000,
+      "residual_nnz": 182446,
+      "format_area": 70000,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 27.73,
+      "residual_nnz_perc": 72.27
+    }
+  },
+  {
+    "matrix_name": "FX_March2010",
+    "matrix_dimensions": {
+      "rows": 1319,
+      "cols": 9498,
+      "nnz": 301899,
+      "density": 0.024
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 29687698.59,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 2831333.5,
+            "percentage_of_total_time": 9.537
+          },
+          "dispatch_2": {
+            "time_ns": 26856365.09,
+            "percentage_of_total_time": 90.463
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 28498832.75,
+        "fully_sparse_baseline_time_ns": 28498832.75,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 28498832.75
+        },
+        "speedup": 0.96,
+        "compile_time_composed_s": 0.545886233,
+        "compile_time_csr_baseline_s": 0.128479919,
+        "codegen_time_composed_ms": 74,
+        "codegen_time_csr_baseline_ms": 85
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 33713,
+      "residual_nnz": 268186,
+      "format_area": 47485,
+      "extra_values": 13772,
+      "format_claimed_nnz_perc": 11.17,
+      "residual_nnz_perc": 88.83
+    }
+  },
+  {
+    "matrix_name": "lp_osa_14",
+    "matrix_dimensions": {
+      "rows": 2337,
+      "cols": 54797,
+      "nnz": 317097,
+      "density": 0.002
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 211218888.45,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 12722284.68,
+            "percentage_of_total_time": 6.023
+          },
+          "dispatch_2": {
+            "time_ns": 198496603.78,
+            "percentage_of_total_time": 93.977
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 200790132.79,
+        "fully_sparse_baseline_time_ns": 200790132.79,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 200790132.79
+        },
+        "speedup": 0.951,
+        "compile_time_composed_s": 0.546012996,
+        "compile_time_csr_baseline_s": 0.136987446,
+        "codegen_time_composed_ms": 94,
+        "codegen_time_csr_baseline_ms": 105
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 38331,
+      "residual_nnz": 278766,
+      "format_area": 52453,
+      "extra_values": 14122,
+      "format_claimed_nnz_perc": 12.09,
+      "residual_nnz_perc": 87.91
+    }
+  },
+  {
+    "matrix_name": "c-57",
+    "matrix_dimensions": {
+      "rows": 37833,
+      "cols": 37833,
+      "nnz": 405197,
+      "density": 0.0
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 179804654.3,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 11025369.1,
+            "percentage_of_total_time": 6.132
+          },
+          "dispatch_2": {
+            "time_ns": 168779285.2,
+            "percentage_of_total_time": 93.868
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 6952508.11,
+          "dispatch_1_part_2": 4064596.15
+        },
+        "csr_baseline_time_ns": 171124935.06,
+        "fully_sparse_baseline_time_ns": 171124935.06,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 171124935.06
+        },
+        "speedup": 0.952,
+        "compile_time_composed_s": 0.544671662,
+        "compile_time_csr_baseline_s": 0.135704092,
+        "codegen_time_composed_ms": 221,
+        "codegen_time_csr_baseline_ms": 231
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 40224,
+      "residual_nnz": 364973,
+      "format_area": 55752,
+      "extra_values": 15528,
+      "format_claimed_nnz_perc": 9.93,
+      "residual_nnz_perc": 90.07
+    }
+  },
+  {
+    "matrix_name": "lp_osa_30",
+    "matrix_dimensions": {
+      "rows": 4350,
+      "cols": 104374,
+      "nnz": 604488,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 654885122.0,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 25407842.98,
+            "percentage_of_total_time": 3.88
+          },
+          "dispatch_2": {
+            "time_ns": 629477279.02,
+            "percentage_of_total_time": 96.12
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 675392673.33,
+        "fully_sparse_baseline_time_ns": 675392673.33,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 675392673.33
+        },
+        "speedup": 1.031,
+        "compile_time_composed_s": 0.572221483,
+        "compile_time_csr_baseline_s": 0.151353929,
+        "codegen_time_composed_ms": 179,
+        "codegen_time_csr_baseline_ms": 193
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 72552,
+      "residual_nnz": 531936,
+      "format_area": 100020,
+      "extra_values": 27468,
+      "format_claimed_nnz_perc": 12.0,
+      "residual_nnz_perc": 88.0
+    }
+  },
+  {
+    "matrix_name": "TSOPF_FS_b162_c1",
+    "matrix_dimensions": {
+      "rows": 10798,
+      "cols": 10798,
+      "nnz": 608540,
+      "density": 0.005
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 162398950.62,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 2818642.09,
+            "percentage_of_total_time": 1.736
+          },
+          "dispatch_2": {
+            "time_ns": 159580308.54,
+            "percentage_of_total_time": 98.264
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 1933781.88,
+          "dispatch_1_part_2": 885812.31
+        },
+        "csr_baseline_time_ns": 164386706.2,
+        "fully_sparse_baseline_time_ns": 164386706.2,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 164386706.2
+        },
+        "speedup": 1.012,
+        "compile_time_composed_s": 0.562415177,
+        "compile_time_csr_baseline_s": 0.138040713,
+        "codegen_time_composed_ms": 444,
+        "codegen_time_csr_baseline_ms": 454
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 125000,
+      "residual_nnz": 483540,
+      "format_area": 125000,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 20.54,
+      "residual_nnz_perc": 79.46
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b162_c3",
+    "matrix_dimensions": {
+      "rows": 15374,
+      "cols": 15374,
+      "nnz": 610299,
+      "density": 0.003
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 213422917.57,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 3049992.48,
+            "percentage_of_total_time": 1.429
+          },
+          "dispatch_2": {
+            "time_ns": 210372925.1,
+            "percentage_of_total_time": 98.571
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 221587678.64,
+        "fully_sparse_baseline_time_ns": 221587678.64,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 221587678.64
+        },
+        "speedup": 1.038,
+        "compile_time_composed_s": 0.548601283,
+        "compile_time_csr_baseline_s": 0.139475276,
+        "codegen_time_composed_ms": 406,
+        "codegen_time_csr_baseline_ms": 459
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 187500,
+      "residual_nnz": 422799,
+      "format_area": 187500,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 30.72,
+      "residual_nnz_perc": 69.28
+    }
+  },
+  {
+    "matrix_name": "heart2",
+    "matrix_dimensions": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 682797,
+      "density": 0.125
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 20507016.06,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 3517802.1,
+            "percentage_of_total_time": 17.154
+          },
+          "dispatch_2": {
+            "time_ns": 16989213.96,
+            "percentage_of_total_time": 82.846
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 546012.35,
+          "dispatch_1_part_10": 70766.18,
+          "dispatch_1_part_11": 123030.01,
+          "dispatch_1_part_12": 35109.4,
+          "dispatch_1_part_2": 1001712.47,
+          "dispatch_1_part_3": 334966.05,
+          "dispatch_1_part_4": 122036.14,
+          "dispatch_1_part_5": 120350.3,
+          "dispatch_1_part_6": 125415.62,
+          "dispatch_1_part_7": 191593.34,
+          "dispatch_1_part_8": 120290.65,
+          "dispatch_1_part_9": 693003.8
+        },
+        "csr_baseline_time_ns": 20329143.56,
+        "fully_sparse_baseline_time_ns": 20329143.56,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 20329143.56
+        },
+        "speedup": 0.991,
+        "compile_time_composed_s": 0.567672677,
+        "compile_time_csr_baseline_s": 0.129314838,
+        "codegen_time_composed_ms": 388,
+        "codegen_time_csr_baseline_ms": 430
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 227588,
+      "residual_nnz": 455209,
+      "format_area": 287496,
+      "extra_values": 59908,
+      "format_claimed_nnz_perc": 33.33,
+      "residual_nnz_perc": 66.67
+    }
+  },
+  {
+    "matrix_name": "heart3",
+    "matrix_dimensions": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 682797,
+      "density": 0.125
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 19745582.05,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 3485505.17,
+            "percentage_of_total_time": 17.652
+          },
+          "dispatch_2": {
+            "time_ns": 16260076.88,
+            "percentage_of_total_time": 82.348
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 526747.96,
+          "dispatch_1_part_10": 68129.85,
+          "dispatch_1_part_11": 118874.59,
+          "dispatch_1_part_12": 34249.4,
+          "dispatch_1_part_13": 34254.45,
+          "dispatch_1_part_14": 33985.29,
+          "dispatch_1_part_15": 48242.07,
+          "dispatch_1_part_2": 960519.24,
+          "dispatch_1_part_3": 322380.96,
+          "dispatch_1_part_4": 118834.66,
+          "dispatch_1_part_5": 117517.0,
+          "dispatch_1_part_6": 122317.68,
+          "dispatch_1_part_7": 187201.7,
+          "dispatch_1_part_8": 117334.46,
+          "dispatch_1_part_9": 662725.95
+        },
+        "csr_baseline_time_ns": 20441506.84,
+        "fully_sparse_baseline_time_ns": 20441506.84,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 20441506.84
+        },
+        "speedup": 1.035,
+        "compile_time_composed_s": 0.585882457,
+        "compile_time_csr_baseline_s": 0.13116895,
+        "codegen_time_composed_ms": 383,
+        "codegen_time_csr_baseline_ms": 419
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 236156,
+      "residual_nnz": 446641,
+      "format_area": 296592,
+      "extra_values": 60436,
+      "format_claimed_nnz_perc": 34.59,
+      "residual_nnz_perc": 65.41
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b39_c19",
+    "matrix_dimensions": {
+      "rows": 38098,
+      "cols": 38098,
+      "nnz": 684206,
+      "density": 0.0
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 821050813.8,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 8150417.81,
+            "percentage_of_total_time": 0.993
+          },
+          "dispatch_2": {
+            "time_ns": 812900395.99,
+            "percentage_of_total_time": 99.007
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 826244266.73,
+        "fully_sparse_baseline_time_ns": 826244266.73,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 826244266.73
+        },
+        "speedup": 1.006,
+        "compile_time_composed_s": 0.551054907,
+        "compile_time_csr_baseline_s": 0.151111138,
+        "codegen_time_composed_ms": 430,
+        "codegen_time_csr_baseline_ms": 464
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 190000,
+      "residual_nnz": 494206,
+      "format_area": 190000,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 27.77,
+      "residual_nnz_perc": 72.23
+    }
+  },
+  {
+    "matrix_name": "bundle1",
+    "matrix_dimensions": {
+      "rows": 10581,
+      "cols": 10581,
+      "nnz": 770901,
+      "density": 0.007
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 168557561.38,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 6019207.06,
+            "percentage_of_total_time": 3.571
+          },
+          "dispatch_2": {
+            "time_ns": 162538354.31,
+            "percentage_of_total_time": 96.429
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 519702.36,
+          "dispatch_1_part_10": 324905.72,
+          "dispatch_1_part_11": 431213.64,
+          "dispatch_1_part_12": 131920.2,
+          "dispatch_1_part_13": 246285.0,
+          "dispatch_1_part_14": 297883.58,
+          "dispatch_1_part_15": 242888.73,
+          "dispatch_1_part_16": 144409.83,
+          "dispatch_1_part_17": 270356.16,
+          "dispatch_1_part_2": 369906.21,
+          "dispatch_1_part_3": 464906.15,
+          "dispatch_1_part_4": 683176.5,
+          "dispatch_1_part_5": 465477.45,
+          "dispatch_1_part_6": 477831.4,
+          "dispatch_1_part_7": 369371.54,
+          "dispatch_1_part_8": 296131.47,
+          "dispatch_1_part_9": 276033.04
+        },
+        "csr_baseline_time_ns": 166139128.5,
+        "fully_sparse_baseline_time_ns": 166139128.5,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 166139128.5
+        },
+        "speedup": 0.986,
+        "compile_time_composed_s": 0.59248474,
+        "compile_time_csr_baseline_s": 0.136962363,
+        "codegen_time_composed_ms": 266,
+        "codegen_time_csr_baseline_ms": 299
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 93674,
+      "residual_nnz": 677227,
+      "format_area": 101633,
+      "extra_values": 7959,
+      "format_claimed_nnz_perc": 12.15,
+      "residual_nnz_perc": 87.85
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b162_c4",
+    "matrix_dimensions": {
+      "rows": 20374,
+      "cols": 20374,
+      "nnz": 812749,
+      "density": 0.002
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 507683757.61,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4535362.8,
+            "percentage_of_total_time": 0.893
+          },
+          "dispatch_2": {
+            "time_ns": 503148394.81,
+            "percentage_of_total_time": 99.107
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 503953523.4,
+        "fully_sparse_baseline_time_ns": 503953523.4,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 503953523.4
+        },
+        "speedup": 0.993,
+        "compile_time_composed_s": 0.550486358,
+        "compile_time_csr_baseline_s": 0.138659035,
+        "codegen_time_composed_ms": 552,
+        "codegen_time_csr_baseline_ms": 597
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 250000,
+      "residual_nnz": 562749,
+      "format_area": 250000,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 30.76,
+      "residual_nnz_perc": 69.24
+    }
+  },
+  {
+    "matrix_name": "TSC_OPF_300",
+    "matrix_dimensions": {
+      "rows": 9774,
+      "cols": 9774,
+      "nnz": 820804,
+      "density": 0.009
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 143537903.45,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4477331.09,
+            "percentage_of_total_time": 3.119
+          },
+          "dispatch_2": {
+            "time_ns": 139060572.36,
+            "percentage_of_total_time": 96.881
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 3172696.08,
+          "dispatch_1_part_2": 1305390.57
+        },
+        "csr_baseline_time_ns": 150303970.32,
+        "fully_sparse_baseline_time_ns": 150303970.32,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 150303970.32
+        },
+        "speedup": 1.047,
+        "compile_time_composed_s": 0.567484059,
+        "compile_time_csr_baseline_s": 0.140427483,
+        "codegen_time_composed_ms": 573,
+        "codegen_time_csr_baseline_ms": 627
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 176400,
+      "residual_nnz": 644404,
+      "format_area": 176400,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 21.49,
+      "residual_nnz_perc": 78.51
+    }
+  },
+  {
+    "matrix_name": "case39",
+    "matrix_dimensions": {
+      "rows": 40216,
+      "cols": 40216,
+      "nnz": 1042160,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 161903762.96,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 4370063.15,
+            "percentage_of_total_time": 2.699
+          },
+          "dispatch_2": {
+            "time_ns": 157533699.81,
+            "percentage_of_total_time": 97.301
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 184653866.1,
+        "fully_sparse_baseline_time_ns": 184653866.1,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 184653866.1
+        },
+        "speedup": 1.141,
+        "compile_time_composed_s": 0.566386124,
+        "compile_time_csr_baseline_s": 0.143222979,
+        "codegen_time_composed_ms": 736,
+        "codegen_time_csr_baseline_ms": 734
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 100200,
+      "residual_nnz": 941960,
+      "format_area": 100200,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 9.61,
+      "residual_nnz_perc": 90.39
+    }
+  },
+  {
+    "matrix_name": "connectus",
+    "matrix_dimensions": {
+      "rows": 512,
+      "cols": 394792,
+      "nnz": 1127525,
+      "density": 0.006
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 430725597.58,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 88489856.54,
+            "percentage_of_total_time": 20.544
+          },
+          "dispatch_2": {
+            "time_ns": 342235741.04,
+            "percentage_of_total_time": 79.456
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 4149234.77,
+          "dispatch_1_part_10": 22492546.25,
+          "dispatch_1_part_11": 1047562.78,
+          "dispatch_1_part_12": 4041428.31,
+          "dispatch_1_part_13": 1488710.24,
+          "dispatch_1_part_14": 1362063.4,
+          "dispatch_1_part_15": 1000998.09,
+          "dispatch_1_part_16": 676466.06,
+          "dispatch_1_part_17": 1406814.19,
+          "dispatch_1_part_18": 2910149.01,
+          "dispatch_1_part_19": 16310719.94,
+          "dispatch_1_part_2": 2898338.73,
+          "dispatch_1_part_20": 823838.62,
+          "dispatch_1_part_21": 1201286.21,
+          "dispatch_1_part_22": 1577843.24,
+          "dispatch_1_part_3": 3643001.79,
+          "dispatch_1_part_4": 2781417.83,
+          "dispatch_1_part_5": 2045848.45,
+          "dispatch_1_part_6": 1231813.51,
+          "dispatch_1_part_7": 1175795.04,
+          "dispatch_1_part_8": 1250147.27,
+          "dispatch_1_part_9": 712162.3
+        },
+        "csr_baseline_time_ns": 621513345.76,
+        "fully_sparse_baseline_time_ns": 621513345.76,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 621513345.76
+        },
+        "speedup": 1.443,
+        "compile_time_composed_s": 0.849507142,
+        "compile_time_csr_baseline_s": 0.156675744,
+        "codegen_time_composed_ms": 198,
+        "codegen_time_csr_baseline_ms": 272
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 269159,
+      "residual_nnz": 858366,
+      "format_area": 269278,
+      "extra_values": 119,
+      "format_claimed_nnz_perc": 23.87,
+      "residual_nnz_perc": 76.13
+    }
+  },
+  {
+    "matrix_name": "std1_Jac2",
+    "matrix_dimensions": {
+      "rows": 21982,
+      "cols": 21982,
+      "nnz": 1248731,
+      "density": 0.003
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 735011013.5,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 8721750.93,
+            "percentage_of_total_time": 1.187
+          },
+          "dispatch_2": {
+            "time_ns": 726289262.58,
+            "percentage_of_total_time": 98.813
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 242405.46,
+          "dispatch_1_part_10": 272189.54,
+          "dispatch_1_part_11": 247025.26,
+          "dispatch_1_part_12": 248874.94,
+          "dispatch_1_part_13": 242685.58,
+          "dispatch_1_part_14": 218444.77,
+          "dispatch_1_part_15": 274651.06,
+          "dispatch_1_part_16": 238483.84,
+          "dispatch_1_part_17": 265014.96,
+          "dispatch_1_part_18": 280082.16,
+          "dispatch_1_part_19": 221286.75,
+          "dispatch_1_part_2": 293005.89,
+          "dispatch_1_part_20": 261890.39,
+          "dispatch_1_part_21": 228704.44,
+          "dispatch_1_part_22": 252228.81,
+          "dispatch_1_part_23": 257324.17,
+          "dispatch_1_part_24": 230689.75,
+          "dispatch_1_part_25": 249682.11,
+          "dispatch_1_part_26": 221881.51,
+          "dispatch_1_part_27": 252523.35,
+          "dispatch_1_part_28": 206099.5,
+          "dispatch_1_part_3": 261156.01,
+          "dispatch_1_part_4": 218434.54,
+          "dispatch_1_part_5": 276777.85,
+          "dispatch_1_part_6": 264118.89,
+          "dispatch_1_part_7": 257969.5,
+          "dispatch_1_part_8": 250557.94,
+          "dispatch_1_part_9": 253840.88
+        },
+        "csr_baseline_time_ns": 1050956502.38,
+        "fully_sparse_baseline_time_ns": 1050956502.38,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 1050956502.38
+        },
+        "speedup": 1.43,
+        "compile_time_composed_s": 0.650909771,
+        "compile_time_csr_baseline_s": 0.141696073,
+        "codegen_time_composed_ms": 665,
+        "codegen_time_csr_baseline_ms": 962
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 183135,
+      "residual_nnz": 1065596,
+      "format_area": 300748,
+      "extra_values": 117613,
+      "format_claimed_nnz_perc": 14.67,
+      "residual_nnz_perc": 85.33
+    }
+  },
+  {
+    "matrix_name": "heart1",
+    "matrix_dimensions": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1387773,
+      "density": 0.11
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 43151077.11,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 3639946.17,
+            "percentage_of_total_time": 8.435
+          },
+          "dispatch_2": {
+            "time_ns": 39511130.94,
+            "percentage_of_total_time": 91.565
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 1039583.5,
+          "dispatch_1_part_10": 72425.35,
+          "dispatch_1_part_11": 35730.94,
+          "dispatch_1_part_12": 52362.43,
+          "dispatch_1_part_2": 39818.57,
+          "dispatch_1_part_3": 344399.5,
+          "dispatch_1_part_4": 613797.88,
+          "dispatch_1_part_5": 265692.84,
+          "dispatch_1_part_6": 920080.59,
+          "dispatch_1_part_7": 62874.3,
+          "dispatch_1_part_8": 69995.15,
+          "dispatch_1_part_9": 124083.96
+        },
+        "csr_baseline_time_ns": 81832847.6,
+        "fully_sparse_baseline_time_ns": 81832847.6,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 81832847.6
+        },
+        "speedup": 1.896,
+        "compile_time_composed_s": 0.905228343,
+        "compile_time_csr_baseline_s": 0.132689766,
+        "codegen_time_composed_ms": 838,
+        "codegen_time_csr_baseline_ms": 853
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 231684,
+      "residual_nnz": 1156089,
+      "format_area": 298881,
+      "extra_values": 67197,
+      "format_claimed_nnz_perc": 16.69,
+      "residual_nnz_perc": 83.31
+    }
+  },
+  {
+    "matrix_name": "std1_Jac3",
+    "matrix_dimensions": {
+      "rows": 21982,
+      "cols": 21982,
+      "nnz": 1455848,
+      "density": 0.003
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 697461588.01,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 5800061.01,
+            "percentage_of_total_time": 0.832
+          },
+          "dispatch_2": {
+            "time_ns": 691661527.0,
+            "percentage_of_total_time": 99.168
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 209708.98,
+          "dispatch_1_part_10": 182011.17,
+          "dispatch_1_part_11": 178891.55,
+          "dispatch_1_part_12": 210130.45,
+          "dispatch_1_part_13": 188104.08,
+          "dispatch_1_part_14": 170943.11,
+          "dispatch_1_part_15": 168784.9,
+          "dispatch_1_part_16": 171233.38,
+          "dispatch_1_part_17": 176548.99,
+          "dispatch_1_part_18": 187379.12,
+          "dispatch_1_part_19": 179153.04,
+          "dispatch_1_part_2": 181918.26,
+          "dispatch_1_part_20": 165792.02,
+          "dispatch_1_part_21": 178933.04,
+          "dispatch_1_part_22": 175099.85,
+          "dispatch_1_part_23": 161460.59,
+          "dispatch_1_part_24": 187020.16,
+          "dispatch_1_part_25": 171931.31,
+          "dispatch_1_part_26": 167996.6,
+          "dispatch_1_part_27": 180138.42,
+          "dispatch_1_part_3": 187825.66,
+          "dispatch_1_part_4": 181799.48,
+          "dispatch_1_part_5": 181738.65,
+          "dispatch_1_part_6": 178582.96,
+          "dispatch_1_part_7": 173159.85,
+          "dispatch_1_part_8": 194920.21,
+          "dispatch_1_part_9": 160550.34
+        },
+        "csr_baseline_time_ns": 838628275.5,
+        "fully_sparse_baseline_time_ns": 838628275.5,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 838628275.5
+        },
+        "speedup": 1.202,
+        "compile_time_composed_s": 0.930935669,
+        "compile_time_csr_baseline_s": 0.302650787,
+        "codegen_time_composed_ms": 1028,
+        "codegen_time_csr_baseline_ms": 1103
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 170533,
+      "residual_nnz": 1285315,
+      "format_area": 194010,
+      "extra_values": 23477,
+      "format_claimed_nnz_perc": 11.71,
+      "residual_nnz_perc": 88.29
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b300_c1",
+    "matrix_dimensions": {
+      "rows": 14538,
+      "cols": 14538,
+      "nnz": 1474325,
+      "density": 0.007
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 92404439.84,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 11008209.28,
+            "percentage_of_total_time": 11.913
+          },
+          "dispatch_2": {
+            "time_ns": 81396230.56,
+            "percentage_of_total_time": 88.087
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 91184992.91,
+        "fully_sparse_baseline_time_ns": 91184992.91,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 91184992.91
+        },
+        "speedup": 0.987,
+        "compile_time_composed_s": 0.851635832,
+        "compile_time_csr_baseline_s": 0.163048807,
+        "codegen_time_composed_ms": 1076,
+        "codegen_time_csr_baseline_ms": 1168
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 476100,
+      "residual_nnz": 998225,
+      "format_area": 476100,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 32.29,
+      "residual_nnz_perc": 67.71
+    }
+  },
+  {
+    "matrix_name": "Zd_Jac2",
+    "matrix_dimensions": {
+      "rows": 22835,
+      "cols": 22835,
+      "nnz": 1642833,
+      "density": 0.003
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 606832315.55,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 6493328.55,
+            "percentage_of_total_time": 1.07
+          },
+          "dispatch_2": {
+            "time_ns": 600338987.0,
+            "percentage_of_total_time": 98.93
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 179085.0,
+          "dispatch_1_part_10": 203628.08,
+          "dispatch_1_part_11": 190225.19,
+          "dispatch_1_part_12": 192002.71,
+          "dispatch_1_part_13": 195761.54,
+          "dispatch_1_part_14": 184314.89,
+          "dispatch_1_part_15": 171579.41,
+          "dispatch_1_part_16": 194315.94,
+          "dispatch_1_part_17": 206389.15,
+          "dispatch_1_part_18": 189606.01,
+          "dispatch_1_part_19": 203609.89,
+          "dispatch_1_part_2": 186186.01,
+          "dispatch_1_part_20": 186079.84,
+          "dispatch_1_part_21": 216126.5,
+          "dispatch_1_part_22": 200083.49,
+          "dispatch_1_part_23": 191943.34,
+          "dispatch_1_part_24": 183349.06,
+          "dispatch_1_part_25": 185031.94,
+          "dispatch_1_part_26": 174113.84,
+          "dispatch_1_part_27": 159431.27,
+          "dispatch_1_part_28": 177704.66,
+          "dispatch_1_part_29": 200053.49,
+          "dispatch_1_part_3": 164556.41,
+          "dispatch_1_part_30": 188373.2,
+          "dispatch_1_part_31": 214636.85,
+          "dispatch_1_part_32": 179820.55,
+          "dispatch_1_part_33": 204844.04,
+          "dispatch_1_part_34": 170555.83,
+          "dispatch_1_part_4": 185042.79,
+          "dispatch_1_part_5": 190159.15,
+          "dispatch_1_part_6": 202222.61,
+          "dispatch_1_part_7": 203990.25,
+          "dispatch_1_part_8": 165854.95,
+          "dispatch_1_part_9": 168048.86
+        },
+        "csr_baseline_time_ns": 614316286.14,
+        "fully_sparse_baseline_time_ns": 614316286.14,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 614316286.14
+        },
+        "speedup": 1.012,
+        "compile_time_composed_s": 0.702194978,
+        "compile_time_csr_baseline_s": 0.481743556,
+        "codegen_time_composed_ms": 1161,
+        "codegen_time_csr_baseline_ms": 1285
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 204812,
+      "residual_nnz": 1438021,
+      "format_area": 244800,
+      "extra_values": 39988,
+      "format_claimed_nnz_perc": 12.47,
+      "residual_nnz_perc": 87.53
+    }
+  },
+  {
+    "matrix_name": "Zd_Jac6",
+    "matrix_dimensions": {
+      "rows": 22835,
+      "cols": 22835,
+      "nnz": 1711983,
+      "density": 0.003
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 611508222.46,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 5865264.42,
+            "percentage_of_total_time": 0.959
+          },
+          "dispatch_2": {
+            "time_ns": 605642958.04,
+            "percentage_of_total_time": 99.041
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 174065.19,
+          "dispatch_1_part_10": 171902.98,
+          "dispatch_1_part_11": 181948.16,
+          "dispatch_1_part_12": 198231.35,
+          "dispatch_1_part_13": 170188.7,
+          "dispatch_1_part_14": 189725.92,
+          "dispatch_1_part_15": 156052.69,
+          "dispatch_1_part_16": 170519.6,
+          "dispatch_1_part_17": 158129.27,
+          "dispatch_1_part_18": 171158.08,
+          "dispatch_1_part_19": 161792.02,
+          "dispatch_1_part_2": 183680.67,
+          "dispatch_1_part_20": 174286.01,
+          "dispatch_1_part_21": 175872.41,
+          "dispatch_1_part_22": 163095.62,
+          "dispatch_1_part_23": 159743.95,
+          "dispatch_1_part_24": 192312.5,
+          "dispatch_1_part_25": 160928.12,
+          "dispatch_1_part_26": 183305.3,
+          "dispatch_1_part_27": 153423.12,
+          "dispatch_1_part_28": 158744.65,
+          "dispatch_1_part_29": 150182.92,
+          "dispatch_1_part_3": 171287.38,
+          "dispatch_1_part_30": 162156.09,
+          "dispatch_1_part_31": 174642.69,
+          "dispatch_1_part_32": 154780.58,
+          "dispatch_1_part_33": 150548.76,
+          "dispatch_1_part_34": 193505.66,
+          "dispatch_1_part_4": 182825.85,
+          "dispatch_1_part_5": 177330.76,
+          "dispatch_1_part_6": 192058.66,
+          "dispatch_1_part_7": 189365.66,
+          "dispatch_1_part_8": 158116.3,
+          "dispatch_1_part_9": 197820.46
+        },
+        "csr_baseline_time_ns": 626403267.12,
+        "fully_sparse_baseline_time_ns": 626403267.12,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 626403267.12
+        },
+        "speedup": 1.024,
+        "compile_time_composed_s": 0.740649831,
+        "compile_time_csr_baseline_s": 0.144342708,
+        "codegen_time_composed_ms": 1147,
+        "codegen_time_csr_baseline_ms": 1153
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 217538,
+      "residual_nnz": 1494445,
+      "format_area": 244320,
+      "extra_values": 26782,
+      "format_claimed_nnz_perc": 12.71,
+      "residual_nnz_perc": 87.29
+    }
+  },
+  {
+    "matrix_name": "Zd_Jac3",
+    "matrix_dimensions": {
+      "rows": 22835,
+      "cols": 22835,
+      "nnz": 1916152,
+      "density": 0.004
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 626052438.49,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 5791153.69,
+            "percentage_of_total_time": 0.925
+          },
+          "dispatch_2": {
+            "time_ns": 620261284.8,
+            "percentage_of_total_time": 99.075
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 166612.7,
+          "dispatch_1_part_10": 180474.39,
+          "dispatch_1_part_11": 153271.71,
+          "dispatch_1_part_12": 173902.96,
+          "dispatch_1_part_13": 173027.5,
+          "dispatch_1_part_14": 168995.77,
+          "dispatch_1_part_15": 185782.12,
+          "dispatch_1_part_16": 184917.41,
+          "dispatch_1_part_17": 163233.92,
+          "dispatch_1_part_18": 165911.9,
+          "dispatch_1_part_19": 177648.21,
+          "dispatch_1_part_2": 180642.31,
+          "dispatch_1_part_20": 171247.95,
+          "dispatch_1_part_21": 176419.96,
+          "dispatch_1_part_22": 174233.74,
+          "dispatch_1_part_23": 161082.98,
+          "dispatch_1_part_24": 176916.05,
+          "dispatch_1_part_25": 166069.3,
+          "dispatch_1_part_26": 185951.79,
+          "dispatch_1_part_27": 188927.12,
+          "dispatch_1_part_28": 156563.06,
+          "dispatch_1_part_29": 200935.33,
+          "dispatch_1_part_3": 159832.45,
+          "dispatch_1_part_30": 178568.58,
+          "dispatch_1_part_31": 164319.0,
+          "dispatch_1_part_32": 164079.64,
+          "dispatch_1_part_33": 156375.0,
+          "dispatch_1_part_34": 152652.3,
+          "dispatch_1_part_4": 170555.41,
+          "dispatch_1_part_5": 179967.15,
+          "dispatch_1_part_6": 154750.17,
+          "dispatch_1_part_7": 171341.16,
+          "dispatch_1_part_8": 172424.33,
+          "dispatch_1_part_9": 156266.92
+        },
+        "csr_baseline_time_ns": 633678853.96,
+        "fully_sparse_baseline_time_ns": 633678853.96,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 633678853.96
+        },
+        "speedup": 1.012,
+        "compile_time_composed_s": 0.618226498,
+        "compile_time_csr_baseline_s": 0.144108066,
+        "codegen_time_composed_ms": 1339,
+        "codegen_time_csr_baseline_ms": 1406
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 217532,
+      "residual_nnz": 1698620,
+      "format_area": 244290,
+      "extra_values": 26758,
+      "format_claimed_nnz_perc": 11.35,
+      "residual_nnz_perc": 88.65
+    }
+  },
+  {
+    "matrix_name": "TSC_OPF_1047",
+    "matrix_dimensions": {
+      "rows": 8140,
+      "cols": 8140,
+      "nnz": 2016902,
+      "density": 0.03
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 106465861.97,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 7773736.49,
+            "percentage_of_total_time": 7.302
+          },
+          "dispatch_2": {
+            "time_ns": 98692125.49,
+            "percentage_of_total_time": 92.698
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 342091.88,
+          "dispatch_1_part_2": 4774414.39,
+          "dispatch_1_part_3": 2648725.73
+        },
+        "csr_baseline_time_ns": 123887142.62,
+        "fully_sparse_baseline_time_ns": 123887142.62,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 123887142.62
+        },
+        "speedup": 1.164,
+        "compile_time_composed_s": 0.556577846,
+        "compile_time_csr_baseline_s": 0.140252022,
+        "codegen_time_composed_ms": 1463,
+        "codegen_time_csr_baseline_ms": 1517
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 485184,
+      "residual_nnz": 1531718,
+      "format_area": 485184,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 24.06,
+      "residual_nnz_perc": 75.94
+    }
+  },
+  {
+    "matrix_name": "net100",
+    "matrix_dimensions": {
+      "rows": 29920,
+      "cols": 29920,
+      "nnz": 2033200,
+      "density": 0.002
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 242950561.06,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 11697042.55,
+            "percentage_of_total_time": 4.815
+          },
+          "dispatch_2": {
+            "time_ns": 231253518.51,
+            "percentage_of_total_time": 95.185
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 62182.7,
+          "dispatch_1_part_10": 45594.03,
+          "dispatch_1_part_100": 47474.28,
+          "dispatch_1_part_101": 47551.5,
+          "dispatch_1_part_102": 47671.09,
+          "dispatch_1_part_103": 97005.27,
+          "dispatch_1_part_104": 99721.84,
+          "dispatch_1_part_105": 100496.32,
+          "dispatch_1_part_106": 100151.89,
+          "dispatch_1_part_107": 100540.81,
+          "dispatch_1_part_108": 100250.02,
+          "dispatch_1_part_109": 99750.75,
+          "dispatch_1_part_11": 51470.65,
+          "dispatch_1_part_110": 100287.91,
+          "dispatch_1_part_111": 99722.54,
+          "dispatch_1_part_112": 100964.0,
+          "dispatch_1_part_113": 100320.01,
+          "dispatch_1_part_114": 100158.93,
+          "dispatch_1_part_115": 100342.39,
+          "dispatch_1_part_116": 101239.12,
+          "dispatch_1_part_117": 99972.06,
+          "dispatch_1_part_118": 100003.69,
+          "dispatch_1_part_119": 99783.38,
+          "dispatch_1_part_12": 44734.24,
+          "dispatch_1_part_120": 100569.41,
+          "dispatch_1_part_121": 100011.61,
+          "dispatch_1_part_122": 99816.48,
+          "dispatch_1_part_123": 100221.65,
+          "dispatch_1_part_124": 99730.77,
+          "dispatch_1_part_125": 99133.3,
+          "dispatch_1_part_126": 100005.06,
+          "dispatch_1_part_127": 99661.01,
+          "dispatch_1_part_128": 99836.76,
+          "dispatch_1_part_129": 99736.39,
+          "dispatch_1_part_13": 49456.31,
+          "dispatch_1_part_130": 100184.86,
+          "dispatch_1_part_131": 99960.11,
+          "dispatch_1_part_132": 100397.8,
+          "dispatch_1_part_133": 99967.95,
+          "dispatch_1_part_134": 99745.21,
+          "dispatch_1_part_135": 98932.77,
+          "dispatch_1_part_136": 100426.93,
+          "dispatch_1_part_137": 98748.44,
+          "dispatch_1_part_138": 99234.2,
+          "dispatch_1_part_139": 99882.51,
+          "dispatch_1_part_14": 44862.5,
+          "dispatch_1_part_140": 99855.79,
+          "dispatch_1_part_141": 99894.89,
+          "dispatch_1_part_142": 99110.57,
+          "dispatch_1_part_143": 99654.93,
+          "dispatch_1_part_144": 99874.5,
+          "dispatch_1_part_145": 99861.7,
+          "dispatch_1_part_146": 99197.77,
+          "dispatch_1_part_147": 99604.24,
+          "dispatch_1_part_148": 99665.77,
+          "dispatch_1_part_149": 98936.01,
+          "dispatch_1_part_15": 49386.34,
+          "dispatch_1_part_150": 99184.66,
+          "dispatch_1_part_151": 99863.52,
+          "dispatch_1_part_152": 100289.94,
+          "dispatch_1_part_153": 100280.15,
+          "dispatch_1_part_154": 99749.21,
+          "dispatch_1_part_155": 100208.85,
+          "dispatch_1_part_156": 99786.18,
+          "dispatch_1_part_157": 99931.66,
+          "dispatch_1_part_158": 100231.21,
+          "dispatch_1_part_159": 99802.79,
+          "dispatch_1_part_16": 45158.61,
+          "dispatch_1_part_160": 99849.44,
+          "dispatch_1_part_161": 99591.2,
+          "dispatch_1_part_162": 99400.96,
+          "dispatch_1_part_163": 98835.48,
+          "dispatch_1_part_164": 99490.51,
+          "dispatch_1_part_165": 99779.7,
+          "dispatch_1_part_166": 99419.94,
+          "dispatch_1_part_167": 99817.95,
+          "dispatch_1_part_168": 99950.96,
+          "dispatch_1_part_169": 99935.4,
+          "dispatch_1_part_17": 50045.6,
+          "dispatch_1_part_170": 98030.36,
+          "dispatch_1_part_18": 44776.85,
+          "dispatch_1_part_19": 51599.69,
+          "dispatch_1_part_2": 50389.07,
+          "dispatch_1_part_20": 44855.19,
+          "dispatch_1_part_21": 49512.93,
+          "dispatch_1_part_22": 44961.5,
+          "dispatch_1_part_23": 50710.2,
+          "dispatch_1_part_24": 46472.16,
+          "dispatch_1_part_25": 51103.25,
+          "dispatch_1_part_26": 46620.86,
+          "dispatch_1_part_27": 51992.1,
+          "dispatch_1_part_28": 45365.26,
+          "dispatch_1_part_29": 49337.4,
+          "dispatch_1_part_3": 56719.79,
+          "dispatch_1_part_30": 45048.93,
+          "dispatch_1_part_31": 48518.32,
+          "dispatch_1_part_32": 45081.86,
+          "dispatch_1_part_33": 50073.09,
+          "dispatch_1_part_34": 45334.16,
+          "dispatch_1_part_35": 50891.56,
+          "dispatch_1_part_36": 45484.3,
+          "dispatch_1_part_37": 48685.31,
+          "dispatch_1_part_38": 45064.15,
+          "dispatch_1_part_39": 48702.61,
+          "dispatch_1_part_4": 49775.72,
+          "dispatch_1_part_40": 45280.66,
+          "dispatch_1_part_41": 49500.91,
+          "dispatch_1_part_42": 45180.85,
+          "dispatch_1_part_43": 51127.9,
+          "dispatch_1_part_44": 45724.1,
+          "dispatch_1_part_45": 48152.46,
+          "dispatch_1_part_46": 45728.04,
+          "dispatch_1_part_47": 48683.65,
+          "dispatch_1_part_48": 45656.16,
+          "dispatch_1_part_49": 49217.01,
+          "dispatch_1_part_5": 52638.5,
+          "dispatch_1_part_50": 45710.7,
+          "dispatch_1_part_51": 50274.21,
+          "dispatch_1_part_52": 45820.25,
+          "dispatch_1_part_53": 48878.6,
+          "dispatch_1_part_54": 45647.47,
+          "dispatch_1_part_55": 48789.65,
+          "dispatch_1_part_56": 45503.47,
+          "dispatch_1_part_57": 49740.71,
+          "dispatch_1_part_58": 45502.36,
+          "dispatch_1_part_59": 49919.21,
+          "dispatch_1_part_6": 47044.2,
+          "dispatch_1_part_60": 46018.64,
+          "dispatch_1_part_61": 49606.25,
+          "dispatch_1_part_62": 45598.9,
+          "dispatch_1_part_63": 50004.32,
+          "dispatch_1_part_64": 45951.62,
+          "dispatch_1_part_65": 49330.09,
+          "dispatch_1_part_66": 45800.34,
+          "dispatch_1_part_67": 51748.81,
+          "dispatch_1_part_68": 46350.05,
+          "dispatch_1_part_69": 46867.41,
+          "dispatch_1_part_7": 51590.49,
+          "dispatch_1_part_70": 47087.82,
+          "dispatch_1_part_71": 46904.45,
+          "dispatch_1_part_72": 46868.38,
+          "dispatch_1_part_73": 46759.76,
+          "dispatch_1_part_74": 47045.39,
+          "dispatch_1_part_75": 46813.29,
+          "dispatch_1_part_76": 46802.79,
+          "dispatch_1_part_77": 47307.72,
+          "dispatch_1_part_78": 47237.96,
+          "dispatch_1_part_79": 47293.36,
+          "dispatch_1_part_8": 46320.97,
+          "dispatch_1_part_80": 46872.19,
+          "dispatch_1_part_81": 47233.04,
+          "dispatch_1_part_82": 46898.96,
+          "dispatch_1_part_83": 47439.45,
+          "dispatch_1_part_84": 46940.82,
+          "dispatch_1_part_85": 47431.88,
+          "dispatch_1_part_86": 48218.65,
+          "dispatch_1_part_87": 47555.44,
+          "dispatch_1_part_88": 48455.45,
+          "dispatch_1_part_89": 48811.34,
+          "dispatch_1_part_9": 51619.81,
+          "dispatch_1_part_90": 47447.44,
+          "dispatch_1_part_91": 47687.36,
+          "dispatch_1_part_92": 47426.31,
+          "dispatch_1_part_93": 47688.46,
+          "dispatch_1_part_94": 47904.64,
+          "dispatch_1_part_95": 47512.18,
+          "dispatch_1_part_96": 47743.49,
+          "dispatch_1_part_97": 47689.99,
+          "dispatch_1_part_98": 47727.4,
+          "dispatch_1_part_99": 47945.46
+        },
+        "csr_baseline_time_ns": 251720366.14,
+        "fully_sparse_baseline_time_ns": 251720366.14,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 251720366.14
+        },
+        "speedup": 1.036,
+        "compile_time_composed_s": 1.064989062,
+        "compile_time_csr_baseline_s": 0.147044747,
+        "codegen_time_composed_ms": 469,
+        "codegen_time_csr_baseline_ms": 544
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 517140,
+      "residual_nnz": 1516060,
+      "format_area": 517140,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 25.43,
+      "residual_nnz_perc": 74.57
+    }
+  },
+  {
+    "matrix_name": "gupta1",
+    "matrix_dimensions": {
+      "rows": 31802,
+      "cols": 31802,
+      "nnz": 2164210,
+      "density": 0.002
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 332508674.26,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 36737029.0,
+            "percentage_of_total_time": 11.048
+          },
+          "dispatch_2": {
+            "time_ns": 295771645.26,
+            "percentage_of_total_time": 88.952
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 7802850.9,
+          "dispatch_1_part_2": 4230211.42,
+          "dispatch_1_part_3": 7740857.15,
+          "dispatch_1_part_4": 4275005.85,
+          "dispatch_1_part_5": 8540752.24,
+          "dispatch_1_part_6": 4072851.3
+        },
+        "csr_baseline_time_ns": 367663025.29,
+        "fully_sparse_baseline_time_ns": 367663025.29,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 367663025.29
+        },
+        "speedup": 1.106,
+        "compile_time_composed_s": 0.56013347,
+        "compile_time_csr_baseline_s": 0.142717344,
+        "codegen_time_composed_ms": 536,
+        "codegen_time_csr_baseline_ms": 558
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 633326,
+      "residual_nnz": 1530884,
+      "format_area": 1138100,
+      "extra_values": 504774,
+      "format_claimed_nnz_perc": 29.26,
+      "residual_nnz_perc": 70.74
+    }
+  },
+  {
+    "matrix_name": "exdata_1",
+    "matrix_dimensions": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501,
+      "density": 0.063
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 52086261.12,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 23843078.49,
+            "percentage_of_total_time": 45.776
+          },
+          "dispatch_2": {
+            "time_ns": 28243182.64,
+            "percentage_of_total_time": 54.224
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 71666817.47,
+        "fully_sparse_baseline_time_ns": 71666817.47,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 71666817.47
+        },
+        "speedup": 1.376,
+        "compile_time_composed_s": 0.557627457,
+        "compile_time_csr_baseline_s": 0.130041236,
+        "codegen_time_composed_ms": 738,
+        "codegen_time_csr_baseline_ms": 1050
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 2253001,
+      "residual_nnz": 16500,
+      "format_area": 2253001,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 99.27,
+      "residual_nnz_perc": 0.73
+    }
+  },
+  {
+    "matrix_name": "net125",
+    "matrix_dimensions": {
+      "rows": 36720,
+      "cols": 36720,
+      "nnz": 2577200,
+      "density": 0.002
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 313677855.76,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 8539515.55,
+            "percentage_of_total_time": 2.722
+          },
+          "dispatch_2": {
+            "time_ns": 305138340.21,
+            "percentage_of_total_time": 97.278
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 82231.64,
+          "dispatch_1_part_10": 59288.47,
+          "dispatch_1_part_100": 66009.45,
+          "dispatch_1_part_101": 67212.14,
+          "dispatch_1_part_102": 66708.35,
+          "dispatch_1_part_103": 74411.86,
+          "dispatch_1_part_104": 73164.21,
+          "dispatch_1_part_105": 73520.14,
+          "dispatch_1_part_106": 73568.48,
+          "dispatch_1_part_107": 74202.99,
+          "dispatch_1_part_108": 73277.64,
+          "dispatch_1_part_109": 75481.34,
+          "dispatch_1_part_11": 68472.09,
+          "dispatch_1_part_110": 73797.18,
+          "dispatch_1_part_111": 74372.44,
+          "dispatch_1_part_112": 73647.99,
+          "dispatch_1_part_113": 73768.79,
+          "dispatch_1_part_114": 74242.88,
+          "dispatch_1_part_115": 73381.19,
+          "dispatch_1_part_116": 74112.0,
+          "dispatch_1_part_117": 73773.7,
+          "dispatch_1_part_118": 74140.69,
+          "dispatch_1_part_119": 74159.57,
+          "dispatch_1_part_12": 60096.65,
+          "dispatch_1_part_120": 73975.66,
+          "dispatch_1_part_121": 73533.39,
+          "dispatch_1_part_122": 73771.6,
+          "dispatch_1_part_123": 73453.69,
+          "dispatch_1_part_124": 74441.45,
+          "dispatch_1_part_125": 73422.91,
+          "dispatch_1_part_126": 73218.71,
+          "dispatch_1_part_127": 72695.96,
+          "dispatch_1_part_128": 73704.62,
+          "dispatch_1_part_13": 69140.71,
+          "dispatch_1_part_14": 60421.75,
+          "dispatch_1_part_15": 68345.69,
+          "dispatch_1_part_16": 59729.34,
+          "dispatch_1_part_17": 67941.9,
+          "dispatch_1_part_18": 60145.04,
+          "dispatch_1_part_19": 68396.38,
+          "dispatch_1_part_2": 66649.41,
+          "dispatch_1_part_20": 60417.21,
+          "dispatch_1_part_21": 68056.39,
+          "dispatch_1_part_22": 60732.56,
+          "dispatch_1_part_23": 67036.86,
+          "dispatch_1_part_24": 60377.05,
+          "dispatch_1_part_25": 67433.7,
+          "dispatch_1_part_26": 60112.45,
+          "dispatch_1_part_27": 69175.49,
+          "dispatch_1_part_28": 59591.94,
+          "dispatch_1_part_29": 67155.34,
+          "dispatch_1_part_3": 75291.46,
+          "dispatch_1_part_30": 60056.2,
+          "dispatch_1_part_31": 65612.73,
+          "dispatch_1_part_32": 60543.03,
+          "dispatch_1_part_33": 65597.27,
+          "dispatch_1_part_34": 61069.26,
+          "dispatch_1_part_35": 67380.7,
+          "dispatch_1_part_36": 60087.59,
+          "dispatch_1_part_37": 66243.6,
+          "dispatch_1_part_38": 60828.88,
+          "dispatch_1_part_39": 65163.18,
+          "dispatch_1_part_4": 63705.7,
+          "dispatch_1_part_40": 61081.46,
+          "dispatch_1_part_41": 65003.09,
+          "dispatch_1_part_42": 60849.2,
+          "dispatch_1_part_43": 66493.89,
+          "dispatch_1_part_44": 60623.57,
+          "dispatch_1_part_45": 67490.1,
+          "dispatch_1_part_46": 61468.16,
+          "dispatch_1_part_47": 64861.9,
+          "dispatch_1_part_48": 61060.26,
+          "dispatch_1_part_49": 65213.0,
+          "dispatch_1_part_5": 71145.98,
+          "dispatch_1_part_50": 60333.2,
+          "dispatch_1_part_51": 66148.32,
+          "dispatch_1_part_52": 61417.25,
+          "dispatch_1_part_53": 65689.44,
+          "dispatch_1_part_54": 60458.8,
+          "dispatch_1_part_55": 64553.06,
+          "dispatch_1_part_56": 60465.81,
+          "dispatch_1_part_57": 64586.54,
+          "dispatch_1_part_58": 60567.64,
+          "dispatch_1_part_59": 65811.25,
+          "dispatch_1_part_6": 60239.09,
+          "dispatch_1_part_60": 61086.71,
+          "dispatch_1_part_61": 65709.39,
+          "dispatch_1_part_62": 61909.4,
+          "dispatch_1_part_63": 62847.82,
+          "dispatch_1_part_64": 61340.61,
+          "dispatch_1_part_65": 64275.47,
+          "dispatch_1_part_66": 61624.0,
+          "dispatch_1_part_67": 66089.31,
+          "dispatch_1_part_68": 61373.36,
+          "dispatch_1_part_69": 64413.65,
+          "dispatch_1_part_7": 69521.3,
+          "dispatch_1_part_70": 64636.25,
+          "dispatch_1_part_71": 64806.44,
+          "dispatch_1_part_72": 64637.5,
+          "dispatch_1_part_73": 64562.22,
+          "dispatch_1_part_74": 65118.03,
+          "dispatch_1_part_75": 64929.29,
+          "dispatch_1_part_76": 65660.73,
+          "dispatch_1_part_77": 64838.82,
+          "dispatch_1_part_78": 64845.91,
+          "dispatch_1_part_79": 64412.44,
+          "dispatch_1_part_8": 59573.72,
+          "dispatch_1_part_80": 65519.68,
+          "dispatch_1_part_81": 64308.4,
+          "dispatch_1_part_82": 65776.38,
+          "dispatch_1_part_83": 66316.61,
+          "dispatch_1_part_84": 65958.57,
+          "dispatch_1_part_85": 65646.86,
+          "dispatch_1_part_86": 65207.79,
+          "dispatch_1_part_87": 65285.74,
+          "dispatch_1_part_88": 65461.26,
+          "dispatch_1_part_89": 66555.69,
+          "dispatch_1_part_9": 69670.55,
+          "dispatch_1_part_90": 65475.28,
+          "dispatch_1_part_91": 66456.76,
+          "dispatch_1_part_92": 65902.39,
+          "dispatch_1_part_93": 66013.25,
+          "dispatch_1_part_94": 65447.26,
+          "dispatch_1_part_95": 65930.57,
+          "dispatch_1_part_96": 66625.41,
+          "dispatch_1_part_97": 66117.49,
+          "dispatch_1_part_98": 66041.84,
+          "dispatch_1_part_99": 66175.12
+        },
+        "csr_baseline_time_ns": 331489836.05,
+        "fully_sparse_baseline_time_ns": 331489836.05,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 331489836.05
+        },
+        "speedup": 1.057,
+        "compile_time_composed_s": 0.904809923,
+        "compile_time_csr_baseline_s": 0.152513463,
+        "codegen_time_composed_ms": 588,
+        "codegen_time_csr_baseline_ms": 680
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 496570,
+      "residual_nnz": 2080630,
+      "format_area": 496570,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 19.27,
+      "residual_nnz_perc": 80.73
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b300_c2",
+    "matrix_dimensions": {
+      "rows": 28338,
+      "cols": 28338,
+      "nnz": 2943887,
+      "density": 0.004
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 668746610.25,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 20413881.79,
+            "percentage_of_total_time": 3.053
+          },
+          "dispatch_2": {
+            "time_ns": 648332728.46,
+            "percentage_of_total_time": 96.947
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 683672633.76,
+        "fully_sparse_baseline_time_ns": 683672633.76,
+        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 683672633.76
+        },
+        "speedup": 1.022,
+        "compile_time_composed_s": 0.744864828,
+        "compile_time_csr_baseline_s": 0.167774219,
+        "codegen_time_composed_ms": 2132,
+        "codegen_time_csr_baseline_ms": 2245
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 952200,
+      "residual_nnz": 1991687,
+      "format_area": 952200,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 32.34,
+      "residual_nnz_perc": 67.66
+    }
+  },
+  {
+    "matrix_name": "bcsstk28",
+    "matrix_dimensions": {
+      "rows": 4410,
+      "cols": 4410,
+      "nnz": 219024,
+      "density": 0.011
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 10780675.8,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 66286.11,
+            "percentage_of_total_time": 0.615
+          },
+          "dispatch_2": {
+            "time_ns": 10714389.69,
+            "percentage_of_total_time": 99.385
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:bcsstk28:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.549696205,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 131,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 2953,
+      "residual_nnz": 216071,
+      "format_area": 4225,
+      "extra_values": 1272,
+      "format_claimed_nnz_perc": 1.35,
+      "residual_nnz_perc": 98.65
+    }
+  },
+  {
+    "matrix_name": "bcsstk32",
+    "matrix_dimensions": {
+      "rows": 44609,
+      "cols": 44609,
+      "nnz": 2014701,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 389094311.56,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 171599.44,
+            "percentage_of_total_time": 0.044
+          },
+          "dispatch_2": {
+            "time_ns": 388922712.12,
+            "percentage_of_total_time": 99.956
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 92944.07,
+          "dispatch_1_part_2": 78180.15
+        },
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:bcsstk32:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.534963166,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 522,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 5956,
+      "residual_nnz": 2008745,
+      "format_area": 10156,
+      "extra_values": 4200,
+      "format_claimed_nnz_perc": 0.3,
+      "residual_nnz_perc": 99.7
+    }
+  },
+  {
+    "matrix_name": "cegb2802",
+    "matrix_dimensions": {
+      "rows": 2802,
+      "cols": 2802,
+      "nnz": 277362,
+      "density": 0.035
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 9000879.57,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 107726.64,
+            "percentage_of_total_time": 1.197
+          },
+          "dispatch_2": {
+            "time_ns": 8893152.94,
+            "percentage_of_total_time": 98.803
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 55590.12,
+          "dispatch_1_part_2": 51909.3
+        },
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:cegb2802:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.561386333,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 76,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 7200,
+      "residual_nnz": 270162,
+      "format_area": 7200,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 2.6,
+      "residual_nnz_perc": 97.4
+    }
+  },
+  {
+    "matrix_name": "cegb2919",
+    "matrix_dimensions": {
+      "rows": 2919,
+      "cols": 2919,
+      "nnz": 321543,
+      "density": 0.038
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 18209502.19,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 192644.77,
+            "percentage_of_total_time": 1.058
+          },
+          "dispatch_2": {
+            "time_ns": 18016857.41,
+            "percentage_of_total_time": 98.942
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 55096.47,
+          "dispatch_1_part_2": 69209.82,
+          "dispatch_1_part_3": 68258.31
+        },
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:cegb2919:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.538281556,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 82,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 12240,
+      "residual_nnz": 309303,
+      "format_area": 13968,
+      "extra_values": 1728,
+      "format_claimed_nnz_perc": 3.81,
+      "residual_nnz_perc": 96.19
+    }
+  },
+  {
+    "matrix_name": "msc10848",
+    "matrix_dimensions": {
+      "rows": 10848,
+      "cols": 10848,
+      "nnz": 1229778,
+      "density": 0.01
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 73469968.73,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 412169.08,
+            "percentage_of_total_time": 0.561
+          },
+          "dispatch_2": {
+            "time_ns": 73057799.65,
+            "percentage_of_total_time": 99.439
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 58348.32,
+          "dispatch_1_part_2": 60742.91,
+          "dispatch_1_part_3": 73092.04,
+          "dispatch_1_part_4": 44819.6,
+          "dispatch_1_part_5": 43826.91,
+          "dispatch_1_part_6": 40514.54,
+          "dispatch_1_part_7": 42284.9,
+          "dispatch_1_part_8": 46228.82
+        },
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:msc10848:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.554583564,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 672,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 20007,
+      "residual_nnz": 1209771,
+      "format_area": 25983,
+      "extra_values": 5976,
+      "format_claimed_nnz_perc": 1.63,
+      "residual_nnz_perc": 98.37
+    }
+  },
+  {
+    "matrix_name": "nemeth19",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 818302,
+      "density": 0.009
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 43666685.16,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 59923.61,
+            "percentage_of_total_time": 0.137
+          },
+          "dispatch_2": {
+            "time_ns": 43606761.55,
+            "percentage_of_total_time": 99.863
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:nemeth19:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.540820146,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 613,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 2804,
+      "residual_nnz": 815498,
+      "format_area": 2916,
+      "extra_values": 112,
+      "format_claimed_nnz_perc": 0.34,
+      "residual_nnz_perc": 99.66
+    }
+  },
+  {
+    "matrix_name": "olafu",
+    "matrix_dimensions": {
+      "rows": 16146,
+      "cols": 16146,
+      "nnz": 1015156,
+      "density": 0.004
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 108170438.62,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 79315.79,
+            "percentage_of_total_time": 0.073
+          },
+          "dispatch_2": {
+            "time_ns": 108091122.84,
+            "percentage_of_total_time": 99.927
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:olafu:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.531504212,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 579,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 2532,
+      "residual_nnz": 1012624,
+      "format_area": 4356,
+      "extra_values": 1824,
+      "format_claimed_nnz_perc": 0.25,
+      "residual_nnz_perc": 99.75
+    }
+  }
+]

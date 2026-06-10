@@ -1,0 +1,636 @@
+[
+  {
+    "matrix_name": "bcsstk28",
+    "matrix_dimensions": {
+      "rows": 4410,
+      "cols": 4410,
+      "nnz": 219024,
+      "density": 0.011
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 13123442.73,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 2738177.39,
+            "percentage_of_total_time": 20.865
+          },
+          "dispatch_2": {
+            "time_ns": 10385265.34,
+            "percentage_of_total_time": 79.135
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 129347.05,
+          "dispatch_1_part_10": 44289.1,
+          "dispatch_1_part_11": 49619.76,
+          "dispatch_1_part_12": 59210.24,
+          "dispatch_1_part_13": 56673.09,
+          "dispatch_1_part_14": 32807.79,
+          "dispatch_1_part_15": 59031.32,
+          "dispatch_1_part_16": 61371.3,
+          "dispatch_1_part_17": 33317.41,
+          "dispatch_1_part_18": 58057.28,
+          "dispatch_1_part_19": 45689.2,
+          "dispatch_1_part_2": 34301.46,
+          "dispatch_1_part_20": 106448.1,
+          "dispatch_1_part_21": 58531.88,
+          "dispatch_1_part_22": 98657.26,
+          "dispatch_1_part_23": 59348.38,
+          "dispatch_1_part_24": 98791.65,
+          "dispatch_1_part_25": 137918.88,
+          "dispatch_1_part_26": 95839.49,
+          "dispatch_1_part_27": 75691.81,
+          "dispatch_1_part_28": 99475.6,
+          "dispatch_1_part_29": 87297.7,
+          "dispatch_1_part_3": 34180.18,
+          "dispatch_1_part_30": 107913.51,
+          "dispatch_1_part_31": 34472.88,
+          "dispatch_1_part_32": 96856.16,
+          "dispatch_1_part_33": 97168.8,
+          "dispatch_1_part_34": 96292.11,
+          "dispatch_1_part_35": 32573.16,
+          "dispatch_1_part_36": 32970.01,
+          "dispatch_1_part_37": 32852.7,
+          "dispatch_1_part_38": 32628.44,
+          "dispatch_1_part_39": 32926.45,
+          "dispatch_1_part_4": 47069.22,
+          "dispatch_1_part_40": 32930.74,
+          "dispatch_1_part_41": 32538.79,
+          "dispatch_1_part_42": 30918.4,
+          "dispatch_1_part_43": 32678.0,
+          "dispatch_1_part_44": 32336.46,
+          "dispatch_1_part_45": 32677.83,
+          "dispatch_1_part_46": 31962.38,
+          "dispatch_1_part_47": 31792.02,
+          "dispatch_1_part_5": 36675.95,
+          "dispatch_1_part_6": 59562.51,
+          "dispatch_1_part_7": 34415.49,
+          "dispatch_1_part_8": 59334.44,
+          "dispatch_1_part_9": 31932.56
+        },
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:bcsstk28:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.483456137,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 119,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 29767,
+      "residual_nnz": 189257,
+      "format_area": 39440,
+      "extra_values": 9673,
+      "format_claimed_nnz_perc": 13.59,
+      "residual_nnz_perc": 86.41
+    }
+  },
+  {
+    "matrix_name": "cegb2802",
+    "matrix_dimensions": {
+      "rows": 2802,
+      "cols": 2802,
+      "nnz": 277362,
+      "density": 0.035
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 9749181.14,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 850487.82,
+            "percentage_of_total_time": 8.724
+          },
+          "dispatch_2": {
+            "time_ns": 8898693.31,
+            "percentage_of_total_time": 91.276
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 98999.07,
+          "dispatch_1_part_2": 203067.31,
+          "dispatch_1_part_3": 219957.36,
+          "dispatch_1_part_4": 223020.33,
+          "dispatch_1_part_5": 104853.24
+        },
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:cegb2802:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.167699524,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 77,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 10332,
+      "residual_nnz": 267030,
+      "format_area": 13713,
+      "extra_values": 3381,
+      "format_claimed_nnz_perc": 3.73,
+      "residual_nnz_perc": 96.27
+    }
+  },
+  {
+    "matrix_name": "cegb2919",
+    "matrix_dimensions": {
+      "rows": 2919,
+      "cols": 2919,
+      "nnz": 321543,
+      "density": 0.038
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 18850164.25,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 647259.12,
+            "percentage_of_total_time": 3.434
+          },
+          "dispatch_2": {
+            "time_ns": 18202905.12,
+            "percentage_of_total_time": 96.566
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 112922.0,
+          "dispatch_1_part_2": 151768.17,
+          "dispatch_1_part_3": 186611.23,
+          "dispatch_1_part_4": 194313.09
+        },
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:cegb2919:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 0.164007241,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 81,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 7499,
+      "residual_nnz": 314044,
+      "format_area": 9889,
+      "extra_values": 2390,
+      "format_claimed_nnz_perc": 2.33,
+      "residual_nnz_perc": 97.67
+    }
+  },
+  {
+    "matrix_name": "heart2",
+    "matrix_dimensions": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 682797,
+      "density": 0.125
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 35068434.49,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 18015733.23,
+            "percentage_of_total_time": 51.373
+          },
+          "dispatch_2": {
+            "time_ns": 17052701.26,
+            "percentage_of_total_time": 48.627
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 336057.38,
+          "dispatch_1_part_10": 472446.38,
+          "dispatch_1_part_11": 537285.49,
+          "dispatch_1_part_12": 138768.31,
+          "dispatch_1_part_13": 181329.01,
+          "dispatch_1_part_14": 161085.26,
+          "dispatch_1_part_15": 388937.11,
+          "dispatch_1_part_16": 817731.9,
+          "dispatch_1_part_17": 911741.81,
+          "dispatch_1_part_18": 175930.05,
+          "dispatch_1_part_19": 285334.84,
+          "dispatch_1_part_2": 318125.9,
+          "dispatch_1_part_20": 622974.19,
+          "dispatch_1_part_21": 403586.26,
+          "dispatch_1_part_22": 400189.08,
+          "dispatch_1_part_23": 285553.47,
+          "dispatch_1_part_24": 301869.79,
+          "dispatch_1_part_25": 860705.24,
+          "dispatch_1_part_26": 566651.31,
+          "dispatch_1_part_27": 292125.31,
+          "dispatch_1_part_28": 483272.91,
+          "dispatch_1_part_29": 473136.12,
+          "dispatch_1_part_3": 585212.59,
+          "dispatch_1_part_30": 283379.79,
+          "dispatch_1_part_31": 282416.39,
+          "dispatch_1_part_32": 261720.49,
+          "dispatch_1_part_33": 1567348.02,
+          "dispatch_1_part_34": 354725.0,
+          "dispatch_1_part_35": 105483.34,
+          "dispatch_1_part_36": 293134.45,
+          "dispatch_1_part_37": 267684.06,
+          "dispatch_1_part_38": 265687.72,
+          "dispatch_1_part_39": 641998.34,
+          "dispatch_1_part_4": 373844.03,
+          "dispatch_1_part_40": 162329.3,
+          "dispatch_1_part_41": 729468.35,
+          "dispatch_1_part_42": 141598.4,
+          "dispatch_1_part_43": 254935.62,
+          "dispatch_1_part_44": 191450.75,
+          "dispatch_1_part_45": 90899.48,
+          "dispatch_1_part_46": 217436.8,
+          "dispatch_1_part_47": 153052.52,
+          "dispatch_1_part_5": 166169.09,
+          "dispatch_1_part_6": 479548.62,
+          "dispatch_1_part_7": 356133.7,
+          "dispatch_1_part_8": 181899.46,
+          "dispatch_1_part_9": 167238.44
+        },
+        "csr_baseline_time_ns": 19651900.15,
+        "fully_sparse_baseline_time_ns": 19651900.15,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:heart2:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 19651900.15
+        },
+        "speedup": 0.56,
+        "compile_time_composed_s": 0.48488733,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 406,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 214083,
+      "residual_nnz": 468714,
+      "format_area": 280392,
+      "extra_values": 66309,
+      "format_claimed_nnz_perc": 31.35,
+      "residual_nnz_perc": 68.65
+    }
+  },
+  {
+    "matrix_name": "heart3",
+    "matrix_dimensions": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 682797,
+      "density": 0.125
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 35025846.21,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 18019300.69,
+            "percentage_of_total_time": 51.446
+          },
+          "dispatch_2": {
+            "time_ns": 17006545.52,
+            "percentage_of_total_time": 48.554
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 338719.95,
+          "dispatch_1_part_10": 471976.51,
+          "dispatch_1_part_11": 536360.85,
+          "dispatch_1_part_12": 138772.21,
+          "dispatch_1_part_13": 181193.64,
+          "dispatch_1_part_14": 161174.14,
+          "dispatch_1_part_15": 388632.49,
+          "dispatch_1_part_16": 817332.91,
+          "dispatch_1_part_17": 909589.8,
+          "dispatch_1_part_18": 175349.1,
+          "dispatch_1_part_19": 286038.45,
+          "dispatch_1_part_2": 320637.6,
+          "dispatch_1_part_20": 622155.43,
+          "dispatch_1_part_21": 399306.49,
+          "dispatch_1_part_22": 398061.6,
+          "dispatch_1_part_23": 285854.38,
+          "dispatch_1_part_24": 301521.09,
+          "dispatch_1_part_25": 864600.09,
+          "dispatch_1_part_26": 565586.79,
+          "dispatch_1_part_27": 291869.64,
+          "dispatch_1_part_28": 482096.72,
+          "dispatch_1_part_29": 472572.25,
+          "dispatch_1_part_3": 588459.89,
+          "dispatch_1_part_30": 282816.44,
+          "dispatch_1_part_31": 282345.15,
+          "dispatch_1_part_32": 261726.64,
+          "dispatch_1_part_33": 1549011.84,
+          "dispatch_1_part_34": 356907.84,
+          "dispatch_1_part_35": 105686.61,
+          "dispatch_1_part_36": 293745.91,
+          "dispatch_1_part_37": 268316.5,
+          "dispatch_1_part_38": 267040.78,
+          "dispatch_1_part_39": 645585.0,
+          "dispatch_1_part_4": 375147.65,
+          "dispatch_1_part_40": 163323.27,
+          "dispatch_1_part_41": 731657.04,
+          "dispatch_1_part_42": 142682.26,
+          "dispatch_1_part_43": 255332.08,
+          "dispatch_1_part_44": 192303.74,
+          "dispatch_1_part_45": 91602.69,
+          "dispatch_1_part_46": 218005.65,
+          "dispatch_1_part_47": 153385.05,
+          "dispatch_1_part_5": 166375.49,
+          "dispatch_1_part_6": 478720.2,
+          "dispatch_1_part_7": 355601.01,
+          "dispatch_1_part_8": 181690.64,
+          "dispatch_1_part_9": 167580.61
+        },
+        "csr_baseline_time_ns": 19719726.43,
+        "fully_sparse_baseline_time_ns": 19719726.43,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:heart3:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 19719726.43
+        },
+        "speedup": 0.563,
+        "compile_time_composed_s": 0.490279936,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 402,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 214083,
+      "residual_nnz": 468714,
+      "format_area": 280392,
+      "extra_values": 66309,
+      "format_claimed_nnz_perc": 31.35,
+      "residual_nnz_perc": 68.65
+    }
+  },
+  {
+    "matrix_name": "nemeth19",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 818302,
+      "density": 0.009
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 80179333.22,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 60784645.3,
+            "percentage_of_total_time": 75.811
+          },
+          "dispatch_2": {
+            "time_ns": 19394687.93,
+            "percentage_of_total_time": 24.189
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 182506.11,
+          "dispatch_1_part_10": 374872.05,
+          "dispatch_1_part_100": 374173.79,
+          "dispatch_1_part_101": 171245.86,
+          "dispatch_1_part_102": 171544.56,
+          "dispatch_1_part_103": 171578.16,
+          "dispatch_1_part_104": 171951.02,
+          "dispatch_1_part_105": 374448.59,
+          "dispatch_1_part_106": 169238.21,
+          "dispatch_1_part_107": 171744.24,
+          "dispatch_1_part_108": 171668.48,
+          "dispatch_1_part_109": 171828.88,
+          "dispatch_1_part_11": 171223.75,
+          "dispatch_1_part_110": 378296.14,
+          "dispatch_1_part_111": 168877.04,
+          "dispatch_1_part_112": 171761.95,
+          "dispatch_1_part_113": 172061.88,
+          "dispatch_1_part_114": 172711.81,
+          "dispatch_1_part_115": 375189.69,
+          "dispatch_1_part_116": 169724.39,
+          "dispatch_1_part_117": 171377.83,
+          "dispatch_1_part_118": 171950.96,
+          "dispatch_1_part_119": 174664.6,
+          "dispatch_1_part_12": 171287.75,
+          "dispatch_1_part_120": 374190.59,
+          "dispatch_1_part_121": 169602.7,
+          "dispatch_1_part_122": 171687.29,
+          "dispatch_1_part_123": 171954.12,
+          "dispatch_1_part_124": 171914.21,
+          "dispatch_1_part_125": 374858.4,
+          "dispatch_1_part_126": 169487.86,
+          "dispatch_1_part_127": 171579.71,
+          "dispatch_1_part_128": 174169.24,
+          "dispatch_1_part_129": 173663.86,
+          "dispatch_1_part_13": 171671.65,
+          "dispatch_1_part_130": 373438.7,
+          "dispatch_1_part_131": 168376.62,
+          "dispatch_1_part_132": 171576.06,
+          "dispatch_1_part_133": 171078.91,
+          "dispatch_1_part_134": 171669.41,
+          "dispatch_1_part_135": 373454.85,
+          "dispatch_1_part_136": 169232.45,
+          "dispatch_1_part_137": 172751.34,
+          "dispatch_1_part_138": 174261.96,
+          "dispatch_1_part_139": 171747.92,
+          "dispatch_1_part_14": 171994.91,
+          "dispatch_1_part_140": 373327.58,
+          "dispatch_1_part_141": 168118.33,
+          "dispatch_1_part_142": 170756.92,
+          "dispatch_1_part_143": 171317.3,
+          "dispatch_1_part_144": 171456.66,
+          "dispatch_1_part_145": 374246.39,
+          "dispatch_1_part_146": 168881.74,
+          "dispatch_1_part_147": 173762.08,
+          "dispatch_1_part_148": 171991.25,
+          "dispatch_1_part_149": 171444.26,
+          "dispatch_1_part_15": 373764.45,
+          "dispatch_1_part_150": 373931.22,
+          "dispatch_1_part_151": 168114.4,
+          "dispatch_1_part_152": 171216.3,
+          "dispatch_1_part_153": 171150.39,
+          "dispatch_1_part_154": 171398.94,
+          "dispatch_1_part_155": 153974.88,
+          "dispatch_1_part_16": 169505.39,
+          "dispatch_1_part_17": 171360.74,
+          "dispatch_1_part_18": 171823.44,
+          "dispatch_1_part_19": 171473.86,
+          "dispatch_1_part_2": 28220910.82,
+          "dispatch_1_part_20": 378787.69,
+          "dispatch_1_part_21": 168797.58,
+          "dispatch_1_part_22": 171195.7,
+          "dispatch_1_part_23": 171256.01,
+          "dispatch_1_part_24": 172220.83,
+          "dispatch_1_part_25": 373865.08,
+          "dispatch_1_part_26": 169243.09,
+          "dispatch_1_part_27": 171154.44,
+          "dispatch_1_part_28": 171211.51,
+          "dispatch_1_part_29": 173166.64,
+          "dispatch_1_part_3": 169031.94,
+          "dispatch_1_part_30": 373786.5,
+          "dispatch_1_part_31": 169136.26,
+          "dispatch_1_part_32": 171454.55,
+          "dispatch_1_part_33": 171641.36,
+          "dispatch_1_part_34": 171775.1,
+          "dispatch_1_part_35": 374326.51,
+          "dispatch_1_part_36": 168973.9,
+          "dispatch_1_part_37": 171161.75,
+          "dispatch_1_part_38": 173405.76,
+          "dispatch_1_part_39": 171303.95,
+          "dispatch_1_part_4": 172406.27,
+          "dispatch_1_part_40": 373598.03,
+          "dispatch_1_part_41": 168853.69,
+          "dispatch_1_part_42": 171541.92,
+          "dispatch_1_part_43": 171514.7,
+          "dispatch_1_part_44": 171878.54,
+          "dispatch_1_part_45": 374184.69,
+          "dispatch_1_part_46": 169408.99,
+          "dispatch_1_part_47": 173203.2,
+          "dispatch_1_part_48": 171160.08,
+          "dispatch_1_part_49": 171589.42,
+          "dispatch_1_part_5": 374112.71,
+          "dispatch_1_part_50": 373441.25,
+          "dispatch_1_part_51": 169209.89,
+          "dispatch_1_part_52": 171173.27,
+          "dispatch_1_part_53": 171420.71,
+          "dispatch_1_part_54": 171462.75,
+          "dispatch_1_part_55": 373335.65,
+          "dispatch_1_part_56": 171030.41,
+          "dispatch_1_part_57": 171114.66,
+          "dispatch_1_part_58": 171699.83,
+          "dispatch_1_part_59": 171688.38,
+          "dispatch_1_part_6": 169687.64,
+          "dispatch_1_part_60": 373482.03,
+          "dispatch_1_part_61": 169132.35,
+          "dispatch_1_part_62": 171272.2,
+          "dispatch_1_part_63": 170967.11,
+          "dispatch_1_part_64": 171768.04,
+          "dispatch_1_part_65": 378778.74,
+          "dispatch_1_part_66": 169107.09,
+          "dispatch_1_part_67": 171413.55,
+          "dispatch_1_part_68": 171596.99,
+          "dispatch_1_part_69": 172074.38,
+          "dispatch_1_part_7": 171556.95,
+          "dispatch_1_part_70": 373865.53,
+          "dispatch_1_part_71": 168790.71,
+          "dispatch_1_part_72": 170598.19,
+          "dispatch_1_part_73": 171387.33,
+          "dispatch_1_part_74": 173249.42,
+          "dispatch_1_part_75": 373810.21,
+          "dispatch_1_part_76": 169493.71,
+          "dispatch_1_part_77": 171906.04,
+          "dispatch_1_part_78": 172184.02,
+          "dispatch_1_part_79": 172344.99,
+          "dispatch_1_part_8": 171752.21,
+          "dispatch_1_part_80": 375050.01,
+          "dispatch_1_part_81": 169316.7,
+          "dispatch_1_part_82": 171563.15,
+          "dispatch_1_part_83": 173549.8,
+          "dispatch_1_part_84": 172180.46,
+          "dispatch_1_part_85": 374539.31,
+          "dispatch_1_part_86": 169469.66,
+          "dispatch_1_part_87": 172073.41,
+          "dispatch_1_part_88": 171908.33,
+          "dispatch_1_part_89": 171946.09,
+          "dispatch_1_part_9": 171599.55,
+          "dispatch_1_part_90": 374903.88,
+          "dispatch_1_part_91": 169625.15,
+          "dispatch_1_part_92": 173666.09,
+          "dispatch_1_part_93": 171383.29,
+          "dispatch_1_part_94": 172429.16,
+          "dispatch_1_part_95": 374350.41,
+          "dispatch_1_part_96": 169818.04,
+          "dispatch_1_part_97": 171159.91,
+          "dispatch_1_part_98": 171542.25,
+          "dispatch_1_part_99": 171902.25
+        },
+        "csr_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_time_ns": 0.0,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:nemeth19:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 0.0
+        },
+        "speedup": 0.0,
+        "compile_time_composed_s": 1.841967038,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 537,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 688377,
+      "residual_nnz": 129925,
+      "format_area": 900707,
+      "extra_values": 212330,
+      "format_claimed_nnz_perc": 84.12,
+      "residual_nnz_perc": 15.88
+    }
+  },
+  {
+    "matrix_name": "vsp_c-30_data_data",
+    "matrix_dimensions": {
+      "rows": 11023,
+      "cols": 11023,
+      "nnz": 124368,
+      "density": 0.001
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 150825632.97,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 763006.96,
+            "percentage_of_total_time": 0.506
+          },
+          "dispatch_2": {
+            "time_ns": 150062626.01,
+            "percentage_of_total_time": 99.494
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 161858.9,
+          "dispatch_1_part_10": 16425.65,
+          "dispatch_1_part_11": 21479.53,
+          "dispatch_1_part_12": 10528.98,
+          "dispatch_1_part_13": 10316.86,
+          "dispatch_1_part_14": 45456.62,
+          "dispatch_1_part_2": 143405.52,
+          "dispatch_1_part_3": 126228.76,
+          "dispatch_1_part_4": 17393.75,
+          "dispatch_1_part_5": 22704.2,
+          "dispatch_1_part_6": 11512.77,
+          "dispatch_1_part_7": 11176.0,
+          "dispatch_1_part_8": 49152.61,
+          "dispatch_1_part_9": 116364.61
+        },
+        "csr_baseline_time_ns": 144064442.7,
+        "fully_sparse_baseline_time_ns": 144064442.7,
+        "fully_sparse_baseline_source": "sable_spmm_mkl_spreg.json:vsp_c-30_data_data:1 thread:fully_sparse_time",
+        "csr_baseline_dispatch_times": {
+          "dispatch_1": 144064442.7
+        },
+        "speedup": 0.955,
+        "compile_time_composed_s": 0.223886486,
+        "compile_time_csr_baseline_s": 0.0,
+        "codegen_time_composed_ms": 41,
+        "codegen_time_csr_baseline_ms": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 4878,
+      "residual_nnz": 119490,
+      "format_area": 5722,
+      "extra_values": 844,
+      "format_claimed_nnz_perc": 3.92,
+      "residual_nnz_perc": 96.08
+    }
+  }
+]

@@ -229,13 +229,27 @@ headers from `emit_includes()`.  See `sable/kernels/vbr.py` and
 
 ### 1. Clone Repository
 
-Clone the repository and make sure to recursively download submodules:
+For a fresh checkout, clone the repository and its pinned submodule commits in
+one command:
 
 ```bash
-git clone --recursive <repository-url>
-cd SABLE-main
+git clone --recurse-submodules <repository-url> SABLE
+cd SABLE
+```
+
+To initialize or repair submodule configuration in an existing checkout, run:
+
+```bash
+git submodule sync --recursive
 git submodule update --init --recursive
 ```
+
+Run `git submodule sync --recursive` after pulling a change to `.gitmodules` so
+the URLs in the local Git configuration are refreshed.  The update command
+checks out the exact submodule commits recorded by SABLE; it does not track the
+latest commit on each submodule's default branch.  If a submodule contains
+local changes, Git will preserve them and may refuse to update it.  Commit or
+stash those changes before retrying.
 
 ### 2. System Dependencies
 

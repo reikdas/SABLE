@@ -15,6 +15,7 @@ import scipy.sparse
 from sable import Matrix, Plan
 from sable.extractors import BandExtractorSkip, BlockDetectorSkip, CSRConvertor
 from sable.kernels import (
+    GradientDescent,
     MKLCSRSpmm,
     MKLCSRSpmv,
     MKLDIASpmm,
@@ -428,3 +429,45 @@ def test_parameterized_out_of_line_codegen_golden(variant, update_golden, tmp_pa
     actual = PARAMETERIZED_OUT_OF_LINE_VARIANTS[variant](tmp_path)
     _assert_parameterized_out_of_line_shape(variant, actual)
     _assert_golden(variant, actual, GOLDEN_DIR / f"{variant}.c", update_golden)
+
+
+GD_MAX_ITERATIONS = 100000
+
+
+def _generate_gd_pipeline_c(tmpdir: pathlib.Path) -> str:
+    """Codegen for the tests/test_gd_pipeline.py plan shape (VBR + CSR + update).
+
+    Same dispatch sequence as the bundle1 pipeline -- mixed VBR blocks, the
+    MKL CSR residual, then the format-less GradientDescent update wrapped in
+    plan.iterate -- on the small block+csr fixture so the golden stays
+    readable.  alpha = 1 / ||A||_inf as in the pipeline; b only needs a fixed
+    value because it is staged in the data file, not the C source.
+    """
+    A = _fixture_matrix(include_band=False, include_block=True, include_csr=True)
+    alpha = 1.0 / float(numpy.abs(A).sum(axis=1).max())
+    b = numpy.full(A.shape[0], 2.0)
+
+    plan = Plan(Matrix(A, name="fixture"), artifact_dir=str(tmpdir / "codegen"))
+    rhs_path = tmpdir / "x.vector"
+    _write_vector(rhs_path, A.shape[1])
+    plan.rhs(DenseInput.vector(str(rhs_path), A.shape[1]))
+
+    vbr = plan.extract(BlockDetectorSkip(blocks=BLOCK_REGIONS))
+    plan.dispatch(vbr, MixedVBRSpmv())
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, MKLCSRSpmv())
+    plan.dispatch(GradientDescent(b, alpha))
+    plan.iterate(max_iterations=GD_MAX_ITERATIONS)
+
+    executor = plan.compile(filename="fixture", bench=1)
+    return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
+
+
+def test_gd_pipeline_codegen_golden(update_golden, tmp_path):
+    actual = _generate_gd_pipeline_c(tmp_path)
+    _assert_golden(
+        "gd_spmv_blockmixed_csrmkl",
+        actual,
+        GOLDEN_DIR / "gd_spmv_blockmixed_csrmkl.c",
+        update_golden,
+    )

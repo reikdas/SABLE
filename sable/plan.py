@@ -10,8 +10,13 @@ from .tensor import DenseInput
 
 @dataclass
 class Dispatch:
-    fmt: Format
+    fmt: Format | None
     kernel: object
+
+
+@dataclass
+class IterationSpec:
+    max_iterations: int | None = None
 
 
 class Plan:
@@ -22,6 +27,7 @@ class Plan:
         self.dispatches: list[Dispatch] = []
         self._residual: ResidualMatrix = matrix
         self._pending_formats: dict[int, str] = {}
+        self._iteration: IterationSpec | None = None
 
     @property
     def rhs_input(self) -> DenseInput:
@@ -43,6 +49,15 @@ class Plan:
         else:
             raise ValueError(f"Unsupported RHS rank: {len(dense_input.shape)}")
         self._rhs = dense_input
+
+    @property
+    def iteration(self) -> IterationSpec | None:
+        return self._iteration
+
+    def iterate(self, max_iterations: int | None = None) -> None:
+        if max_iterations is not None and max_iterations <= 0:
+            raise ValueError(f"max_iterations must be positive, got {max_iterations}")
+        self._iteration = IterationSpec(max_iterations=max_iterations)
 
     @property
     def residual(self) -> ResidualMatrix:
@@ -75,10 +90,15 @@ class Plan:
             self._pending_formats[id(fmt)] = type(fmt).__name__
         return fmt
 
-    def dispatch(self, fmt: Format, kernel: object) -> None:
-        accepts = getattr(kernel, "accepts", None)
-        if accepts is not None and not isinstance(fmt, accepts):
-            raise TypeError(f"{type(kernel).__name__} expects {accepts.__name__}, got {type(fmt).__name__}")
+    def dispatch(self, fmt: Format | object, kernel: object | None = None) -> None:
+        if kernel is None:
+            fmt, kernel = None, fmt
+            if isinstance(kernel, Format):
+                raise TypeError("dispatch(fmt) is missing a kernel; use dispatch(fmt, kernel)")
+        if fmt is not None:
+            accepts = getattr(kernel, "accepts", None)
+            if accepts is not None and not isinstance(fmt, accepts):
+                raise TypeError(f"{type(kernel).__name__} expects {accepts.__name__}, got {type(fmt).__name__}")
 
         operation = kernel_operation(kernel)
         if (
@@ -99,7 +119,8 @@ class Plan:
             raise ValueError("All kernels in a plan must agree on operation")
 
         self.dispatches.append(Dispatch(fmt=fmt, kernel=kernel))
-        self._pending_formats.pop(id(fmt), None)
+        if fmt is not None:
+            self._pending_formats.pop(id(fmt), None)
 
     def ensure_complete(self) -> None:
         if self._residual.nnz != 0:

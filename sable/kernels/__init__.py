@@ -1,4 +1,5 @@
 from .base import SpmmKernel, SpmvKernel
+from .gd import GradientDescent
 from .csr import (
     MKLCSRSpmm,
     MKLCSRSpmv,
@@ -19,6 +20,7 @@ from .vbr import (
 from .vdia import MKLDIASpmm, MKLDIASpmv, NaiveVDIASpmm, NaiveVDIASpmv
 
 __all__ = [
+    "GradientDescent",
     "MKLCSRSpmm",
     "MKLCSRSpmv",
     "MKLDIASpmm",

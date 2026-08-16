@@ -187,31 +187,36 @@ def _bind_reps(plan: Plan) -> list[RepBinding]:
     used_names: set[str] = set()
     bindings: list[RepBinding] = []
 
+    def bind(rep: Rep, fallback_label: str, field_name: str) -> None:
+        base = _sanitize_identifier(rep.label or fallback_label)
+        c_name = base
+        suffix = 1
+        while c_name in used_names:
+            suffix += 1
+            c_name = f"{base}_{suffix}"
+        used_names.add(c_name)
+        rep.c_name = c_name
+        bindings.append(
+            RepBinding(
+                rep=rep,
+                label=c_name,
+                c_name=c_name,
+                c_type=_rep_c_type(field_name, rep),
+            )
+        )
+
     for dispatch in plan.dispatches:
         fmt = dispatch.fmt
-        if not is_dataclass(fmt):
-            continue
-        for field in fields(fmt):
-            value = getattr(fmt, field.name)
-            if not isinstance(value, Rep):
-                continue
-
-            base = _sanitize_identifier(value.label or f"{type(fmt).__name__.lower()}_{field.name}")
-            c_name = base
-            suffix = 1
-            while c_name in used_names:
-                suffix += 1
-                c_name = f"{base}_{suffix}"
-            used_names.add(c_name)
-            value.c_name = c_name
-            bindings.append(
-                RepBinding(
-                    rep=value,
-                    label=c_name,
-                    c_name=c_name,
-                    c_type=_rep_c_type(field.name, value),
-                )
-            )
+        if is_dataclass(fmt):
+            for field in fields(fmt):
+                value = getattr(fmt, field.name)
+                if isinstance(value, Rep):
+                    bind(value, f"{type(fmt).__name__.lower()}_{field.name}", field.name)
+        # Kernels may stage dense operands of their own, e.g. the additive
+        # input of an update kernel dispatched without a format.
+        for attr_name, value in vars(dispatch.kernel).items():
+            if isinstance(value, Rep):
+                bind(value, f"{type(dispatch.kernel).__name__.lower()}_{attr_name}", attr_name)
 
     return bindings
 
@@ -309,6 +314,29 @@ def _alloc_size(size: int) -> int:
     return max(size, 1)
 
 
+def _collect_loop_hooks(plan: Plan) -> tuple[str, str, list[str]]:
+    """Gather the iteration-loop hooks emitted by the dispatched kernels.
+
+    Returns (state, init, conditions): C declarations emitted once before the
+    benchmark loop, statements run before each benchmark repetition, and the
+    C expressions (one per emitting kernel) that keep the loop running.
+    """
+    state_parts: list[str] = []
+    init_parts: list[str] = []
+    conditions: list[str] = []
+    for dispatch in plan.dispatches:
+        state = _kernel_text(dispatch.kernel, "emit_loop_state")
+        if state:
+            state_parts.append(state)
+        init = _kernel_text(dispatch.kernel, "emit_loop_init")
+        if init:
+            init_parts.append(init)
+        condition = _kernel_text(dispatch.kernel, "emit_loop_condition")
+        if condition.strip():
+            conditions.append(condition.strip())
+    return "".join(state_parts), "".join(init_parts), conditions
+
+
 def _output_size(plan: Plan) -> int:
     rhs = plan.rhs_input
     if len(rhs.shape) == 1:
@@ -375,19 +403,28 @@ def _collect_runtime_cwd(plan: Plan) -> str | None:
     return runtime_cwd
 
 
-def _bindings_for_format(fmt: Format, bindings: list[RepBinding]) -> list[RepBinding]:
-    if not is_dataclass(fmt):
-        return []
-    fmt_reps: list[Rep] = []
-    for field in fields(fmt):
-        value = getattr(fmt, field.name)
+def _dispatch_reps(fmt: Format | None, kernel: object) -> list[Rep]:
+    reps: list[Rep] = []
+    if is_dataclass(fmt):
+        for field in fields(fmt):
+            value = getattr(fmt, field.name)
+            if isinstance(value, Rep):
+                reps.append(value)
+    for value in vars(kernel).values():
         if isinstance(value, Rep):
-            fmt_reps.append(value)
-    return [binding for binding in bindings if any(binding.rep is rep for rep in fmt_reps)]
+            reps.append(value)
+    return reps
 
 
-def _bindings_used_by_body(body: str, fmt: Format, bindings: list[RepBinding]) -> list[RepBinding]:
-    return [binding for binding in _bindings_for_format(fmt, bindings) if binding.c_name in body]
+def _bindings_used_by_body(
+    body: str, fmt: Format | None, kernel: object, bindings: list[RepBinding]
+) -> list[RepBinding]:
+    reps = _dispatch_reps(fmt, kernel)
+    return [
+        binding
+        for binding in bindings
+        if any(binding.rep is rep for rep in reps) and binding.c_name in body
+    ]
 
 
 def _out_of_line_helper_name(
@@ -433,7 +470,8 @@ def _lower_kernel_snippet(
     snippet: KernelSnippet,
     dispatch_index: int,
     part_ordinal: int | None,
-    fmt: Format,
+    fmt: Format | None,
+    kernel: object,
     bindings: list[RepBinding],
     helpers: list[str],
     helper_definitions: dict[str, str],
@@ -441,7 +479,7 @@ def _lower_kernel_snippet(
     if isinstance(snippet, str):
         return snippet
     name = _out_of_line_helper_name(snippet, dispatch_index, part_ordinal)
-    used_bindings = _bindings_used_by_body(snippet.body, fmt, bindings)
+    used_bindings = _bindings_used_by_body(snippet.body, fmt, kernel, bindings)
     helper = _emit_out_of_line_helper(name, snippet.body, used_bindings, snippet.parameters)
     existing = helper_definitions.get(name)
     if existing is None:
@@ -452,10 +490,17 @@ def _lower_kernel_snippet(
     return _emit_out_of_line_call(name, used_bindings, snippet.arguments)
 
 
-def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: int) -> str:
+def _emit_source(
+    plan: Plan,
+    data_path: str,
+    bindings: list[RepBinding],
+    bench: int,
+    loop_hooks: tuple[str, str, list[str]],
+) -> str:
     rhs = plan.rhs_input
     y_size = _output_size(plan)
     x_size = _input_size(plan)
+    iteration = plan.iteration
 
     includes = [
         "#include <assert.h>",
@@ -488,6 +533,7 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
                     dispatch_index,
                     part_ordinal,
                     dispatch.fmt,
+                    dispatch.kernel,
                     bindings,
                     helpers,
                     out_of_line_helper_definitions,
@@ -510,6 +556,7 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
                     dispatch_index,
                     1,
                     dispatch.fmt,
+                    dispatch.kernel,
                     bindings,
                     helpers,
                     out_of_line_helper_definitions,
@@ -528,6 +575,7 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
                         dispatch_index,
                         part_ordinal,
                         dispatch.fmt,
+                        dispatch.kernel,
                         bindings,
                         helpers,
                         out_of_line_helper_definitions,
@@ -552,6 +600,11 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
     lines.append(f"    double *x = (double *)malloc({_alloc_size(x_size)} * sizeof(double));\n")
     lines.append("    assert(y != NULL);\n")
     lines.append("    assert(x != NULL);\n")
+    if iteration is not None:
+        # Iterative plans may mutate x, so keep a pristine copy of the dense
+        # input to restore before each benchmark repetition.
+        lines.append(f"    double *sable_x0 = (double *)malloc({_alloc_size(x_size)} * sizeof(double));\n")
+        lines.append("    assert(sable_x0 != NULL);\n")
     for binding in bindings:
         lines.append(
             f"    {binding.c_type} *{binding.c_name} = ({binding.c_type} *)"
@@ -568,7 +621,11 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
 
     lines.append(f'    FILE *rhs_file = fopen("{_c_string(os.path.abspath(rhs.path))}", "r");\n')
     lines.append("    assert(rhs_file != NULL);\n")
-    lines.append(f"    read_dense_input(rhs_file, x, {x_size});\n")
+    if iteration is not None:
+        lines.append(f"    read_dense_input(rhs_file, sable_x0, {x_size});\n")
+        lines.append(f"    memcpy(x, sable_x0, {x_size} * sizeof(double));\n")
+    else:
+        lines.append(f"    read_dense_input(rhs_file, x, {x_size});\n")
     lines.append("    fclose(rhs_file);\n\n")
 
     for snippet in setup:
@@ -584,7 +641,31 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
         f"(double (*)[{bench}])calloc({_alloc_size(part_count)}, {bench} * sizeof(double));\n"
     )
     lines.append("    assert(dispatch_part_times != NULL);\n")
+    if iteration is not None:
+        loop_state, loop_init, loop_conditions = loop_hooks
+        lines.append(f"    int *sable_iteration_counts = (int *)calloc({bench}, sizeof(int));\n")
+        lines.append("    assert(sable_iteration_counts != NULL);\n")
+        if loop_state:
+            lines.append(loop_state)
+            if not loop_state.endswith("\n"):
+                lines.append("\n")
     lines.append(f"    for (int iter = 0; iter < {bench}; iter++) {{\n")
+    # Inside the iteration loop, the per-part times accumulate ("+=") across
+    # the algorithm iterations of a benchmark repetition.
+    time_assign = "="
+    if iteration is not None:
+        lines.append(f"        memcpy(x, sable_x0, {x_size} * sizeof(double));\n")
+        if loop_init:
+            lines.append(loop_init)
+            if not loop_init.endswith("\n"):
+                lines.append("\n")
+        lines.append("        int sable_iteration = 0;\n")
+        condition_parts = []
+        if iteration.max_iterations is not None:
+            condition_parts.append(f"sable_iteration < {iteration.max_iterations}")
+        condition_parts.extend(f"({condition})" for condition in loop_conditions)
+        lines.append(f"        while ({' && '.join(condition_parts)}) {{\n")
+        time_assign = "+="
     lines.append(f"        memset(y, 0, {y_size} * sizeof(double));\n")
     for timed_call in calls:
         if timed_call.snippet:
@@ -594,10 +675,14 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
                 lines.append("\n")
             lines.append("        clock_gettime(CLOCK_MONOTONIC, &t2);\n")
             lines.append(
-                f"        dispatch_part_times[{timed_call.part_index}][iter] = "
+                f"        dispatch_part_times[{timed_call.part_index}][iter] {time_assign} "
                 "(t2.tv_sec - t1.tv_sec) * 1000000000.0 + "
                 "(t2.tv_nsec - t1.tv_nsec);\n"
             )
+    if iteration is not None:
+        lines.append("        sable_iteration++;\n")
+        lines.append("        }\n")
+        lines.append("        sable_iteration_counts[iter] = sable_iteration;\n")
     lines.append("    }\n\n")
 
     for snippet in teardown:
@@ -633,6 +718,12 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
         lines.append(f'        printf("%.0f,", dispatch_part_times[{timed_call.part_index}][i]);\n')
         lines.append("    }\n")
         lines.append('    printf("\\n");\n')
+    if iteration is not None:
+        lines.append('    printf("Iterations: ");\n')
+        lines.append(f"    for (int i = 0; i < {bench}; i++) {{\n")
+        lines.append('        printf("%d,", sable_iteration_counts[i]);\n')
+        lines.append("    }\n")
+        lines.append('    printf("\\n");\n')
     lines.append('    printf("\\n");\n')
     lines.append(f"    for (int i = 0; i < {y_size}; i++) {{\n")
     lines.append('        printf("%.17g\\n", y[i]);\n')
@@ -641,6 +732,9 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
     for binding in bindings:
         lines.append(f"    free({binding.c_name});\n")
     lines.append("    free(dispatch_part_times);\n")
+    if iteration is not None:
+        lines.append("    free(sable_iteration_counts);\n")
+        lines.append("    free(sable_x0);\n")
     lines.append("    free(x);\n")
     lines.append("    free(y);\n")
     lines.append("    return 0;\n")
@@ -657,6 +751,16 @@ def compile(plan: Plan, filename: str | None = None, bench: int = 5, threads: in
     _ = plan.rhs_input
     plan.ensure_complete()
 
+    loop_hooks = _collect_loop_hooks(plan)
+    iteration = plan.iteration
+    if iteration is not None:
+        _, _, loop_conditions = loop_hooks
+        if not loop_conditions and iteration.max_iterations is None:
+            raise ValueError(
+                "Plan.iterate needs a dispatched kernel that emits a loop condition "
+                "(emit_loop_condition) or an explicit max_iterations"
+            )
+
     os.makedirs(plan.artifact_dir, exist_ok=True)
     filename = filename or plan.matrix.name
     data_path = os.path.join(plan.artifact_dir, f"{filename}.sabledata")
@@ -665,7 +769,7 @@ def compile(plan: Plan, filename: str | None = None, bench: int = 5, threads: in
     start = time.time_ns() // 1_000_000
     bindings = _bind_reps(plan)
     _write_sabledata(data_path, bindings)
-    source = _emit_source(plan, data_path, bindings, bench)
+    source = _emit_source(plan, data_path, bindings, bench, loop_hooks)
     with open(c_path, "w") as f:
         f.write(source)
     end = time.time_ns() // 1_000_000

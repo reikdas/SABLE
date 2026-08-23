@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import pathlib
 import sys
+import time
 from typing import Any
 
 import numpy
@@ -135,14 +136,21 @@ class BandExtractor:
         self.max_diag = max_diag
         self.max_bw = max_bw
         self.verbose = verbose
+        # Phase timings of the most recent extract() call, for inspection
+        # benchmarking. Keys: to_csr_seconds, search_seconds, pack_seconds,
+        # residual_seconds, bands (per-band metadata incl. found_at_seconds).
+        self.last_timing: dict[str, Any] | None = None
 
     def extract(self, A: ResidualMatrix) -> tuple[VDIA, ResidualMatrix]:
         if str(_VDIA_FINDER_ROOT) not in sys.path:
             sys.path.insert(0, str(_VDIA_FINDER_ROOT))
         from find_vdia import find_vdia_regions
 
+        t0 = time.perf_counter()
+        csr = A.to_csr()
+        t1 = time.perf_counter()
         regions = find_vdia_regions(
-            A.to_csr(),
+            csr,
             min_density=self.min_density,
             min_segment_len=self.min_segment_len,
             min_region_len=self.min_region_len,
@@ -152,8 +160,29 @@ class BandExtractor:
             max_bw=self.max_bw,
             verbose=self.verbose,
         )
-        fmt = pack_bands_as_vdia(A, [region.to_dict() for region in regions])
-        return fmt, A.without(fmt)
+        t2 = time.perf_counter()
+        bands = [region.to_dict() for region in regions]
+        fmt = pack_bands_as_vdia(A, bands)
+        t3 = time.perf_counter()
+        residual = A.without(fmt)
+        t4 = time.perf_counter()
+        self.last_timing = {
+            "to_csr_seconds": t1 - t0,
+            "search_seconds": t2 - t1,
+            "pack_seconds": t3 - t2,
+            "residual_seconds": t4 - t3,
+            "bands": [
+                {
+                    "rows": band.get("rows"),
+                    "diag_offset": band.get("diag_offset"),
+                    "total_nnz": band.get("total_nnz"),
+                    "vdia_area": band.get("vdia_area"),
+                    "found_at_seconds": band.get("found_at_seconds"),
+                }
+                for band in bands
+            ],
+        }
+        return fmt, residual
 
 
 class BandExtractorSkip:

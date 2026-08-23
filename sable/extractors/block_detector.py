@@ -4,8 +4,11 @@ import os
 import pathlib
 import subprocess
 import tempfile
+import time
+from typing import Any
 
 import scipy.io
+import yaml
 
 from utils.fileio import parse_yaml_blocks
 
@@ -74,7 +77,34 @@ def _ensure_partitioner(partitioner_path: str | os.PathLike[str] | None = None) 
     return _PARTITIONER_BIN
 
 
-def find_blocks(
+def _parse_partitioner_yaml(yaml_path: str) -> dict[str, Any]:
+    with open(yaml_path) as f:
+        data = yaml.safe_load(f) or {}
+    blocks: list[dict[str, Any]] = []
+    for block in data.get("blocks") or []:
+        rows = block.get("rows")
+        cols = block.get("cols")
+        if not rows or not cols:
+            continue
+        blocks.append(
+            {
+                "rows": [int(rows[0]), int(rows[1])],
+                "cols": [int(cols[0]), int(cols[1])],
+                "area": int(block.get("area", 0)),
+                "density": float(block.get("density", 0.0)),
+                "found_at_seconds": float(block.get("found_at_seconds", 0.0)),
+            }
+        )
+    return {
+        "timeout": bool(data.get("timeout", False)),
+        "timeout_seconds_budget": float(data.get("timeout_seconds_budget", 0.0)),
+        "partitioner_read_seconds": float(data.get("read_seconds", 0.0)),
+        "partitioner_search_seconds": float(data.get("search_seconds", 0.0)),
+        "blocks": blocks,
+    }
+
+
+def find_blocks_with_meta(
     A: ResidualMatrix,
     min_density: float,
     min_area: int,
@@ -82,13 +112,15 @@ def find_blocks(
     timeout_seconds: float,
     threads: int,
     partitioner_path: str | os.PathLike[str] | None = None,
-) -> list[Block]:
+) -> tuple[list[Block], dict[str, Any]]:
     partitioner = _ensure_partitioner(partitioner_path)
     with tempfile.TemporaryDirectory(prefix="sable-block-detector-") as tmp_dir:
         tmp_path = pathlib.Path(tmp_dir)
         matrix_path = tmp_path / f"{A.name}.mtx"
         output_path = tmp_path / f"{A.name}.yaml"
+        t0 = time.perf_counter()
         scipy.io.mmwrite(str(matrix_path), A.to_scipy())
+        t1 = time.perf_counter()
 
         command = [
             str(partitioner),
@@ -115,7 +147,28 @@ def find_blocks(
                 f"stdout:\n{exc.stdout}\n"
                 f"stderr:\n{exc.stderr}"
             ) from exc
-        return parse_yaml_blocks(str(output_path))
+        t2 = time.perf_counter()
+
+        blocks = parse_yaml_blocks(str(output_path))
+        meta = _parse_partitioner_yaml(str(output_path))
+        meta["mmwrite_seconds"] = t1 - t0
+        meta["partitioner_seconds"] = t2 - t1
+        return blocks, meta
+
+
+def find_blocks(
+    A: ResidualMatrix,
+    min_density: float,
+    min_area: int,
+    gamma: float,
+    timeout_seconds: float,
+    threads: int,
+    partitioner_path: str | os.PathLike[str] | None = None,
+) -> list[Block]:
+    blocks, _ = find_blocks_with_meta(
+        A, min_density, min_area, gamma, timeout_seconds, threads, partitioner_path
+    )
+    return blocks
 
 
 class BlockDetector:
@@ -136,9 +189,14 @@ class BlockDetector:
         self.timeout_seconds = timeout_seconds
         self.threads = threads
         self.partitioner_path = partitioner_path
+        # Phase timings of the most recent extract() call, for inspection
+        # benchmarking. Keys: mmwrite_seconds, partitioner_seconds,
+        # partitioner_read_seconds, partitioner_search_seconds, pack_seconds,
+        # residual_seconds, timeout, blocks (incl. per-block found_at_seconds).
+        self.last_timing: dict[str, Any] | None = None
 
     def extract(self, A: ResidualMatrix) -> tuple[VBR, ResidualMatrix]:
-        blocks = find_blocks(
+        blocks, meta = find_blocks_with_meta(
             A,
             self.min_density,
             self.min_area,
@@ -147,8 +205,15 @@ class BlockDetector:
             self.threads,
             self.partitioner_path,
         )
+        t0 = time.perf_counter()
         fmt = pack_blocks_as_vbr(A, blocks)
-        return fmt, A.without(fmt)
+        t1 = time.perf_counter()
+        residual = A.without(fmt)
+        t2 = time.perf_counter()
+        meta["pack_seconds"] = t1 - t0
+        meta["residual_seconds"] = t2 - t1
+        self.last_timing = meta
+        return fmt, residual
 
 
 class BlockDetectorSkip:

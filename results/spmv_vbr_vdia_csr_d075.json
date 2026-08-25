@@ -1,38 +1,5 @@
 [
  {
-  "matrix_name": "TSC_OPF_1047",
-  "rows": 8140,
-  "cols": 8140,
-  "nnz": 2016902,
-  "density": "0.075",
-  "band_nnz_pct": 12.603289599593834,
-  "n_segments": 33,
-  "per_backend": {
-   "naive": {
-    "vdia_us": 631.12,
-    "baseline_us": 800.57,
-    "speedup": 1.2685
-   },
-   "mkl": {
-    "vdia_us": 616.96,
-    "baseline_us": 777.99,
-    "speedup": 1.261
-   },
-   "spv8": {
-    "vdia_us": 625.81,
-    "baseline_us": 1463.13,
-    "speedup": 2.338
-   }
-  },
-  "best_vs_best": {
-   "best_vdia_us": 616.96,
-   "best_vdia_backend": "mkl",
-   "best_baseline_us": 777.99,
-   "best_baseline_backend": "mkl",
-   "speedup": 1.261
-  }
- },
- {
   "matrix_name": "bcsstk28",
   "rows": 4410,
   "cols": 4410,
@@ -137,31 +104,31 @@
   "cols": 3557,
   "nnz": 1387773,
   "density": "0.075",
-  "band_nnz_pct": 22.71682760797335,
-  "n_segments": 56,
+  "band_nnz_pct": 0.5706264641263377,
+  "n_segments": 4,
   "per_backend": {
    "naive": {
-    "vdia_us": 452.13,
+    "vdia_us": 440.19,
     "baseline_us": 504.02,
-    "speedup": 1.1148
+    "speedup": 1.145
    },
    "mkl": {
-    "vdia_us": 455.52,
+    "vdia_us": 451.04,
     "baseline_us": 517.47,
-    "speedup": 1.136
+    "speedup": 1.1473
    },
    "spv8": {
-    "vdia_us": 441.85,
+    "vdia_us": 425.12,
     "baseline_us": 1058.93,
-    "speedup": 2.3966
+    "speedup": 2.4909
    }
   },
   "best_vs_best": {
-   "best_vdia_us": 441.85,
+   "best_vdia_us": 425.12,
    "best_vdia_backend": "spv8",
    "best_baseline_us": 504.02,
    "best_baseline_backend": "naive",
-   "speedup": 1.1407
+   "speedup": 1.1856
   }
  },
  {
@@ -170,31 +137,31 @@
   "cols": 2339,
   "nnz": 682797,
   "density": "0.075",
-  "band_nnz_pct": 31.353828443885956,
-  "n_segments": 47,
+  "band_nnz_pct": 1.4289752298267275,
+  "n_segments": 2,
   "per_backend": {
    "naive": {
-    "vdia_us": 220.32,
+    "vdia_us": 220.76,
     "baseline_us": 225.44,
-    "speedup": 1.0232
+    "speedup": 1.0212
    },
    "mkl": {
-    "vdia_us": 229.13,
+    "vdia_us": 225.68,
     "baseline_us": 227.06,
-    "speedup": 0.991
+    "speedup": 1.0061
    },
    "spv8": {
-    "vdia_us": 219.83,
+    "vdia_us": 218.34,
     "baseline_us": 436.19,
-    "speedup": 1.9843
+    "speedup": 1.9978
    }
   },
   "best_vs_best": {
-   "best_vdia_us": 219.83,
+   "best_vdia_us": 218.34,
    "best_vdia_backend": "spv8",
    "best_baseline_us": 225.44,
    "best_baseline_backend": "naive",
-   "speedup": 1.0255
+   "speedup": 1.0325
   }
  },
  {
@@ -203,31 +170,31 @@
   "cols": 2339,
   "nnz": 682797,
   "density": "0.075",
-  "band_nnz_pct": 31.353828443885956,
-  "n_segments": 47,
+  "band_nnz_pct": 1.4289752298267275,
+  "n_segments": 2,
   "per_backend": {
    "naive": {
-    "vdia_us": 224.91,
+    "vdia_us": 222.84,
     "baseline_us": 225.1,
-    "speedup": 1.0009
+    "speedup": 1.0102
    },
    "mkl": {
-    "vdia_us": 226.4,
+    "vdia_us": 223.2,
     "baseline_us": 226.81,
-    "speedup": 1.0018
+    "speedup": 1.0162
    },
    "spv8": {
-    "vdia_us": 221.31,
+    "vdia_us": 217.43,
     "baseline_us": 419.31,
-    "speedup": 1.8947
+    "speedup": 1.9285
    }
   },
   "best_vs_best": {
-   "best_vdia_us": 221.31,
+   "best_vdia_us": 217.43,
    "best_vdia_backend": "spv8",
    "best_baseline_us": 225.1,
    "best_baseline_backend": "naive",
-   "speedup": 1.0171
+   "speedup": 1.0353
   }
  },
  {
@@ -261,6 +228,72 @@
    "best_baseline_us": 450.61,
    "best_baseline_backend": "mkl",
    "speedup": 1.0589
+  }
+ },
+ {
+  "matrix_name": "nd3k",
+  "rows": 9000,
+  "cols": 9000,
+  "nnz": 3279690,
+  "density": "0.075",
+  "band_nnz_pct": 0.2727696825004802,
+  "n_segments": 7,
+  "per_backend": {
+   "naive": {
+    "vdia_us": 1528.75,
+    "baseline_us": 1987.55,
+    "speedup": 1.3001
+   },
+   "mkl": {
+    "vdia_us": 1416.56,
+    "baseline_us": 2042.64,
+    "speedup": 1.442
+   },
+   "spv8": {
+    "vdia_us": 1517.83,
+    "baseline_us": 2896.19,
+    "speedup": 1.9081
+   }
+  },
+  "best_vs_best": {
+   "best_vdia_us": 1416.56,
+   "best_vdia_backend": "mkl",
+   "best_baseline_us": 1987.55,
+   "best_baseline_backend": "naive",
+   "speedup": 1.4031
+  }
+ },
+ {
+  "matrix_name": "nemeth22",
+  "rows": 9506,
+  "cols": 9506,
+  "nnz": 1358832,
+  "density": "0.075",
+  "band_nnz_pct": 91.29392007253288,
+  "n_segments": 153,
+  "per_backend": {
+   "naive": {
+    "vdia_us": 432.95,
+    "baseline_us": 530.51,
+    "speedup": 1.2254
+   },
+   "mkl": {
+    "vdia_us": 487.31,
+    "baseline_us": 522.81,
+    "speedup": 1.0729
+   },
+   "spv8": {
+    "vdia_us": 430.47,
+    "baseline_us": 1173.28,
+    "speedup": 2.7256
+   }
+  },
+  "best_vs_best": {
+   "best_vdia_us": 430.47,
+   "best_vdia_backend": "spv8",
+   "best_baseline_us": 522.81,
+   "best_baseline_backend": "mkl",
+   "speedup": 1.2145
   }
  },
  {
@@ -335,64 +368,31 @@
   "cols": 16860,
   "nnz": 2418804,
   "density": "0.075",
-  "band_nnz_pct": 0.48995288580637375,
-  "n_segments": 11,
+  "band_nnz_pct": 0.11542894752944016,
+  "n_segments": 3,
   "per_backend": {
    "naive": {
-    "vdia_us": 867.5,
+    "vdia_us": 872.85,
     "baseline_us": 1061.59,
-    "speedup": 1.2237
+    "speedup": 1.2162
    },
    "mkl": {
-    "vdia_us": 918.11,
+    "vdia_us": 918.64,
     "baseline_us": 1084.94,
-    "speedup": 1.1817
+    "speedup": 1.181
    },
    "spv8": {
-    "vdia_us": 879.85,
+    "vdia_us": 878.32,
     "baseline_us": 2098.89,
-    "speedup": 2.3855
+    "speedup": 2.3897
    }
   },
   "best_vs_best": {
-   "best_vdia_us": 867.5,
+   "best_vdia_us": 872.85,
    "best_vdia_backend": "naive",
    "best_baseline_us": 1061.59,
    "best_baseline_backend": "naive",
-   "speedup": 1.2237
-  }
- },
- {
-  "matrix_name": "pkustk08",
-  "rows": 22209,
-  "cols": 22209,
-  "nnz": 3226671,
-  "density": "0.075",
-  "band_nnz_pct": 0.4511460883368648,
-  "n_segments": 13,
-  "per_backend": {
-   "naive": {
-    "vdia_us": 1350.56,
-    "baseline_us": 1677.84,
-    "speedup": 1.2423
-   },
-   "mkl": {
-    "vdia_us": 1305.07,
-    "baseline_us": 1691.63,
-    "speedup": 1.2962
-   },
-   "spv8": {
-    "vdia_us": 1356.48,
-    "baseline_us": 2895.48,
-    "speedup": 2.1346
-   }
-  },
-  "best_vs_best": {
-   "best_vdia_us": 1305.07,
-   "best_vdia_backend": "mkl",
-   "best_baseline_us": 1677.84,
-   "best_baseline_backend": "naive",
-   "speedup": 1.2856
+   "speedup": 1.2162
   }
  },
  {

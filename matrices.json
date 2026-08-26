@@ -1,0 +1,111 @@
+{
+  "_comment": "SuiteSparse matrices used in Section 5 (main paper, not appendix) of the SABLE evaluation. vbr_csr, vdia_only, and fukaya are disjoint by construction -- download_matrices.py downloads their union (78 unique names). Verified directly against the matrix_name keys in SABLE/plots/results/*.json (ground truth for what the paper actually benchmarked), not just against evaluation.tex's prose description. See the paper's Artifact Appendix ('Data sets') for the mapping.",
+
+  "vbr_csr": {
+    "_comment": "The 55 matrices used in the VBR+CSR evaluation (fig:bench_executor) and the 20-matrix filtered subset of these used in the parallel/thread-scaling figures (fig:parallel_spmv, fig:spmv_scaling).",
+    "count": 55,
+    "matrices": [
+      {"group": "IPSO", "name": "TSC_OPF_1047"},
+      {"group": "IPSO", "name": "TSC_OPF_300"},
+      {"group": "TSOPF", "name": "TSOPF_FS_b162_c1"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b162_c1"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b162_c3"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b162_c4"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b2383"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b300_c1"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b300_c2"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b300_c3"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b39_c19"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b39_c7"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b678_c1"},
+      {"group": "TSOPF", "name": "TSOPF_RS_b678_c2"},
+      {"group": "VanVelzen", "name": "Zd_Jac2"},
+      {"group": "VanVelzen", "name": "Zd_Jac3"},
+      {"group": "VanVelzen", "name": "Zd_Jac6"},
+      {"group": "Davis", "name": "FX_March2010"},
+      {"group": "GHS_indef", "name": "brainpc2"},
+      {"group": "Lourakis", "name": "bundle1"},
+      {"group": "Schenk_IBMNA", "name": "c-30"},
+      {"group": "Schenk_IBMNA", "name": "c-45"},
+      {"group": "Schenk_IBMNA", "name": "c-57"},
+      {"group": "Meszaros", "name": "cari"},
+      {"group": "QY", "name": "case39"},
+      {"group": "Buss", "name": "connectus"},
+      {"group": "HB", "name": "eris1176"},
+      {"group": "GHS_indef", "name": "exdata_1"},
+      {"group": "Gupta", "name": "gupta1"},
+      {"group": "Norris", "name": "heart1"},
+      {"group": "Norris", "name": "heart2"},
+      {"group": "Norris", "name": "heart3"},
+      {"group": "Meszaros", "name": "jendrec1"},
+      {"group": "VDOL", "name": "lowThrust_10"},
+      {"group": "VDOL", "name": "lowThrust_11"},
+      {"group": "VDOL", "name": "lowThrust_12"},
+      {"group": "VDOL", "name": "lowThrust_13"},
+      {"group": "VDOL", "name": "lowThrust_3"},
+      {"group": "VDOL", "name": "lowThrust_4"},
+      {"group": "VDOL", "name": "lowThrust_5"},
+      {"group": "VDOL", "name": "lowThrust_6"},
+      {"group": "VDOL", "name": "lowThrust_7"},
+      {"group": "VDOL", "name": "lowThrust_8"},
+      {"group": "VDOL", "name": "lowThrust_9"},
+      {"group": "LPnetlib", "name": "lp_fit2d"},
+      {"group": "LPnetlib", "name": "lp_osa_07"},
+      {"group": "LPnetlib", "name": "lp_osa_14"},
+      {"group": "LPnetlib", "name": "lp_osa_30"},
+      {"group": "Andrianov", "name": "net100"},
+      {"group": "Andrianov", "name": "net125"},
+      {"group": "Andrianov", "name": "net150"},
+      {"group": "HB", "name": "orani678"},
+      {"group": "VanVelzen", "name": "std1_Jac2"},
+      {"group": "VanVelzen", "name": "std1_Jac3"},
+      {"group": "DIMACS10", "name": "vsp_c-30_data_data"}
+    ]
+  },
+
+  "vdia_only": {
+    "_comment": "The 19 additional matrices needed to complete the 24-matrix VDIA band set (fig:vdia_csr_best, fig:vdia_vbr_csr_best) that are NOT already in vbr_csr above. (Only 5 of the 24 VDIA matrices -- heart1, heart2, heart3, TSC_OPF_1047, vsp_c-30_data_data -- are also in the 55-matrix vbr_csr set, verified against the matrix_name keys in results/*.json; bcsstk28 and bcsstk32 are part of the 24-matrix VDIA set only, NOT the 55-matrix VBR+CSR set, despite both being plausible members of either.)",
+    "count": 19,
+    "matrices": [
+      {"group": "HB", "name": "bcsstk28"},
+      {"group": "HB", "name": "bcsstk32"},
+      {"group": "HB", "name": "cegb2802"},
+      {"group": "HB", "name": "cegb2919"},
+      {"group": "Gupta", "name": "gupta3"},
+      {"group": "Boeing", "name": "msc10848"},
+      {"group": "ND", "name": "nd3k"},
+      {"group": "Nemeth", "name": "nemeth19"},
+      {"group": "Nemeth", "name": "nemeth20"},
+      {"group": "Nemeth", "name": "nemeth21"},
+      {"group": "Nemeth", "name": "nemeth22"},
+      {"group": "Nemeth", "name": "nemeth23"},
+      {"group": "Nemeth", "name": "nemeth24"},
+      {"group": "Nemeth", "name": "nemeth25"},
+      {"group": "Nemeth", "name": "nemeth26"},
+      {"group": "Simon", "name": "olafu"},
+      {"group": "GHS_psdef", "name": "opt1"},
+      {"group": "Chen", "name": "pkustk07"},
+      {"group": "Chen", "name": "pkustk08"}
+    ]
+  },
+
+  "fukaya": {
+    "_comment": "The 4 matrices drawn from Fukaya et al. 2021, added to the VDIA+CSR comparison only (fig:vdia_csr_best), not VDIA+VBR+CSR.",
+    "count": 4,
+    "matrices": [
+      {"group": "Freescale", "name": "circuit5M_dc"},
+      {"group": "Freescale", "name": "memchip"},
+      {"group": "Schenk_ISEI", "name": "ohne2"},
+      {"group": "Janna", "name": "CoupCons3D"}
+    ]
+  },
+
+  "intro_figure_only": {
+    "_comment": "Motivating-example matrices for the (non-Section-5) intro figure. Shipped directly in SABLE/plots/ as bcspwr06.mtx and ex18.mtx -- NOT downloaded by download_matrices.py, listed here only for completeness.",
+    "count": 2,
+    "matrices": [
+      {"group": "HB", "name": "bcspwr06"},
+      {"group": "FIDAP", "name": "ex18"}
+    ]
+  }
+}

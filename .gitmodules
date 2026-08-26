@@ -1,12 +1,12 @@
 [submodule "spv8-public"]
 	path = spv8-public
-	url = git@github.com:reikdas/spv8-public.git
+	url = https://github.com/reikdas/spv8-public.git
 	branch = reikdas/c
 [submodule "find-submatrices"]
 	path = find-submatrices
-	url = git@github.com:reikdas/find-submatrices.git
+	url = https://github.com/reikdas/find-submatrices.git
 	branch = main
 [submodule "sparse-register-tiling"]
 	path = sparse-register-tiling
-	url = git@github.com:reikdas/sparse-register-tiling.git
+	url = https://github.com/reikdas/sparse-register-tiling.git
 	branch = main

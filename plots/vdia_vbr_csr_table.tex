@@ -1,0 +1,41 @@
+\begin{table*}[t!]
+  \caption{Speedup of VDIA+VBR+CSR over VBR+CSR on 24 SuiteSparse matrices with diagonal band structure. \textit{Band cov.}\ is the percentage of non-zeros residing in diagonal band segments. \textit{Segs}\ is the number of VDIA segments. Times are in $\mu$s; the highest speedup per benchmark is in bold and the lowest time is underlined.}
+    \label{table:vdia_vbr_csr}
+    \centering
+    \resizebox{\textwidth}{!}{
+    \begin{tabular}{l|rrrrr|rrr|rr}
+    \toprule
+    & & & & & & \multicolumn{5}{c}{\textbf{VDIA+VBR+CSR speedup over VBR+CSR}} \\
+    \cmidrule(l){7-11}
+    & & & & & & \multicolumn{3}{c|}{\textbf{SpMV}} & \multicolumn{2}{c}{\textbf{SpMM}} \\
+    \cmidrule(lr){7-9} \cmidrule(l){10-11}
+    \textbf{Matrix} & \textbf{Rows} & \textbf{Cols} & \textbf{Nnz} & \textbf{\shortstack{Band\\cov.\ (\%)}} & \textbf{Segs} & \textbf{Naive} & \textbf{MKL} & \textbf{SpV8} & \textbf{Naive} & \textbf{MKL} \\
+    \midrule
+    vsp\_c-30\_data\_data & 11,023 & 11,023 & 124,368 & 3.9 & 14 & 70 (0.88$\times$) & 60 (0.82$\times$) & \underline{38} (\textbf{1.20}$\times$) & 11,308 (\textbf{1.12}$\times$) & \underline{10,845} (0.96$\times$) \\
+    bcsstk28 & 4,410 & 4,410 & 219,024 & 13.6 & 47 & 80 (0.88$\times$) & \underline{79} (\textbf{0.90}$\times$) & 103 (0.81$\times$) & 18,348 (0.85$\times$) & \underline{14,332} (\textbf{1.05}$\times$) \\
+    cegb2802 & 2,802 & 2,802 & 277,362 & 3.7 & 5 & \underline{94} (0.97$\times$) & 96 (0.96$\times$) & 103 (\textbf{1.98}$\times$) & 18,476 (\textbf{1.04}$\times$) & 19,984 (0.91$\times$) \\
+    cegb2919 & 2,919 & 2,919 & 321,543 & 2.3 & 4 & 120 (0.90$\times$) & \underline{117} (0.93$\times$) & 120 (\textbf{1.95}$\times$) & \underline{21,071} (\textbf{1.08}$\times$) & 22,767 (0.95$\times$) \\
+    heart2 & 2,339 & 2,339 & 682,797 & 31.4 & 47 & 256 (0.88$\times$) & 263 (0.86$\times$) & \underline{255} (\textbf{1.71}$\times$) & 28,795 (\textbf{1.23}$\times$) & 30,329 (1.20$\times$) \\
+    heart3 & 2,339 & 2,339 & 682,797 & 31.4 & 47 & 261 (0.86$\times$) & 261 (0.87$\times$) & \underline{257} (\textbf{1.63}$\times$) & 28,594 (\textbf{1.24}$\times$) & 30,428 (1.17$\times$) \\
+    nemeth19 & 9,506 & 9,506 & 818,302 & 84.1 & 155 & 305 (0.95$\times$) & 339 (0.85$\times$) & \underline{304} (\textbf{2.29}$\times$) & \underline{9,798} (\textbf{5.96}$\times$) & 11,202 (4.82$\times$) \\
+    nemeth20 & 9,506 & 9,506 & 971,870 & 0.5 & 2 & \underline{333} (1.05$\times$) & 334 (1.03$\times$) & 338 (\textbf{2.47}$\times$) & 65,851 (\textbf{1.04}$\times$) & 68,251 (0.94$\times$) \\
+    olafu & 16,146 & 16,146 & 1,015,156 & 4.4 & 83 & 385 (0.99$\times$) & \underline{365} (0.99$\times$) & 395 (\textbf{2.25}$\times$) & \underline{71,102} (\textbf{1.08}$\times$) & 71,677 (0.97$\times$) \\
+    nemeth21 & 9,506 & 9,506 & 1,173,746 & 49.2 & 5 & 451 (0.99$\times$) & 447 (0.98$\times$) & \underline{429} (\textbf{2.30}$\times$) & 40,330 (\textbf{2.08}$\times$) & 43,119 (1.80$\times$) \\
+    msc10848 & 10,848 & 10,848 & 1,229,778 & 0.2 & 2 & \underline{426} (1.07$\times$) & 430 (1.05$\times$) & 426 (\textbf{2.47}$\times$) & 88,935 (\textbf{1.06}$\times$) & 94,881 (1.01$\times$) \\
+    nemeth22 & 9,506 & 9,506 & 1,358,832 & 92.1 & 156 & 437 (1.21$\times$) & 488 (1.07$\times$) & \underline{432} (\textbf{2.72}$\times$) & \underline{8,571} (\textbf{11.10}$\times$) & 10,036 (9.05$\times$) \\
+    heart1 & 3,557 & 3,557 & 1,387,773 & 22.7 & 56 & 483 (1.04$\times$) & 493 (1.05$\times$) & \underline{479} (\textbf{2.21}$\times$) & 76,831 (1.21$\times$) & 88,635 (\textbf{1.36}$\times$) \\
+    nemeth24 & 9,506 & 9,506 & 1,506,550 & 0.8 & 3 & \underline{505} (1.20$\times$) & 518 (1.15$\times$) & 510 (\textbf{2.54}$\times$) & 100,713 (\textbf{1.05}$\times$) & 105,326 (0.95$\times$) \\
+    nemeth23 & 9,506 & 9,506 & 1,506,810 & 0.8 & 3 & \underline{508} (1.24$\times$) & 526 (1.11$\times$) & 509 (\textbf{2.56}$\times$) & 100,319 (\textbf{1.05}$\times$) & 110,510 (0.90$\times$) \\
+    nemeth25 & 9,506 & 9,506 & 1,511,758 & 0.8 & 3 & \underline{511} (1.20$\times$) & 519 (1.13$\times$) & 512 (\textbf{2.50}$\times$) & 104,543 (\textbf{1.01}$\times$) & 124,991 (0.81$\times$) \\
+    nemeth26 & 9,506 & 9,506 & 1,511,760 & 0.8 & 3 & 511 (1.17$\times$) & 517 (1.17$\times$) & \underline{508} (\textbf{2.54}$\times$) & 102,027 (1.05$\times$) & 105,739 (\textbf{1.08}$\times$) \\
+    opt1 & 15,449 & 15,449 & 1,930,655 & 0.1 & 2 & 669 (1.10$\times$) & 677 (1.12$\times$) & \underline{668} (\textbf{2.55}$\times$) & 137,405 (\textbf{1.05}$\times$) & 138,360 (1.00$\times$) \\
+    bcsstk32 & 44,609 & 44,609 & 2,014,701 & 10.3 & 299 & \underline{872} (1.03$\times$) & 885 (0.98$\times$) & 875 (\textbf{2.09}$\times$) & 142,730 (\textbf{1.17}$\times$) & \underline{135,532} (1.06$\times$) \\
+    TSC\_OPF\_1047 & 8,140 & 8,140 & 2,016,902 & 12.6 & 33 & 631 (1.27$\times$) & \underline{617} (1.26$\times$) & 626 (\textbf{2.34}$\times$) & 109,439 (1.38$\times$) & 127,924 (\textbf{1.82}$\times$) \\
+    pkustk07 & 16,860 & 16,860 & 2,418,804 & 0.5 & 11 & \underline{878} (1.21$\times$) & 926 (1.17$\times$) & 891 (\textbf{2.36}$\times$) & \underline{177,200} (0.79$\times$) & 213,718 (\textbf{0.94}$\times$) \\
+    pkustk08 & 22,209 & 22,209 & 3,226,671 & 0.5 & 13 & \underline{1,313} (1.28$\times$) & 1,339 (1.26$\times$) & 1,365 (\textbf{2.12}$\times$) & \underline{238,349} (0.80$\times$) & 270,291 (\textbf{1.02}$\times$) \\
+    nd3k & 9,000 & 9,000 & 3,279,690 & 12.9 & 174 & 1,470 (1.35$\times$) & \underline{1,335} (1.53$\times$) & 1,532 (\textbf{1.89}$\times$) & 205,067 (0.94$\times$) & 222,116 (\textbf{1.41}$\times$) \\
+    gupta3 & 16,783 & 16,783 & 9,323,427 & 0.1 & 27 & \underline{7,189} (1.02$\times$) & 7,515 (1.01$\times$) & 8,006 (\textbf{1.05}$\times$) & \underline{953,664} (\textbf{1.06}$\times$) & 2,042,735 (1.03$\times$) \\
+    \bottomrule
+    \end{tabular}
+    }
+\end{table*}

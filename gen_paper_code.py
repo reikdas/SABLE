@@ -74,7 +74,18 @@ def main():
                              "Generated_dense_tensors/ instead of clearing them "
                              "after each matrix. The generated C is only runnable "
                              "with them present, but they are large.")
-    args, extra_args = parser.parse_known_args()
+    # Arguments for bench_suitesparse.py come after "--" rather than being
+    # sniffed out of the command line. parse_known_args lets the greedy
+    # nargs="*" positional swallow an unknown option's value, so
+    # "--matrix-set fukaya --operation spmv" would take spmv for a matrix name
+    # and forward a valueless --operation.
+    argv = sys.argv[1:]
+    if "--" in argv:
+        separator = argv.index("--")
+        own_args, extra_args = argv[:separator], argv[separator + 1:]
+    else:
+        own_args, extra_args = argv, []
+    args = parser.parse_args(own_args)
 
     if not DRIVER.exists():
         sys.exit(f"error: {DRIVER} not found")

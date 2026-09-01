@@ -108,7 +108,21 @@ class Plan:
             pending = ", ".join(self._pending_formats.values())
             raise ValueError(f"Plan is incomplete: extracted format(s) have no dispatched kernel: {pending}")
 
-    def compile(self, filename: str | None = None, bench: int = 5, threads: int = 1):
+    def compile(
+        self,
+        filename: str | None = None,
+        bench: int = 5,
+        threads: int = 1,
+        data_dir: str | None = None,
+        data_key: str | None = None,
+    ):
         from .compiler import compile as compile_plan
 
-        return compile_plan(self, filename=filename, bench=bench, threads=threads)
+        return compile_plan(
+            self,
+            filename=filename,
+            bench=bench,
+            threads=threads,
+            data_dir=data_dir,
+            data_key=data_key,
+        )

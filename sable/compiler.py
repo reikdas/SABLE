@@ -230,6 +230,38 @@ def _write_sabledata(data_path: str, bindings: list[RepBinding]) -> None:
             _write_array_values(f, binding.rep.values)
             f.write("]\n")
 
+_STAGED_DATA: dict[str, tuple[str, tuple]] = {}
+
+
+def _staging_signature(bindings: list[RepBinding]) -> tuple:
+    return tuple((binding.label, len(binding.rep.values)) for binding in bindings)
+
+
+def _stage_data(
+    bindings: list[RepBinding],
+    own_path: str,
+    data_dir: str | None,
+    data_key: str | None,
+) -> str:
+    if not data_dir or not data_key:
+        _write_sabledata(own_path, bindings)
+        return own_path
+
+    signature = _staging_signature(bindings)
+    cached = _STAGED_DATA.get(data_key)
+    if cached is not None:
+        cached_path, cached_signature = cached
+        if cached_signature == signature and os.path.exists(cached_path):
+            return cached_path
+        _write_sabledata(own_path, bindings)
+        return own_path
+
+    os.makedirs(data_dir, exist_ok=True)
+    shared_path = os.path.join(data_dir, data_key + ".sabledata")
+    _write_sabledata(shared_path, bindings)
+    _STAGED_DATA[data_key] = (shared_path, signature)
+    return shared_path
+
 
 def _c_string(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
@@ -648,7 +680,14 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
     return "".join(lines)
 
 
-def compile(plan: Plan, filename: str | None = None, bench: int = 5, threads: int = 1) -> CompiledExecutor:
+def compile(
+    plan: Plan,
+    filename: str | None = None,
+    bench: int = 5,
+    threads: int = 1,
+    data_dir: str | None = None,
+    data_key: str | None = None,
+) -> CompiledExecutor:
     if threads != 1:
         raise ValueError("The frontend compiler is single-threaded for now")
     if bench <= 0:
@@ -664,7 +703,7 @@ def compile(plan: Plan, filename: str | None = None, bench: int = 5, threads: in
 
     start = time.time_ns() // 1_000_000
     bindings = _bind_reps(plan)
-    _write_sabledata(data_path, bindings)
+    data_path = _stage_data(bindings, data_path, data_dir, data_key)
     source = _emit_source(plan, data_path, bindings, bench)
     with open(c_path, "w") as f:
         f.write(source)

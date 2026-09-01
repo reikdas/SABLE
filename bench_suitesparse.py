@@ -474,6 +474,8 @@ def _compile_spmv_frontend(
     format_kernel,
     csr_kernel: CSRKernel,
     bench_iterations: int,
+    data_dir: str | None = None,
+    data_key: str | None = None,
 ):
     matrix = Matrix(matrix_source, name=matrix_name)
     write_dense_vector(1.0, matrix.ncols)
@@ -491,7 +493,12 @@ def _compile_spmv_frontend(
             raise ValueError(f"Unknown format kind: {format_kind}")
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, _csr_spmv_kernel(csr_kernel))
-    return plan.compile(filename=matrix_name, bench=bench_iterations)
+    return plan.compile(
+        filename=matrix_name,
+        bench=bench_iterations,
+        data_dir=data_dir,
+        data_key=data_key,
+    )
 
 
 def _compile_spmm_frontend(
@@ -503,6 +510,8 @@ def _compile_spmm_frontend(
     format_kernel,
     csr_kernel: CSRKernel,
     bench_iterations: int,
+    data_dir: str | None = None,
+    data_key: str | None = None,
 ):
     matrix = Matrix(matrix_source, name=matrix_name)
     write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS)
@@ -526,7 +535,12 @@ def _compile_spmm_frontend(
             raise ValueError(f"Unknown format kind: {format_kind}")
     csr = plan.extract(CSRConvertor())
     plan.dispatch(csr, _csr_spmm_kernel(csr_kernel))
-    return plan.compile(filename=matrix_name, bench=bench_iterations)
+    return plan.compile(
+        filename=matrix_name,
+        bench=bench_iterations,
+        data_dir=data_dir,
+        data_key=data_key,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -619,6 +633,7 @@ def _process_and_benchmark_frontend(
     baseline_source_mode: str = "run",
     baseline_results_dir: pathlib.Path = DEFAULT_BASELINE_RESULTS_DIR,
     allow_baseline_run_on_missing: bool = False,
+    codegen_only: bool = False,
 ) -> Optional[Dict[str, Any]]:
     if threads != 1:
         raise ValueError("The frontend benchmark path is single-threaded for now")
@@ -636,6 +651,9 @@ def _process_and_benchmark_frontend(
     variant_name = f"{format_kernel.value}_{csr_label}"
     codegen_root = pathlib.Path(os.environ.get("SABLE_CODEGEN_DIR") or str(FILEPATH))
     base_codegen_dir = codegen_root / f"{dir_prefix}_{format_kernel.value}_{csr_label}"
+    # The staged data depends only on the extraction, so every kernel variant
+    # of this matrix shares one file here instead of writing its own copy.
+    staged_data_dir = str(codegen_root / "Generated_Staged_Data")
     codegen_dir_composed = str(base_codegen_dir / "composed")
     codegen_dir_baseline = str(base_codegen_dir / "csr_baseline")
     os.makedirs(codegen_dir_composed, exist_ok=True)
@@ -652,7 +670,27 @@ def _process_and_benchmark_frontend(
         format_kernel,
         csr_kernel,
         bench_iterations,
+        data_dir=staged_data_dir,
+        data_key=f"{matrix_name}_{format_kind}",
     )
+
+    if codegen_only:
+        os.makedirs(codegen_dir_baseline, exist_ok=True)
+        print(f"  [{variant_name}] Generating frontend C code (CSR baseline)...")
+        compile_fn(
+            matrix_name,
+            baseline_data["matrix"],
+            format_kind,
+            [],
+            codegen_dir_baseline,
+            format_kernel,
+            csr_kernel,
+            bench_iterations,
+            data_dir=staged_data_dir,
+            data_key=f"{matrix_name}_csr_baseline",
+        )
+        print(f"  [{variant_name}] Codegen only; skipping compilation and timing")
+        return None
 
     print(f"  [{variant_name}] Evaluating composed version...")
     dispatch_times, dispatch_part_times, compile_time_composed_ns = eval_frontend_executor_timings(
@@ -693,6 +731,8 @@ def _process_and_benchmark_frontend(
             format_kernel,
             csr_kernel,
             bench_iterations,
+            data_dir=staged_data_dir,
+            data_key=f"{matrix_name}_csr_baseline",
         )
 
         print(f"  [{variant_name}] Evaluating CSR baseline...")
@@ -837,6 +877,11 @@ def main() -> int:
                              "canonical sable_<op>_<kernels>.json names.")
     parser.add_argument("--bench", type=int, default=None,
                         help=f"Benchmark iterations (default: {DEFAULT_SPMV_BENCH_ITERATIONS} for spmv, {DEFAULT_SPMM_BENCH_ITERATIONS} for spmm)")
+    parser.add_argument("--codegen-only", action="store_true",
+                        help="Generate the C and .sabledata for each matrix and configuration, "
+                             "then stop: nothing is compiled, run, or timed, and no results JSON "
+                             "is written. Needs only the matrices and the extraction YAML, so it "
+                             "runs without build_native.sh and without AVX-512.")
     parser.add_argument("--output-dir", type=str, default="results")
     parser.add_argument("--csr-kernels", type=str, default="all",
                         help="SpMV: naive,spv8,mkl,uzp. SpMM: naive,mkl,spreg. Invalid names silently skipped per operation.")
@@ -971,7 +1016,10 @@ def main() -> int:
                         for csr_kernel in csr_kernels:
                             csr_label = csr_kernel.value
                             results_key = f"{operation.value}_{format_kernel.value}_{csr_label}"
-                            print(f"\n  === Running {results_key} benchmark (threads={num_threads}) ===")
+                            if args.codegen_only:
+                                print(f"\n  === Generating {results_key} code ===")
+                            else:
+                                print(f"\n  === Running {results_key} benchmark (threads={num_threads}) ===")
 
                             result = _process_and_benchmark_frontend(
                                 operation,
@@ -988,6 +1036,7 @@ def main() -> int:
                                 baseline_source_mode=args.baseline_source,
                                 baseline_results_dir=baseline_results_dir,
                                 allow_baseline_run_on_missing=args.allow_baseline_run_on_missing,
+                                codegen_only=args.codegen_only,
                             )
 
                             if result:

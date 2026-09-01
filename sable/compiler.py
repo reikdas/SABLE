@@ -213,7 +213,7 @@ def _bind_reps(plan: Plan) -> list[RepBinding]:
                 if isinstance(value, Rep):
                     bind(value, f"{type(fmt).__name__.lower()}_{field.name}", field.name)
         # Kernels may stage dense operands of their own, e.g. the additive
-        # input of an update kernel dispatched without a format.
+        # input of an update kernel dispatched on the accumulated result.
         for attr_name, value in vars(dispatch.kernel).items():
             if isinstance(value, Rep):
                 bind(value, f"{type(dispatch.kernel).__name__.lower()}_{attr_name}", attr_name)

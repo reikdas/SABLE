@@ -112,12 +112,11 @@ def run(bench: int = 5) -> dict:
     assert csr.nnz == int(A.nnz), "Expected the whole matrix in the CSR extraction"
     plan.dispatch(csr, MKLCSRSpmv())
 
-    plan.dispatch(GradientDescent(b, alpha))
-
-    plan.iterate(max_iterations=MAX_ITERATIONS)
+    accum = plan.accumulate()
+    plan.dispatch(accum, GradientDescent(b, alpha))
 
     # -- Compile, run, and verify against the Python reference ------------
-    output = plan.compile(filename=filename, bench=bench).build().run()
+    output = plan.compile_loop(iters=MAX_ITERATIONS, filename=filename, bench=bench).build().run()
 
     iterations = parse_iteration_counts(output)
     x_ref, ref_iterations = gd_reference(A, x0, b, alpha, delta, MAX_ITERATIONS)

@@ -330,8 +330,7 @@ python3 -m pytest tests/test_frontend_compiler.py -v
 # Codegen golden tests (compares generated C against stored references)
 python3 -m pytest tests/test_codegen_golden.py -v
 
-# Iterative-algorithm frontend tests (Plan.iterate /
-# format-less update dispatches; small matrices, no MKL)
+# Iterative-algorithm frontend tests
 python3 -m pytest tests/test_iteration_frontend.py -v
 ```
 

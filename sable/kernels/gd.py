@@ -53,3 +53,61 @@ for (long i = 0; i < {n}; i++) {{
     {y}[i] = {x}[i];
 }}
 """
+
+
+class Jacobi:
+    DELTA = 0.01
+
+    def __init__(self, b, diag):
+        if self.DELTA <= 0:
+            raise ValueError(f"DELTA must be positive, got {self.DELTA}")
+        if hasattr(b, "ravel"):
+            b = b.ravel().tolist()
+        b = [float(v) for v in b]
+        if not b:
+            raise ValueError("b must not be empty")
+        if hasattr(diag, "ravel"):
+            diag = diag.ravel().tolist()
+        diag = [float(v) for v in diag]
+        if len(diag) != len(b):
+            raise ValueError(f"diag has {len(diag)} entries, b has {len(b)}")
+        if any(v == 0.0 for v in diag):
+            raise ValueError("diag must have no zero entries")
+        self.b = Rep(b, label="jac_b")
+        self.dinv = Rep([1.0 / v for v in diag], label="jac_dinv")
+
+    def emit_includes(self) -> list[str]:
+        return ["#include <float.h>"]
+
+    def emit_loop_state(self) -> str:
+        return "    double sable_rn;\n"
+
+    def emit_loop_init(self) -> str:
+        return "        sable_rn = DBL_MAX;\n"
+
+    def emit_loop_condition(self) -> str:
+        return f"sable_rn >= sable_b_norm * {self.DELTA:.17g} * {self.DELTA:.17g}"
+
+    def emit_setup(self, fmt, rhs) -> str:
+        n = len(self.b.values)
+        b = self.b
+        return f"""\
+double sable_b_norm = 0.0;
+for (long i = 0; i < {n}; i++) {{
+    sable_b_norm += {b}[i] * {b}[i];
+}}
+"""
+
+    def emit_call(self, fmt, y: str, x: str, rhs) -> str:
+        n = len(self.b.values)
+        b = self.b
+        dinv = self.dinv
+        return f"""\
+sable_rn = 0.0;
+for (long i = 0; i < {n}; i++) {{
+    double r = {y}[i] - {b}[i];
+    sable_rn += r * r;
+    {x}[i] = {x}[i] - {dinv}[i] * r;
+    {y}[i] = {x}[i];
+}}
+"""

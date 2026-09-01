@@ -1,0 +1,206 @@
+[
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "vbr_values": 15408,
+      "csr_nnz": 8124
+    },
+    "delta": 0.01,
+    "alpha": 0.2824044266047238,
+    "iterations": 98,
+    "reference_iterations": 98,
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 459073.0,
+      "dispatch_2": 4843450.2,
+      "dispatch_3": 37275.0
+    },
+    "total_time_ns": 5339798.2,
+    "time_per_iteration_ns": 54487.7
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "bundle1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 10581,
+      "cols": 10581,
+      "nnz": 770811
+    },
+    "split": {
+      "vbr_values": 101633,
+      "csr_nnz": 677137
+    },
+    "delta": 0.01,
+    "alpha": 0.08734075990728225,
+    "iterations": 182,
+    "reference_iterations": 182,
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 4282640.2,
+      "dispatch_2": 47195560.2,
+      "dispatch_3": 943227.4
+    },
+    "total_time_ns": 52421427.8,
+    "time_per_iteration_ns": 288029.8
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "net100",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 29920,
+      "cols": 29920,
+      "nnz": 2033200
+    },
+    "split": {
+      "vbr_values": 517140,
+      "csr_nnz": 1516060
+    },
+    "delta": 0.01,
+    "alpha": 0.17556234252158526,
+    "iterations": 106,
+    "reference_iterations": 106,
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 13854645.8,
+      "dispatch_2": 64029162.8,
+      "dispatch_3": 1574602.6
+    },
+    "total_time_ns": 79458411.2,
+    "time_per_iteration_ns": 749607.7
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "vbr_values": 2253001,
+      "csr_nnz": 16500
+    },
+    "delta": 0.01,
+    "alpha": 0.31543400740330096,
+    "iterations": 35,
+    "reference_iterations": 35,
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 21660529.6,
+      "dispatch_2": 527857.6,
+      "dispatch_3": 61644.2
+    },
+    "total_time_ns": 22250031.4,
+    "time_per_iteration_ns": 635715.2
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vdia_csr",
+    "matrix_name": "bcsstk28",
+    "kernels": {
+      "vdia": "bandmkl",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 4410,
+      "cols": 4410,
+      "nnz": 219024
+    },
+    "split": {
+      "vdia_values": 39440,
+      "csr_nnz": 189257
+    },
+    "delta": 0.01,
+    "alpha": 0.4011019746921955,
+    "iterations": 11,
+    "reference_iterations": 11,
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 439697.2,
+      "dispatch_2": 5394712.6,
+      "dispatch_3": 16539.2
+    },
+    "total_time_ns": 5850949.0,
+    "time_per_iteration_ns": 531904.5
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vdia_csr",
+    "matrix_name": "nemeth25",
+    "kernels": {
+      "vdia": "bandmkl",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 1511758
+    },
+    "split": {
+      "vdia_values": 16463,
+      "csr_nnz": 1499377
+    },
+    "delta": 0.01,
+    "alpha": 0.47060260522511876,
+    "iterations": 18,
+    "reference_iterations": 18,
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 370436.4,
+      "dispatch_2": 13253441.8,
+      "dispatch_3": 106507.4
+    },
+    "total_time_ns": 13730385.6,
+    "time_per_iteration_ns": 762799.2
+  }
+]

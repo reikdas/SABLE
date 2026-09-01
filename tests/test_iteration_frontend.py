@@ -29,10 +29,9 @@ def test_iterate_codegen_wraps_dispatches_in_while_loop(tmp_path):
         DELTA = 0.25
 
     plan.dispatch(plan.extract(CSRConvertor()), NaiveCSRSpmv())
-    plan.dispatch(QuarterDelta([0.5, 0.5], alpha=0.5))
-    plan.iterate(max_iterations=7)
+    plan.dispatch(plan.accumulate(), QuarterDelta([0.5, 0.5], alpha=0.5))
 
-    source = pathlib.Path(plan.compile(filename="iterate_codegen", bench=2).c_path).read_text()
+    source = pathlib.Path(plan.compile_loop(iters=7, filename="iterate_codegen", bench=2).c_path).read_text()
     assert "double sable_rn;" in source
     assert "sable_rn = DBL_MAX;" in source
     assert "while (sable_iteration < 7 && (sable_rn >= sable_b_norm * 0.25 * 0.25)) {" in source
@@ -44,14 +43,13 @@ def test_iterate_codegen_wraps_dispatches_in_while_loop(tmp_path):
 
 
 def test_iterate_codegen_fixed_count_without_condition_kernel(tmp_path):
-    """max_iterations alone gives a fixed-count loop."""
+    """iters alone gives a fixed-count loop."""
     rhs_path = tmp_path / "x.vector"
     _write_vector(rhs_path, [1.0, 1.0])
 
     plan = Plan(Matrix(scipy.sparse.eye(2, format="csr"), name="fixed_count"), artifact_dir=str(tmp_path))
     plan.rhs(DenseInput.vector(str(rhs_path), size=2))
     plan.dispatch(plan.extract(CSRConvertor()), NaiveCSRSpmv())
-    plan.iterate(max_iterations=7)
 
-    source = pathlib.Path(plan.compile(filename="fixed_count", bench=1).c_path).read_text()
+    source = pathlib.Path(plan.compile_loop(iters=7, filename="fixed_count", bench=1).c_path).read_text()
     assert "while (sable_iteration < 7) {" in source

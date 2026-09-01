@@ -14,6 +14,16 @@ class Dispatch:
     kernel: object
 
 
+class Accumulation:
+    """The merged result tensor of a plan's dispatches.
+
+    Returned by Plan.accumulate(); dispatching a kernel on it makes the kernel
+    operate over the accumulated result rather than a sparse format.
+    """
+
+    __slots__ = ()
+
+
 @dataclass
 class IterationSpec:
     max_iterations: int | None = None
@@ -54,11 +64,6 @@ class Plan:
     def iteration(self) -> IterationSpec | None:
         return self._iteration
 
-    def iterate(self, max_iterations: int | None = None) -> None:
-        if max_iterations is not None and max_iterations <= 0:
-            raise ValueError(f"max_iterations must be positive, got {max_iterations}")
-        self._iteration = IterationSpec(max_iterations=max_iterations)
-
     @property
     def residual(self) -> ResidualMatrix:
         return self._residual
@@ -90,11 +95,18 @@ class Plan:
             self._pending_formats[id(fmt)] = type(fmt).__name__
         return fmt
 
-    def dispatch(self, fmt: Format | object, kernel: object | None = None) -> None:
-        if kernel is None:
-            fmt, kernel = None, fmt
-            if isinstance(kernel, Format):
-                raise TypeError("dispatch(fmt) is missing a kernel; use dispatch(fmt, kernel)")
+    def accumulate(self) -> Accumulation:
+        return Accumulation()
+
+    def dispatch(self, target: Format | Accumulation, kernel: object) -> None:
+        if isinstance(target, Accumulation):
+            fmt = None
+        elif isinstance(target, Format):
+            fmt = target
+        else:
+            raise TypeError(
+                f"dispatch(...) takes a Format or plan.accumulate(), got {type(target).__name__}"
+            )
         if fmt is not None:
             accepts = getattr(kernel, "accepts", None)
             if accepts is not None and not isinstance(fmt, accepts):
@@ -133,3 +145,18 @@ class Plan:
         from .compiler import compile as compile_plan
 
         return compile_plan(self, filename=filename, bench=bench, threads=threads)
+
+    def compile_loop(
+        self,
+        iters: int | None = None,
+        filename: str | None = None,
+        bench: int = 5,
+        threads: int = 1,
+    ):
+        """Like compile(), but the generated program runs the dispatch sequence
+        in a loop: up to `iters` times, or until a dispatched kernel's
+        convergence condition is met, whichever comes first."""
+        if iters is not None and iters <= 0:
+            raise ValueError(f"iters must be positive, got {iters}")
+        self._iteration = IterationSpec(max_iterations=iters)
+        return self.compile(filename=filename, bench=bench, threads=threads)

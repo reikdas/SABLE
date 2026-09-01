@@ -433,14 +433,20 @@ def _convert_and_prepare(
     format_regions: list[Any],
     mat: scipy.sparse.spmatrix,
     format_kind: str,
+    write_rhs: bool = True,
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
     csr_mat = mat.tocsr()
     _, matrix_cols = csr_mat.shape
 
-    if operation == Operation.SPMV:
-        write_dense_vector(1.0, matrix_cols)
-    else:
-        write_dense_matrix(1.0, matrix_cols, SPMM_NRHS)
+    # The dense right-hand side is runtime input, not generated code: the
+    # emitted C only embeds its path and opens it when the benchmark runs.
+    # Writing it costs ncols x SPMM_NRHS values of text -- gigabytes for a
+    # wide matrix -- so codegen skips it and the benchmark path writes it.
+    if write_rhs:
+        if operation == Operation.SPMV:
+            write_dense_vector(1.0, matrix_cols)
+        else:
+            write_dense_matrix(1.0, matrix_cols, SPMM_NRHS)
 
     if format_kind == "vdia":
         region_stats = _analyze_bands_from_data(format_regions)
@@ -476,9 +482,11 @@ def _compile_spmv_frontend(
     bench_iterations: int,
     data_dir: str | None = None,
     data_key: str | None = None,
+    write_rhs: bool = True,
 ):
     matrix = Matrix(matrix_source, name=matrix_name)
-    write_dense_vector(1.0, matrix.ncols)
+    if write_rhs:
+        write_dense_vector(1.0, matrix.ncols)
 
     plan = Plan(matrix, artifact_dir=artifact_dir)
     plan.rhs(DenseInput.vector(_generated_vector_path(matrix.ncols), matrix.ncols))
@@ -512,9 +520,11 @@ def _compile_spmm_frontend(
     bench_iterations: int,
     data_dir: str | None = None,
     data_key: str | None = None,
+    write_rhs: bool = True,
 ):
     matrix = Matrix(matrix_source, name=matrix_name)
-    write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS)
+    if write_rhs:
+        write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS)
 
     plan = Plan(matrix, artifact_dir=artifact_dir)
     plan.rhs(
@@ -672,6 +682,7 @@ def _process_and_benchmark_frontend(
         bench_iterations,
         data_dir=staged_data_dir,
         data_key=f"{matrix_name}_{format_kind}",
+        write_rhs=not codegen_only,
     )
 
     if codegen_only:
@@ -688,6 +699,7 @@ def _process_and_benchmark_frontend(
             bench_iterations,
             data_dir=staged_data_dir,
             data_key=f"{matrix_name}_csr_baseline",
+            write_rhs=not codegen_only,
         )
         print(f"  [{variant_name}] Codegen only; skipping compilation and timing")
         return None
@@ -733,6 +745,7 @@ def _process_and_benchmark_frontend(
             bench_iterations,
             data_dir=staged_data_dir,
             data_key=f"{matrix_name}_csr_baseline",
+            write_rhs=not codegen_only,
         )
 
         print(f"  [{variant_name}] Evaluating CSR baseline...")
@@ -880,8 +893,11 @@ def main() -> int:
     parser.add_argument("--codegen-only", action="store_true",
                         help="Generate the C and .sabledata for each matrix and configuration, "
                              "then stop: nothing is compiled, run, or timed, and no results JSON "
-                             "is written. Needs only the matrices and the extraction YAML, so it "
-                             "runs without build_native.sh and without AVX-512.")
+                             "is written. The dense right-hand sides are not written either -- "
+                             "they are runtime input the generated C opens when it runs, and a "
+                             "benchmark run writes them. Needs only the matrices and the "
+                             "extraction YAML, so it runs without build_native.sh and without "
+                             "AVX-512.")
     parser.add_argument("--output-dir", type=str, default="results")
     parser.add_argument("--csr-kernels", type=str, default="all",
                         help="SpMV: naive,spv8,mkl,uzp. SpMM: naive,mkl,spreg. Invalid names silently skipped per operation.")
@@ -998,10 +1014,12 @@ def main() -> int:
 
                 print(f"\n  === Converting to frontend formats ({op_label}) ===")
                 vbr_data, baseline_data = _convert_and_prepare(
-                    operation, matrix_name, block_coords, A, "vbr"
+                    operation, matrix_name, block_coords, A, "vbr",
+                    write_rhs=not args.codegen_only,
                 )
                 vdia_data, _ = _convert_and_prepare(
-                    operation, matrix_name, vdia_bands, A, "vdia"
+                    operation, matrix_name, vdia_bands, A, "vdia",
+                    write_rhs=not args.codegen_only,
                 )
                 format_runs = [
                     ("vbr", kernel, vbr_data)

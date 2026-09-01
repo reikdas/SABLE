@@ -1,15 +1,4 @@
 #!/usr/bin/env python3
-"""Block-search saturation plot for the 55-matrix VBR+CSR set.
-
-A matrix is "saturated" at time t if stopping the block partitioner at t
-yields the same block set as running it for the full four-hour budget --
-i.e., its last block was found by time t.  Each point is one matrix at its
-saturation time (the found_at_seconds of its last-discovered block); y is
-the cumulative number of saturated matrices.
-
-Reads results/inspection_vbr_csr_spmv.json (see copy_inspection_results.py)
-and writes images/block_discovery.pdf.
-"""
 
 import json
 import os
@@ -19,7 +8,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 here = os.path.dirname(os.path.abspath(__file__))
-data_path = os.path.join(here, 'results', 'inspection_vbr_csr_spmv.json')
+data_path = os.path.join(here, os.pardir, 'results', 'inspection',
+                         'inspection_vbr_csr_spmv.json')
 out_path = os.path.join(here, 'images', 'block_discovery.pdf')
 
 with open(data_path) as f:

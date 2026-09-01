@@ -1,7 +1,7 @@
 {
  "_description": "Inputs for aggregate_overlap_fix.py: the VDIA/VBR block-band overlap correction and the VBR+VDIA+CSR extraction-order ablation.",
  "_fields": {
-  "fresh_measurements": "bench_overlap_fix.py output, keyed matrix|variant|op|backend",
+  "fresh_measurements": "gen_block_band_nums.py output, keyed matrix|variant|op|backend",
   "prefix_vdia_segment_times_ns": "per-segment VDIA times measured at commit c80e08d, the code that produced published_totals (the MKL DIA kernels changed in e92a8b3/d205961 afterwards, so later measurements are not in these units)",
   "block_nnz_analysis": "per-block full-matrix and post-band nnz, and block/band overlap flags",
   "published_totals": "the pre-correction VDIA+VBR+CSR results, kept so the reconstruction stays idempotent after the live files are overwritten"

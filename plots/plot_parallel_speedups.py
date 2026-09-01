@@ -58,8 +58,8 @@ SPMV_FILES = {
     'uzp':   'sable_spmv_blas_uzp.json',
 }
 SPMM_FILES = {
-    'mkl':   'sable_spmm_mkl_mkl.json',
-    'naive': 'sable_spmm_mkl_naive.json',
+    'mkl':   'sable_spmm_blas_mkl.json',
+    'naive': 'sable_spmm_blas_naive.json',
 }
 BASELINE_DISPLAY = {
     'mkl': 'MKL', 'naive': 'Naive', 'spv8': 'SpV8', 'uzp': 'UZP',
@@ -260,7 +260,10 @@ def compute_spmm_speedups(all_data, tc_key):
 def plot_parallel_bar(spmv_data, spmm_data, matrix_nnz, output_path):
     """Plot a paired bar chart showing SpMV and SpMM speedups at 8 threads."""
     all_matrices = set(spmv_data.keys()) | set(spmm_data.keys())
-    sorted_matrices = sorted(all_matrices, key=lambda m: matrix_nnz.get(m, float('inf')))
+    # Break nnz ties by name: all_matrices is a set, so without a total order
+    # matrices with equal nnz (e.g. heart2/heart3) swap places between runs.
+    sorted_matrices = sorted(all_matrices,
+                             key=lambda m: (matrix_nnz.get(m, float('inf')), m))
 
     labels = []
     spmv_vals = []
@@ -519,7 +522,9 @@ def plot_combined_scaling_subplots(spmv_data, spmm_data, selected_matrices,
 
 def main():
     parser = argparse.ArgumentParser(description="Parallel SpMV+SpMM analysis and plotting.")
-    parser.add_argument('--results-dir', default='results',
+    parser.add_argument('--results-dir',
+                        default=os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                             os.pardir, 'results'),
                         help='Directory with sable_sp{mv,mm}_*.json files')
     parser.add_argument('--output-bar', default=None,
                         help='Output PDF for parallel bar chart')
@@ -578,7 +583,8 @@ def main():
     print(f"\n{'='*60}")
     print(f"Summary for SpMV at {PARALLEL_TC}:")
     print(f"{'='*60}")
-    sorted_m = sorted(spmv_speedups.keys(), key=lambda m: matrix_nnz.get(m, 0))
+    sorted_m = sorted(spmv_speedups.keys(),
+                      key=lambda m: (matrix_nnz.get(m, 0), m))
     for m in sorted_m:
         info = spmv_speedups[m]
         spmm_info = spmm_speedups.get(m)

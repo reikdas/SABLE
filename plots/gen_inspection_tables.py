@@ -1,30 +1,14 @@
 #!/usr/bin/env python3
-"""Generate LaTeX tables of SABLE inspection/compilation times for the appendix.
-
-Reads results/inspection_{vbr_csr,vdia_csr,vdia_vbr_csr}_spmv.json (produced by
-SABLE/bench_inspection.py) and prints the LaTeX for the three tables of the
-"Inspection Cost" appendix section to stdout (or to a file with -o), ready to
-be pasted into appendix.tex. This script never modifies appendix.tex.
-
-    python3 gen_inspection_tables.py            # print to stdout
-    python3 gen_inspection_tables.py -o t.tex   # write to a file
-
-Column semantics (all times in seconds):
-  VDIA    = band search wall time (find_vdia_regions, min density 0.75)
-  VBR     = block partitioner subprocess wall time (20 threads, 4-hour budget;
-            a dagger marks matrices where the search exhausted the budget)
-  CSR     = conversion of the residual matrix to CSR
-  CodeGen = emission of the specialized C program and its data file
-  GCC     = compilation of the generated program (--- marks failure)
-  Total   = sum of the phase columns of the table (a double dagger marks totals
-            that exclude a failed compilation)
-"""
 
 import json
 import os
 import sys
 
-RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'results')
+RESULTS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           os.pardir, 'results')
+INSPECTION_DIR = os.path.join(RESULTS_DIR, 'inspection')
+
+EXCLUDED_MATRICES = frozenset({'thread'})
 
 COLUMNS = {
     'vbr_csr': ['vbr', 'csr', 'codegen', 'gcc'],
@@ -35,11 +19,19 @@ HEADERS = {'vdia': r'\textbf{VDIA}', 'vbr': r'\textbf{VBR}', 'csr': r'\textbf{CS
            'codegen': r'\textbf{CodeGen}', 'gcc': r'\textbf{GCC}', 'total': r'\textbf{Total}'}
 
 
-def load(set_name):
-    path = os.path.join(RESULTS_DIR, f'inspection_{set_name}_spmv.json')
+def load(set_name, restrict=None):
+    path = os.path.join(INSPECTION_DIR, f'inspection_{set_name}_spmv.json')
     with open(path) as f:
         entries = [e for e in json.load(f) if 'error' not in e]
+    if restrict is not None:
+        entries = [e for e in entries if e['matrix_name'] in restrict]
     return sorted(entries, key=lambda e: e['nnz'])
+
+
+def eval_matrices(results_file):
+    with open(os.path.join(RESULTS_DIR, results_file)) as f:
+        return {m['matrix_name'] for m in json.load(f)
+                if m['matrix_name'] not in EXCLUDED_MATRICES}
 
 
 def esc(name):
@@ -144,8 +136,8 @@ def vbr_csr_table():
     return lines
 
 
-def single_column_table(set_name, label, caption_lines):
-    entries = load(set_name)
+def single_column_table(set_name, label, caption_lines, restrict=None):
+    entries = load(set_name, restrict)
     lines = [r'\begin{table}[t!]', r'  \caption{%']
     lines.extend(caption_lines)
     if has_failed_gcc(entries):
@@ -178,13 +170,13 @@ def main():
     lines.append('')
     lines.extend(single_column_table('vdia_vbr_csr', 'table:inspection_vdia_vbr_csr', [
         r'    One-time inspection and compilation cost of \sys{} for the VDIA+VBR+CSR',
-        r'    configuration on the 24 matrices of \autoref{table:vdia_vbr_csr}',
+        r'    configuration on the 13 matrices of \autoref{table:vdia_vbr_csr}',
         r'    (seconds, sorted by non-zeros). The band search runs on the full matrix',
         r'    and the block partitioner on the residual left after band extraction;',
         r'    columns are as in \autoref{table:inspection_vbr_csr} and',
         r'    \autoref{table:inspection_vdia_csr}. $^\dagger$ marks matrices where the',
         r'    block search exhausted its four-hour budget.',
-    ]))
+    ], restrict=eval_matrices('spmv_vdia_vbr_csr_d075.json')))
     lines.append('')
 
     text = '\n'.join(lines).rstrip('\n') + '\n'

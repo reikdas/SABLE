@@ -1,14 +1,4 @@
 #!/usr/bin/env python3
-"""Chained-kernel (RQ4) best-times-comparison plots.
-
-Generates one grouped bar-chart PDF, analogous to vdia_csr_best_times.pdf,
-with one bar pair (gradient descent, Jacobi iteration) per matrix:
-images/iterative_best_times.pdf
-
-Each bar is the total-time-to-convergence speedup of the best SABLE VBR+CSR
-configuration over the best fully-sparse baseline (results/iterative_eval.json).
-"""
-
 import argparse
 import json
 import math
@@ -147,7 +137,8 @@ def main():
     parser = argparse.ArgumentParser(description="Chained-kernel speedup plots.")
     parser.add_argument('--results-json',
                         default=os.path.join(os.path.dirname(__file__),
-                                             'results', 'iterative_eval.json'))
+                                             os.pardir, 'results',
+                                             'iterative_eval.json'))
     parser.add_argument('--output-dir',
                         default=os.path.join(os.path.dirname(__file__), 'images'))
     args = parser.parse_args()

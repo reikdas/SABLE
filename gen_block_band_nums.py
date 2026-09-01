@@ -1,72 +1,4 @@
 #!/usr/bin/env python3
-"""Correct the VDIA/VBR block-band overlap and evaluate the reversed extraction order.
-
-The published VDIA+VBR+CSR evaluation (results/sp{mv,mm}_vdia_vbr_csr_d075.json)
-composed the band YAMLs (find-submatrices/results_bands_075/) with the block
-YAMLs (find-submatrices/results/), both computed on the FULL matrix.  Bands
-extract first, so blocks whose rectangle intersects a band ribbon were packed
-with zeros in the overlap (blocks emptied entirely were silently dropped by the
-packer).  The corrected evaluation removes every block that overlaps a band;
-the reversed ablation (VBR+VDIA+CSR) removes every band that overlaps a block.
-
-    python3 bench_overlap_fix.py measure     # (re)run the benchmarks
-    python3 bench_overlap_fix.py aggregate   # rebuild the summary JSONs
-    python3 bench_overlap_fix.py all         # both (default)
-
-MEASURE
-Only the CSR dispatch is re-evaluated; the published VDIA and VBR timings are
-kept.  Per (matrix, operation, CSR backend) it builds the composed programs the
-reconstruction needs:
-
-  old  VDIA(all bands)   + VBR(all blocks)  + CSR   [as published]
-  new  VDIA(all bands)   + VBR(kept blocks) + CSR   [corrected VDIA+VBR+CSR]
-  abl  VBR(all blocks)   + VDIA(kept bands) + CSR   [VBR+VDIA+CSR ablation]
-
-using the kernels of the published evaluation: MKL DIA (SpMV) / naive (SpMM)
-for VDIA, mixed per-block MKL/naive for VBR.  It records per-dispatch and
-per-part times plus the part -> YAML block / band mapping, so the aggregation
-can attribute part times to removed or revived regions.  Results append to
-results/overlap_fix_raw.json and finished runs are skipped, so it is safe to
-restart.
-
-The ablation also needs the per-segment VDIA times of the dropped bands in the
-units of the published totals.  The MKL DIA kernels changed after those totals
-were measured (e92a8b3, d205961), so that phase needs the original code:
-
-    git worktree add ../SABLE-c80e08d c80e08d
-    ln -s "$PWD/find-submatrices" ../SABLE-c80e08d/find-submatrices
-    cd ../SABLE-c80e08d && for m in heart1 heart2 heart3 nd3k nemeth22 pkustk07; do
-      for op in spmv spmm; do python3 bench_suitesparse.py --operation $op \
-        --csr-kernels naive --vdia-kernels bandmkl --vbr-kernels none \
-        --baseline-source existing --allow-baseline-run-on-missing \
-        --output-dir /tmp/prefix_vdia $m; done; done
-
-Both phases, the block/band overlap analysis, and the published totals are
-consolidated into results/vdia_overlap_measurements.json, which is what the
-aggregation reads; re-running either phase is only necessary if the band YAMLs
-or the matrix set change.
-
-AGGREGATE
-Reconstruction (all in us, per matrix x operation x backend):
-  corrected = published - removed_vbr(recorded) - csr_old(fresh) + csr_new(fresh)
-  ablation  = published + revived_vbr(recorded) - removed_band_vdia(published-era
-              kernels) - csr_old(fresh) + csr_abl(fresh)
-
-Blocks that band extraction had emptied entirely never ran in the published
-binaries (the packer drops empty blocks), so they are not subtracted; in the
-ablation the same blocks do run (blocks extract first), so their recorded times
-are added back ("revived").  Matrices whose blocks (resp. bands) are all removed
-leave the corrected (resp. ablation) evaluation.
-
-Inputs   results/vdia_overlap_measurements.json (fresh CSR times, published-era
-         per-segment VDIA times, the overlap analysis, and the published totals)
-         and results/sable_sp{mv,mm}_mkl_*.json (recorded per-block VBR timings)
-Outputs  results/spm{v,m}_vdia_vbr_csr_d075.json  corrected in place
-         results/spm{v,m}_vbr_vdia_csr_d075.json  ablation summaries
-
-Re-runnable: the published totals it corrects are read from the measurements
-file, not from the files it overwrites, so running it twice is a no-op.
-"""
 
 import argparse
 import json
@@ -113,12 +45,9 @@ CODEGEN_ROOT = pathlib.Path(os.environ.get("SABLE_CODEGEN_DIR") or str(FILEPATH)
 SPMM_NRHS = bs.SPMM_NRHS
 BENCH = {"spmv": 30, "spmm": 10}  # iterations per invocation == number of invocations
 
-# Matrices whose corrected VDIA+VBR+CSR decomposition differs from the
-# published one by more than dropped-empty blocks (partially overlapped
-# blocks with a non-empty post-band residual).
+
 AFFECTED_CORRECTED = ["heart1", "heart2", "heart3", "pkustk07", "pkustk08"]
-# Matrices that keep at least one band in the VBR+VDIA+CSR ablation but lose
-# at least one band to a block overlap.
+
 AFFECTED_ABLATION = ["heart1", "heart2", "heart3", "nd3k", "nemeth22", "pkustk07"]
 
 CSR_KERNELS = {

@@ -313,6 +313,23 @@ def get_available_matrices() -> List[str]:
     return sorted(names)
 
 
+# The named matrix sets of the paper, as recorded in matrices.json. Extraction
+# leaves YAML for every matrix it found structure in (117 for VBR+CSR), which
+# is a superset of what the paper evaluates, so a bare run benchmarks far more
+# than the paper reports. --matrix-set restricts to a paper set instead.
+MATRIX_SETS_FILE = FILEPATH / "matrices.json"
+PAPER_SET_GROUPS = ("vbr_csr", "vdia_only", "fukaya")
+
+
+def get_matrix_set(name: str) -> List[str]:
+    """Matrix names of a paper set: 'paper' (all 78) or one group of it."""
+    with open(MATRIX_SETS_FILE) as f:
+        spec = json.load(f)
+    groups = PAPER_SET_GROUPS if name == "paper" else (name,)
+    names = {m["name"] for g in groups for m in spec[g]["matrices"]}
+    return sorted(names)
+
+
 # ---------------------------------------------------------------------------
 # SpMV kernel helpers
 # ---------------------------------------------------------------------------
@@ -812,6 +829,12 @@ def main() -> int:
                         help="Comma-separated operations: spmv, spmm, or spmv,spmm (default: spmv,spmm)")
     parser.add_argument("matrices", nargs="*", help="Matrix names to benchmark.")
     parser.add_argument("--matrices", dest="matrices_flag", nargs="*", metavar="MATRIX")
+    parser.add_argument("--matrix-set", choices=("paper",) + PAPER_SET_GROUPS,
+                        default=None,
+                        help="Benchmark a named matrix set from matrices.json "
+                             "instead of every extracted matrix: 'paper' is the "
+                             "78 the evaluation reports. Output keeps the "
+                             "canonical sable_<op>_<kernels>.json names.")
     parser.add_argument("--bench", type=int, default=None,
                         help=f"Benchmark iterations (default: {DEFAULT_SPMV_BENCH_ITERATIONS} for spmv, {DEFAULT_SPMM_BENCH_ITERATIONS} for spmm)")
     parser.add_argument("--output-dir", type=str, default="results")
@@ -852,7 +875,13 @@ def main() -> int:
 
     matrices = args.matrices or args.matrices_flag
     specific_matrices_requested = matrices is not None and len(matrices) > 0
-    if not matrices:
+    if specific_matrices_requested and args.matrix_set:
+        parser.error("--matrix-set and an explicit matrix list are mutually exclusive")
+    if args.matrix_set:
+        # A named set is the whole run, not a subselection of one, so it keeps
+        # the canonical filenames the plotting scripts read.
+        matrices = get_matrix_set(args.matrix_set)
+    elif not matrices:
         matrices = get_available_matrices()
 
     if specific_matrices_requested and len(matrices) == 1:

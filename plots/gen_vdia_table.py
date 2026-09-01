@@ -34,6 +34,8 @@ def load_data(results_dir):
         'spmm_vdia_csr': 'spmm_vdia_csr_d075.json',
         'spmv_vdia_vbr_csr': 'spmv_vdia_vbr_csr_d075.json',
         'spmm_vdia_vbr_csr': 'spmm_vdia_vbr_csr_d075.json',
+        'spmv_vbr_vdia_csr': 'spmv_vbr_vdia_csr_d075.json',
+        'spmm_vbr_vdia_csr': 'spmm_vbr_vdia_csr_d075.json',
     }
     data = {}
     for key, fname in files.items():
@@ -172,9 +174,31 @@ def generate_table(data, spmv_key, spmm_key, caption, label,
     return '\n'.join(lines)
 
 
+SPMV_BACKENDS_STATS = SPMV_BACKENDS
+SPMM_BACKENDS_STATS = SPMM_BACKENDS
+
+
+def _best_speedup(entry, backends):
+    per_backend = entry['per_backend']
+    best_v = best_b = None
+    for b in backends:
+        info = per_backend.get(b)
+        if not info:
+            continue
+        if info['vdia_us'] > 0 and (best_v is None or info['vdia_us'] < best_v):
+            best_v = info['vdia_us']
+        if info['baseline_us'] > 0 and (best_b is None or info['baseline_us'] < best_b):
+            best_b = info['baseline_us']
+    if not best_v or not best_b:
+        return None
+    return best_b / best_v
+
+
 def print_stats(data, key, label):
-    speedups = [m['best_vs_best']['speedup'] for m in data[key].values()]
-    wins = sum(1 for s in speedups if s >= 1.0)
+    backends = SPMV_BACKENDS_STATS if key.startswith('spmv') else SPMM_BACKENDS_STATS
+    speedups = [s for s in (_best_speedup(m, backends)
+                            for m in data[key].values()) if s]
+    wins = sum(1 for s in speedups if s > 1.0)
     geo = math.exp(sum(math.log(s) for s in speedups) / len(speedups))
     print(f'{label}: {wins}/{len(speedups)} wins, '
           f'geo mean {geo:.4f}x, '
@@ -184,7 +208,7 @@ def print_stats(data, key, label):
 
 if __name__ == '__main__':
     results_dir = os.path.join(
-        os.path.dirname(__file__), 'results'
+        os.path.dirname(__file__), os.pardir, 'results'
     )
     data = load_data(results_dir)
 
@@ -219,8 +243,9 @@ if __name__ == '__main__':
         table2 = generate_table(
             data, 'spmv_vdia_vbr_csr', 'spmm_vdia_vbr_csr',
             caption=(
-                'Speedup of VDIA+VBR+CSR over VBR+CSR on 24 SuiteSparse '
-                'matrices with diagonal band structure. '
+                'Speedup of VDIA+VBR+CSR over VBR+CSR on the 13 SuiteSparse '
+                'matrices with diagonal band structure whose \\ddense{} '
+                'blocks do not all overlap the extracted bands. '
                 '\\textit{Band cov.}\\ is the percentage of non-zeros '
                 'residing in diagonal band segments. '
                 '\\textit{Segs}\\ is the number of VDIA segments. '
@@ -244,3 +269,5 @@ if __name__ == '__main__':
     print_stats(data, 'spmm_vdia_csr', 'SpMM: VDIA+CSR vs CSR')
     print_stats(data, 'spmv_vdia_vbr_csr', 'SpMV: VDIA+VBR+CSR vs VBR+CSR')
     print_stats(data, 'spmm_vdia_vbr_csr', 'SpMM: VDIA+VBR+CSR vs VBR+CSR')
+    print_stats(data, 'spmv_vbr_vdia_csr', 'SpMV: VBR+VDIA+CSR vs VBR+CSR')
+    print_stats(data, 'spmm_vbr_vdia_csr', 'SpMM: VBR+VDIA+CSR vs VBR+CSR')

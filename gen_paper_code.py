@@ -19,6 +19,7 @@ STAGED_DATA_DIR = CODEGEN_ROOT / "Generated_Staged_Data"
 DENSE_TENSOR_DIR = pathlib.Path(
     os.environ.get("SABLE_DENSE_TENSOR_DIR") or (FILEPATH / "Generated_dense_tensors")
 )
+COMPLETED_DIR = CODEGEN_ROOT / "Generated_Code_Completed"
 
 MATRIX_SETS = ("paper", "vbr_csr", "vdia_only", "fukaya")
 
@@ -47,6 +48,33 @@ def generated_sources():
     return sorted(CODEGEN_ROOT.glob("Generated_Sp*/**/*.c"))
 
 
+def matrix_sources(name):
+    """Every .c generated for one matrix, across all kernel configurations."""
+    return sorted(CODEGEN_ROOT.glob(f"Generated_Sp*/**/{name}.c"))
+
+
+def completion_stamp(name):
+    return COMPLETED_DIR / f"{name}.done"
+
+
+def already_generated(name):
+    """True if an earlier run finished this matrix and its C is still on disk.
+
+    Deliberately a stamp rather than a bare "does any .c exist" test. A matrix
+    whose generation died part-way -- the case a resumed run exists to recover
+    from -- leaves behind the C of the configurations it did reach, so an
+    existence test would skip exactly the matrices that need redoing. The
+    second half of the check catches generated C wiped out from under a
+    surviving stamp.
+    """
+    return completion_stamp(name).exists() and bool(matrix_sources(name))
+
+
+def mark_generated(name):
+    COMPLETED_DIR.mkdir(parents=True, exist_ok=True)
+    completion_stamp(name).touch()
+
+
 def drop_bulk_data():
     """Remove the staged data and dense right-hand sides."""
     for directory in (STAGED_DATA_DIR, DENSE_TENSOR_DIR):
@@ -69,6 +97,20 @@ def main():
                         help="Generate for a named set from matrices.json instead "
                              "of an explicit list. Defaults to 'paper', the 78 "
                              "matrices the evaluation reports.")
+    parser.add_argument("--skip-existing", action="store_true",
+                        help="Skip matrices an earlier run finished rather than "
+                             "regenerating them, for resuming a run that died "
+                             "part-way. Off by default: a plain run rewrites "
+                             "every matrix's C. Completion is recorded under "
+                             "Generated_Code_Completed/ either way.")
+    parser.add_argument("--allow-failures", action="store_true",
+                        help="Exit 0 even when some matrices fail, so a build is "
+                             "not sunk by the handful the machine has not got the "
+                             "memory to generate. They are still reported, and "
+                             "still have no completion stamp, so a later "
+                             "--skip-existing run retries exactly them. Exiting "
+                             "non-zero because nothing generated at all is not "
+                             "suppressed.")
     parser.add_argument("--keep-bulk-data", action="store_true",
                         help="Keep Generated_Staged_Data/ and "
                              "Generated_dense_tensors/ instead of clearing them "
@@ -97,9 +139,20 @@ def main():
 
     started = time.time()
     failed = []
+    skipped = []
     for index, name in enumerate(names, start=1):
+        if args.skip_existing and already_generated(name):
+            print(f"\n=== [{index}/{len(names)}] {name}: already generated, "
+                  f"skipping ===")
+            skipped.append(name)
+            continue
         print(f"\n=== [{index}/{len(names)}] {name} ===")
-        if not generate(name, extra_args):
+        # Drop any stamp from an earlier run first, so a matrix that used to
+        # generate cleanly and no longer does is not left marked as done.
+        completion_stamp(name).unlink(missing_ok=True)
+        if generate(name, extra_args):
+            mark_generated(name)
+        else:
             print(f"  {name}: code generation failed")
             failed.append(name)
         if not args.keep_bulk_data:
@@ -107,16 +160,24 @@ def main():
 
     sources = generated_sources()
     print("\n" + "=" * 60)
-    print(f"Generated {len(sources)} C files from {len(names)} matrices "
-          f"in {_fmt(time.time() - started)}")
+    if skipped:
+        print(f"Generated C for {len(names) - len(skipped)} matrices "
+              f"({len(skipped)} already done, skipped) in "
+              f"{_fmt(time.time() - started)}; {len(sources)} C files on disk")
+    else:
+        print(f"Generated {len(sources)} C files from {len(names)} matrices "
+              f"in {_fmt(time.time() - started)}")
     if not args.keep_bulk_data:
         print("Staged data and dense right-hand sides cleared; re-run this "
               "script to recreate them before compiling.")
     if failed:
         print(f"Failed for {len(failed)}: {', '.join(failed)}")
+        if args.allow_failures:
+            print("Continuing anyway (--allow-failures); those matrices have no "
+                  "generated C. Re-run with --skip-existing to retry just them.")
     if not sources:
         sys.exit("error: no C was generated")
-    sys.exit(1 if failed else 0)
+    sys.exit(1 if failed and not args.allow_failures else 0)
 
 
 if __name__ == "__main__":

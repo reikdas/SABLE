@@ -66,6 +66,13 @@ SPMM_NRHS = 512
 SPMV_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPV8, CSRKernel.UZP)
 SPMM_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPREG)
 
+# The dense-side dispatch for VDIA, per operation. SpMV chooses between the
+# naive band kernel and MKL's DIA; SpMM runs the naive one only, which is what
+# plots/fukaya_results.py already reads back (sable_spmm_bandnaive_*, against
+# sable_spmv_bandmkl_* on the SpMV side).
+SPMV_VDIA_KERNELS = (VDIAKernel.NAIVE, VDIAKernel.MKL_DIA)
+SPMM_VDIA_KERNELS = (VDIAKernel.NAIVE,)
+
 SUITESPARSE_DIR = pathlib.Path(os.environ.get("SABLE_SUITESPARSE_DIR") or str(FILEPATH / "Suitesparse"))
 RESULTS_DIR = FILEPATH / "find-submatrices" / "results"
 BANDS_RESULTS_DIR = FILEPATH / "find-submatrices" / "results_bands_075"
@@ -848,17 +855,33 @@ def _resolve_vbr_kernels(arg: str, parser: argparse.ArgumentParser) -> list[VBRK
     return [VBRKernel(name) for name in names]
 
 
-def _resolve_vdia_kernels(arg: str, parser: argparse.ArgumentParser) -> list[VDIAKernel]:
+def _resolve_vdia_kernels(operation: Operation, arg: str,
+                          parser: argparse.ArgumentParser) -> list[VDIAKernel]:
+    """The VDIA kernels to run for one operation.
+
+    Unlike VBR, the available dense-side dispatch depends on the operation, so
+    this takes the operation the way _resolve_csr_kernels does. A name that is
+    real but not offered for this operation is skipped with a note rather than
+    being an error, so "--vdia-kernels bandmkl --operation spmv,spmm" still
+    runs the SpMV half. An empty result is allowed: VDIA is optional, and the
+    run falls back to the VBR entries of format_runs.
+    """
+    available = SPMV_VDIA_KERNELS if operation == Operation.SPMV else SPMM_VDIA_KERNELS
     if arg == "none":
         return []
     if arg == "all":
-        return list(VDIAKernel)
+        return list(available)
     names = [name.strip() for name in arg.split(",")]
-    valid = {kernel.value for kernel in VDIAKernel}
-    invalid = set(names) - valid
+    invalid = set(names) - {kernel.value for kernel in VDIAKernel}
     if invalid:
-        parser.error(f"Invalid VDIA kernel(s): {invalid}. Valid options: {valid}")
-    return [VDIAKernel(name) for name in names]
+        parser.error(f"Invalid VDIA kernel(s): {invalid}. Valid options: "
+                     f"{ {kernel.value for kernel in VDIAKernel} }")
+    valid = {kernel.value for kernel in available}
+    skipped = [name for name in names if name not in valid]
+    if skipped:
+        print(f"  [{operation.value}] Skipping VDIA kernels not available for "
+              f"{operation.value.upper()}: {skipped}")
+    return [VDIAKernel(name) for name in names if name in valid]
 
 
 # ---------------------------------------------------------------------------
@@ -904,7 +927,10 @@ def main() -> int:
     parser.add_argument("--vbr-kernels", type=str, default="all",
                         help="blocknaive, blockmixed, blockmkl, all, none, or comma-separated")
     parser.add_argument("--vdia-kernels", type=str, default="all",
-                        help="bandnaive, all, none, or comma-separated")
+                        help="bandnaive, bandmkl, all, none, or comma-separated. "
+                             "SpMV offers both; SpMM offers bandnaive only, and "
+                             "names not available for an operation are skipped "
+                             "for that operation.")
     parser.add_argument("--threads", type=str, default="1")
     parser.add_argument("--baseline-source", choices=("existing", "run"), default="run",
                         help="Use fully sparse timings from --baseline-results-dir, or rerun CSR baselines (default: run)")
@@ -930,8 +956,10 @@ def main() -> int:
         parser.error("The frontend benchmark path is single-threaded for now; use --threads 1")
 
     vbr_kernels = _resolve_vbr_kernels(args.vbr_kernels, parser)
-    vdia_kernels = _resolve_vdia_kernels(args.vdia_kernels, parser)
-    if not vbr_kernels and not vdia_kernels:
+    # VDIA is resolved inside the operation loop instead, since which kernels
+    # exist depends on the operation. "none" is the only argument that selects
+    # nothing for every operation, so it is what this check tests against.
+    if not vbr_kernels and args.vdia_kernels == "none":
         parser.error("At least one VBR or VDIA kernel must be selected")
 
     matrices = args.matrices or args.matrices_flag
@@ -1008,6 +1036,7 @@ def main() -> int:
             for operation in operations:
                 op_label = operation.value.upper()
                 csr_kernels = _resolve_csr_kernels(operation, args.csr_kernels, parser)
+                vdia_kernels = _resolve_vdia_kernels(operation, args.vdia_kernels, parser)
                 bench_iterations = args.bench
                 if bench_iterations is None:
                     bench_iterations = DEFAULT_SPMV_BENCH_ITERATIONS if operation == Operation.SPMV else DEFAULT_SPMM_BENCH_ITERATIONS

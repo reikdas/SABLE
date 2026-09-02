@@ -99,6 +99,7 @@ def main():
         from sable.extractors import BlockDetector, CSRConvertor
         from sable.kernels import MixedVBRSpmv, NaiveCSRSpmv
         from sable.tensor import DenseInput
+        from utils.fileio import _write_repeated_values
     except Exception as exc:  # noqa: BLE001
         sys.exit(
             f"Could not import the SABLE frontend/kernels ({exc!r}). "
@@ -112,7 +113,7 @@ def main():
     print(f"=== Step 2: block (VBR) extraction + CSR residual (artifact_dir={artifact_dir}) ===")
 
     rhs_path = os.path.join(artifact_dir, "rhs.vector")
-    np.savetxt(rhs_path, np.random.default_rng(0).random(matrix.ncols))
+    _write_repeated_values(rhs_path, 1.0, matrix.ncols)
 
     plan = Plan(matrix, artifact_dir=artifact_dir)
     plan.rhs(DenseInput.vector(rhs_path, matrix.ncols))  # DenseInput.vector(path, size)

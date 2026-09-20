@@ -3,33 +3,16 @@ from __future__ import annotations
 import os
 from enum import Enum
 
-
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-
-
-class CSRKernel(str, Enum):
-    MKL = "mkl"
-    SPREG = "spreg"
-    SPV8 = "spv8"
-    UZP = "uzp"
-    NAIVE = "naive"
-
-
-class VBRKernel(str, Enum):
-    NAIVE = "blocknaive"
-    MIXED = "blockmixed"
-    MKL = "blockmkl"
-
-    @classmethod
-    def _missing_(cls, value):
-        if value == "blocksmixed":
-            return cls.MIXED
-        return None
-
-
-class VDIAKernel(str, Enum):
-    NAIVE = "bandnaive"
-    MKL_DIA = "bandmkl"
+CFLAGS = [
+    "-O3",
+    "-march=native",
+    "-funroll-all-loops",
+    "-mprefer-vector-width=512",
+    "-mavx",
+    "-ffast-math",
+    "-fopenmp",
+    "-lpthread",
+]
 
 
 def _detect_mkl_config() -> tuple[list[str], bool]:
@@ -62,13 +45,21 @@ def _detect_mkl_config() -> tuple[list[str], bool]:
 
 MKL_FLAGS, MKL_AVAILABLE = _detect_mkl_config()
 
-CFLAGS = [
-    "-O3",
-    "-march=native",
-    "-funroll-all-loops",
-    "-mprefer-vector-width=512",
-    "-mavx",
-    "-ffast-math",
-    "-fopenmp",
-    "-lpthread",
-]
+
+class CSRKernel(str, Enum):
+    MKL = "mkl"
+    SPREG = "spreg"
+    SPV8 = "spv8"
+    UZP = "uzp"
+    NAIVE = "naive"
+
+
+class VBRKernel(str, Enum):
+    NAIVE = "blocknaive"
+    MIXED = "blockmixed"
+    MKL = "blockmkl"
+
+
+class VDIAKernel(str, Enum):
+    NAIVE = "bandnaive"
+    MKL_DIA = "bandmkl"

@@ -3,16 +3,41 @@ from __future__ import annotations
 import os
 import subprocess
 import time
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, fields, is_dataclass
 from inspect import Parameter, signature
-from typing import Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 from sable.build_config import CFLAGS
 
-from .codegen import OutOfLineCode
 from .formats import Format, Rep
-from .plan import Plan
+
+if TYPE_CHECKING:
+    from .plan import Plan
+
+KernelSnippet: TypeAlias = "str | OutOfLineCode"
+_STAGED_DATA: dict[str, tuple[str, tuple]] = {}
+
+
+@dataclass(frozen=True)
+class OutOfLineCode:
+    body: str
+    name: str | None = None
+    parameters: tuple[str, ...] = ()
+    arguments: tuple[str, ...] = ()
+
+
+def out_of_line(
+    body: str,
+    name: str | None = None,
+    parameters: Sequence[str] | None = None,
+    arguments: Sequence[object] | None = None,
+) -> OutOfLineCode:
+    parameters = tuple(parameters or ())
+    arguments = tuple(str(argument) for argument in (arguments or ()))
+    if len(parameters) != len(arguments):
+        raise ValueError("out_of_line parameters and arguments must have the same length")
+    return OutOfLineCode(body=body, name=name, parameters=parameters, arguments=arguments)
 
 
 @dataclass
@@ -39,6 +64,7 @@ class CompiledExecutor:
     runtime_cwd: str | None = None
     binary_path: str | None = None
     compile_command: list[str] | None = None
+    staged_data_time_ms: int = 0
 
     def build(self, output_path: str | None = None) -> "CompiledExecutor":
         output_path = output_path or os.path.join(self.artifact_dir, self.filename)
@@ -59,9 +85,6 @@ class CompiledExecutor:
         )
         return output.decode("utf-8")
 
-    def execute(self) -> str:
-        return self.run()
-
 
 @dataclass
 class TimedCall:
@@ -69,9 +92,6 @@ class TimedCall:
     snippet: str
     part_index: int
     part_ordinal: int
-
-
-KernelSnippet = str | OutOfLineCode
 
 
 def _sanitize_identifier(name: str) -> str:
@@ -229,6 +249,36 @@ def _write_sabledata(data_path: str, bindings: list[RepBinding]) -> None:
             f.write(f"{binding.label}=[")
             _write_array_values(f, binding.rep.values)
             f.write("]\n")
+
+
+def _staging_signature(bindings: list[RepBinding]) -> tuple:
+    return tuple((binding.label, len(binding.rep.values)) for binding in bindings)
+
+
+def _stage_data(
+    bindings: list[RepBinding],
+    own_path: str,
+    data_dir: str | None,
+    data_key: str | None,
+) -> tuple[str, bool]:
+    if not data_dir or not data_key:
+        _write_sabledata(own_path, bindings)
+        return own_path, True
+
+    signature = _staging_signature(bindings)
+    cached = _STAGED_DATA.get(data_key)
+    if cached is not None:
+        cached_path, cached_signature = cached
+        if cached_signature == signature and os.path.exists(cached_path):
+            return cached_path, False
+        _write_sabledata(own_path, bindings)
+        return own_path, True
+
+    os.makedirs(data_dir, exist_ok=True)
+    shared_path = os.path.join(data_dir, data_key + ".sabledata")
+    _write_sabledata(shared_path, bindings)
+    _STAGED_DATA[data_key] = (shared_path, signature)
+    return shared_path, True
 
 
 def _c_string(value: str) -> str:
@@ -471,7 +521,14 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
     part_count = 0
     out_of_line_helper_definitions: dict[str, str] = {}
 
+    threaded = any(dispatch.num_threads > 1 for dispatch in plan.dispatches)
+    if threaded:
+        includes.append("#include <omp.h>")
+
     for dispatch_index, dispatch in enumerate(plan.dispatches):
+        # The thread count is a property of the dispatch; kernels that emit a
+        # parallel loop read it from this attribute while emitting.
+        dispatch.kernel.num_threads = dispatch.num_threads
         includes.extend(_kernel_list(dispatch.kernel, "emit_includes"))
         helpers.append(_kernel_context_text(dispatch.kernel, "emit_helpers", dispatch.fmt, rhs))
         setup.append(_kernel_text(dispatch.kernel, "emit_setup", dispatch.fmt, rhs))
@@ -586,8 +643,18 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
     lines.append("    assert(dispatch_part_times != NULL);\n")
     lines.append(f"    for (int iter = 0; iter < {bench}; iter++) {{\n")
     lines.append(f"        memset(y, 0, {y_size} * sizeof(double));\n")
+    mkl_included = any("mkl.h" in include for include in includes)
+    current_dispatch = None
     for timed_call in calls:
         if timed_call.snippet:
+            if threaded and timed_call.dispatch_index != current_dispatch:
+                # Each dispatch runs with its own thread count, set outside
+                # the timed region. MKL keeps a separate count from OpenMP.
+                current_dispatch = timed_call.dispatch_index
+                count = plan.dispatches[current_dispatch].num_threads
+                lines.append(f"        omp_set_num_threads({count});\n")
+                if mkl_included:
+                    lines.append(f"        mkl_set_num_threads({count});\n")
             lines.append("        clock_gettime(CLOCK_MONOTONIC, &t1);\n")
             lines.append(timed_call.snippet)
             if not timed_call.snippet.endswith("\n"):
@@ -648,9 +715,13 @@ def _emit_source(plan: Plan, data_path: str, bindings: list[RepBinding], bench: 
     return "".join(lines)
 
 
-def compile(plan: Plan, filename: str | None = None, bench: int = 5, threads: int = 1) -> CompiledExecutor:
-    if threads != 1:
-        raise ValueError("The frontend compiler is single-threaded for now")
+def compile(
+    plan: Plan,
+    filename: str | None = None,
+    bench: int = 5,
+    data_dir: str | None = None,
+    data_key: str | None = None,
+) -> CompiledExecutor:
     if bench <= 0:
         raise ValueError("bench must be positive")
 
@@ -664,21 +735,29 @@ def compile(plan: Plan, filename: str | None = None, bench: int = 5, threads: in
 
     start = time.time_ns() // 1_000_000
     bindings = _bind_reps(plan)
-    _write_sabledata(data_path, bindings)
+    data_start = time.time_ns() // 1_000_000
+    data_path, wrote_data = _stage_data(bindings, data_path, data_dir, data_key)
+    data_end = time.time_ns() // 1_000_000
     source = _emit_source(plan, data_path, bindings, bench)
     with open(c_path, "w") as f:
         f.write(source)
     end = time.time_ns() // 1_000_000
+    # codegen_time_ms covers binding the arrays and emitting the C. Writing
+    # the staged data is reported on its own, so the number means the same
+    # thing whether this compile wrote the data or reused an earlier variant's.
+    staged_data_time_ms = (data_end - data_start) if wrote_data else 0
+    codegen_time_ms = (end - start) - (data_end - data_start)
 
     return CompiledExecutor(
         c_path=c_path,
         data_path=data_path,
         artifact_dir=plan.artifact_dir,
         filename=filename,
-        codegen_time_ms=end - start,
+        codegen_time_ms=codegen_time_ms,
         plan=plan,
         runtime_env=_collect_runtime_env(plan),
         runtime_cwd=_collect_runtime_cwd(plan),
+        staged_data_time_ms=staged_data_time_ms,
     )
 
 

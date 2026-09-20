@@ -1,8 +1,5 @@
 numpy
 scipy
-tqdm
 pytest
-pandas
-numba
-ssgetpy
+ssgetpy  # used by find-submatrices/find_matrices.py, which the benchmarks import
 PyYAML

@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from sable.build_config import MKL_FLAGS
-from sable.codegen import OutOfLineCode, out_of_line
+from sable.compiler import OutOfLineCode, out_of_line
 from sable.formats import VDIA
 from sable.kernels.base import SpmmKernel, SpmvKernel
+
+_SPMV_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
+_SPMM_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off", "int nrhs"]
+_SPMV_MKL_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
 
 
 def _empty_list() -> list[str]:
@@ -25,12 +29,12 @@ def _mkl_link_flags() -> list[str]:
 # ---------------------------------------------------------------------------
 # Shared MKL DIA helpers
 # ---------------------------------------------------------------------------
-# mkl_ddiamv/mkl_ddiamm interpret the diagonal offsets in `idiag` relative to
-# the (0,0) of the matrix passed to them.  SABLE stores segment-relative
-# diagonals (the naive kernels add row0 when computing the column), so for a
-# segment whose first row is row0 the MKL routines must be given idiag values
-# shifted by row0.  We emit a file-scope, row0-shifted copy of idiag for the MKL
-# kernels to read (the unshifted Rep is still used by the naive kernels).
+# mkl_ddiamv interprets the diagonal offsets in `idiag` relative to the (0,0)
+# of the matrix passed to it.  SABLE stores segment-relative diagonals (the
+# naive kernels add row0 when computing the column), so for a segment whose
+# first row is row0 mkl_ddiamv must be given idiag values shifted by row0.  We
+# emit a file-scope, row0-shifted copy of idiag for the MKL kernel to read (the
+# unshifted Rep is still used by the naive kernels).
 
 def _mkl_idiag_name(fmt: VDIA) -> str:
     return f"{fmt.val}_mkl_diag"
@@ -49,22 +53,6 @@ def _emit_mkl_idiag_decl(fmt: VDIA) -> str:
         return f"static const MKL_INT {name}[1] = {{0}};\n"
     body = ", ".join(str(v) for v in shifted)
     return f"static const MKL_INT {name}[] = {{{body}}};\n"
-
-
-# mkl_ddiamm's deprecated Sparse BLAS interface stores the dense operands B and C
-# COLUMN-major (ldb >= k, ldc >= m), unlike SABLE's row-major SpMM pipeline.  The
-# SpMM kernel therefore works against a column-major copy of x (xc, transposed
-# once in setup) and a column-major scratch yc; each segment's mkl_ddiamm result
-# is folded back into the row-major y immediately after the call, so the fold is
-# timed as part of the VDIA dispatch.  (Only the one-time x transpose stays in
-# setup, outside the timed loop.)
-
-def _mkl_xc_name(fmt: VDIA) -> str:
-    return f"{fmt.val}_mkl_xc"
-
-
-def _mkl_yc_name(fmt: VDIA) -> str:
-    return f"{fmt.val}_mkl_yc"
 
 
 # ---------------------------------------------------------------------------
@@ -87,9 +75,6 @@ for (int d = 0; d < ndiags; d++) {{
 
 def _spmv_naive_helper_name(fmt: VDIA) -> str:
     return f"{fmt.val}_spmv_naive_segment"
-
-
-_SPMV_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
 
 
 def _spmv_naive_args(fmt: VDIA, seg_idx: int) -> list[int]:
@@ -124,9 +109,6 @@ for (int row = 0; row < nrows; row++) {{
 
 def _spmm_naive_helper_name(fmt: VDIA) -> str:
     return f"{fmt.val}_spmm_naive_segment"
-
-
-_SPMM_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off", "int nrhs"]
 
 
 def _spmm_naive_args(fmt: VDIA, seg_idx: int, nrhs: int) -> list[int]:
@@ -166,9 +148,6 @@ def _spmv_mkl_helper_name(fmt: VDIA) -> str:
     return f"{fmt.val}_spmv_mkl_dia_segment"
 
 
-_SPMV_MKL_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
-
-
 def _spmv_mkl_args(fmt: VDIA, seg_idx: int) -> list[int]:
     return [
         fmt.seg_row_start[seg_idx],
@@ -177,77 +156,6 @@ def _spmv_mkl_args(fmt: VDIA, seg_idx: int) -> list[int]:
         fmt.seg_idiag_ptr[seg_idx],
         fmt.seg_val_ptr[seg_idx],
     ]
-
-
-# ---------------------------------------------------------------------------
-# MKL DIA SpMM out-of-line helpers
-# ---------------------------------------------------------------------------
-
-def _emit_spmm_mkl_setup(fmt: VDIA, nrhs: int) -> str:
-    xc = _mkl_xc_name(fmt)
-    yc = _mkl_yc_name(fmt)
-    return f"""\
-double *{xc} = (double *)malloc((long){fmt.ncols} * {nrhs} * sizeof(double));
-double *{yc} = (double *)calloc((long){fmt.nrows} * {nrhs}, sizeof(double));
-assert({xc} != NULL && {yc} != NULL);
-for (int _c = 0; _c < {fmt.ncols}; _c++)
-    for (int _r = 0; _r < {nrhs}; _r++)
-        {xc}[_c + (long)_r * {fmt.ncols}] = x[(long)_c * {nrhs} + _r];
-"""
-
-
-def _emit_spmm_mkl_teardown(fmt: VDIA, nrhs: int) -> str:
-    xc = _mkl_xc_name(fmt)
-    yc = _mkl_yc_name(fmt)
-    return f"""\
-free({xc});
-free({yc});
-"""
-
-
-def _emit_spmm_mkl_segment(fmt: VDIA, seg_idx: int, nrhs: int) -> str:
-    row0 = fmt.seg_row_start[seg_idx]
-    nrows = fmt.seg_nrows[seg_idx]
-    ndiags = fmt.seg_ndiags[seg_idx]
-    idiag_off = fmt.seg_idiag_ptr[seg_idx]
-    val_off = fmt.seg_val_ptr[seg_idx]
-    idiag = _mkl_idiag_name(fmt)
-    xc = _mkl_xc_name(fmt)
-    yc = _mkl_yc_name(fmt)
-    # Emitted inline (not out-of-line) so the column-major xc/yc buffers from
-    # setup are in scope.  beta=0 writes this segment's rows into the column-major
-    # yc; the fold of yc into the row-major y is emitted once (see
-    # _emit_spmm_mkl_fold) after the last segment, and is timed with the VDIA
-    # dispatch.  Segments are row-disjoint, so non-segment yc rows stay zero.
-    return f"""\
-{{
-MKL_INT mkl_m = {nrows};
-MKL_INT mkl_n = {nrhs};
-MKL_INT mkl_k = {fmt.ncols};
-MKL_INT mkl_lval = {nrows};
-MKL_INT mkl_ndiag = {ndiags};
-MKL_INT mkl_ldb = {fmt.ncols};
-MKL_INT mkl_ldc = {fmt.nrows};
-double mkl_alpha = 1.0;
-double mkl_beta = 0.0;
-char mkl_transa = 'N';
-char mkl_matdescra[6] = {{'G', ' ', ' ', 'C', ' ', ' '}};
-mkl_ddiamm(&mkl_transa, &mkl_m, &mkl_n, &mkl_k, &mkl_alpha, mkl_matdescra,
-           &{fmt.val}[{val_off}], &mkl_lval, (MKL_INT *)&{idiag}[{idiag_off}], &mkl_ndiag,
-           &{xc}[0], &mkl_ldb, &mkl_beta, &{yc}[{row0}], &mkl_ldc);
-}}
-"""
-
-
-def _emit_spmm_mkl_fold(fmt: VDIA, nrhs: int) -> str:
-    """Fold the column-major yc accumulator into the row-major y, once.  Emitted
-    as the final VDIA snippet so the fold is timed with the VDIA dispatch."""
-    yc = _mkl_yc_name(fmt)
-    return f"""\
-for (int _row = 0; _row < {fmt.nrows}; _row++)
-    for (int _r = 0; _r < {nrhs}; _r++)
-        y[(long)_row * {nrhs} + _r] += {yc}[(long)_row + (long)_r * {fmt.nrows}];
-"""
 
 
 class _BaseVDIAKernel:
@@ -360,41 +268,3 @@ class MKLDIASpmv(_BaseVDIAKernel, SpmvKernel):
 
     def runtime_env(self) -> dict[str, str]:
         return {"MKL_THREADING_LAYER": "GNU"}
-
-
-class MKLDIASpmm(_BaseVDIAKernel, SpmmKernel):
-    accepts = VDIA
-
-    def emit_includes(self) -> list[str]:
-        return ["#include <mkl.h>"]
-
-    def emit_helpers(self, fmt: VDIA, rhs) -> str:
-        return _emit_mkl_idiag_decl(fmt)
-
-    def emit_setup(self, fmt: VDIA, rhs) -> str:
-        return _emit_spmm_mkl_setup(fmt, rhs.shape[1])
-
-    def emit_timed_calls(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
-        nrhs = rhs.shape[1]
-        # Emitted inline (not out-of-line) so the column-major xc/yc buffers
-        # allocated in emit_setup are in scope at each call site.  A single fold
-        # of yc into y is appended as the last VDIA part (timed with the dispatch).
-        return ([_emit_spmm_mkl_segment(fmt, i, nrhs) for i in range(fmt.nsegments)]
-                + [_emit_spmm_mkl_fold(fmt, nrhs)])
-
-    def emit_call(self, fmt: VDIA, y: str, x: str, rhs) -> list[str | OutOfLineCode]:
-        return self.emit_timed_calls(fmt, y, x, rhs)
-
-    def emit_teardown(self, fmt: VDIA, rhs) -> str:
-        return _emit_spmm_mkl_teardown(fmt, rhs.shape[1])
-
-    def compile_flags(self) -> list[str]:
-        return _mkl_compile_flags()
-
-    def link_flags(self) -> list[str]:
-        return _mkl_link_flags()
-
-    def runtime_env(self) -> dict[str, str]:
-        return {"MKL_THREADING_LAYER": "GNU"}
-
-

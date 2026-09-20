@@ -1,0 +1,952 @@
+[
+  {
+    "matrix_name": "TSC_OPF_1047",
+    "matrix_dimensions": {
+      "rows": 8140,
+      "cols": 8140,
+      "nnz": 2016902,
+      "density": 0.03
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 254196,
+      "residual_nnz": 1762706,
+      "format_area": 337250,
+      "extra_values": 83054,
+      "format_claimed_nnz_perc": 12.6,
+      "residual_nnz_perc": 87.4
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 155909260.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 197959680.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.27,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "bcsstk28",
+    "matrix_dimensions": {
+      "rows": 4410,
+      "cols": 4410,
+      "nnz": 219024,
+      "density": 0.011
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 29767,
+      "residual_nnz": 189257,
+      "format_area": 39440,
+      "extra_values": 9673,
+      "format_claimed_nnz_perc": 13.59,
+      "residual_nnz_perc": 86.41
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 13469240.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 15725730.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.168,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "bcsstk32",
+    "matrix_dimensions": {
+      "rows": 44609,
+      "cols": 44609,
+      "nnz": 2014701,
+      "density": 0.001
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 208496,
+      "residual_nnz": 1806205,
+      "format_area": 276427,
+      "extra_values": 67931,
+      "format_claimed_nnz_perc": 10.35,
+      "residual_nnz_perc": 89.65
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 139511460.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 162442030.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.164,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "cegb2802",
+    "matrix_dimensions": {
+      "rows": 2802,
+      "cols": 2802,
+      "nnz": 277362,
+      "density": 0.035
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 10332,
+      "residual_nnz": 267030,
+      "format_area": 13713,
+      "extra_values": 3381,
+      "format_claimed_nnz_perc": 3.73,
+      "residual_nnz_perc": 96.27
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 17598400.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 19880670.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.13,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "cegb2919",
+    "matrix_dimensions": {
+      "rows": 2919,
+      "cols": 2919,
+      "nnz": 321543,
+      "density": 0.038
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 7499,
+      "residual_nnz": 314044,
+      "format_area": 9889,
+      "extra_values": 2390,
+      "format_claimed_nnz_perc": 2.33,
+      "residual_nnz_perc": 97.67
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 20754560.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 23895170.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.151,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "gupta3",
+    "matrix_dimensions": {
+      "rows": 16783,
+      "cols": 16783,
+      "nnz": 9323427,
+      "density": 0.033
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 12116,
+      "residual_nnz": 9311311,
+      "format_area": 15079,
+      "extra_values": 2963,
+      "format_claimed_nnz_perc": 0.13,
+      "residual_nnz_perc": 99.87
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 993852920.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 992512140.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 0.999,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "heart1",
+    "matrix_dimensions": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1387773,
+      "density": 0.11
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 315258,
+      "residual_nnz": 1072515,
+      "format_area": 407948,
+      "extra_values": 92690,
+      "format_claimed_nnz_perc": 22.72,
+      "residual_nnz_perc": 77.28
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 79935720.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 111080400.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.39,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "heart2",
+    "matrix_dimensions": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 682797,
+      "density": 0.125
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 214083,
+      "residual_nnz": 468714,
+      "format_area": 280392,
+      "extra_values": 66309,
+      "format_claimed_nnz_perc": 31.35,
+      "residual_nnz_perc": 68.65
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 31541020.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 48745060.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.545,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "heart3",
+    "matrix_dimensions": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 682797,
+      "density": 0.125
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 214083,
+      "residual_nnz": 468714,
+      "format_area": 280392,
+      "extra_values": 66309,
+      "format_claimed_nnz_perc": 31.35,
+      "residual_nnz_perc": 68.65
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 31437750.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 48744800.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.551,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "msc10848",
+    "matrix_dimensions": {
+      "rows": 10848,
+      "cols": 10848,
+      "nnz": 1229778,
+      "density": 0.01
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 2340,
+      "residual_nnz": 1227438,
+      "format_area": 3098,
+      "extra_values": 758,
+      "format_claimed_nnz_perc": 0.19,
+      "residual_nnz_perc": 99.81
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 89059640.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 93952370.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.055,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nd3k",
+    "matrix_dimensions": {
+      "rows": 9000,
+      "cols": 9000,
+      "nnz": 3279690,
+      "density": 0.04
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 422213,
+      "residual_nnz": 2857477,
+      "format_area": 549918,
+      "extra_values": 127705,
+      "format_claimed_nnz_perc": 12.87,
+      "residual_nnz_perc": 87.13
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 202275610.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 258232110.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.277,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nemeth19",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 818302,
+      "density": 0.009
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 688377,
+      "residual_nnz": 129925,
+      "format_area": 900707,
+      "extra_values": 212330,
+      "format_claimed_nnz_perc": 84.12,
+      "residual_nnz_perc": 15.88
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 9516640.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 58074920.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 6.102,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nemeth20",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 971870,
+      "density": 0.011
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 4419,
+      "residual_nnz": 967451,
+      "format_area": 5888,
+      "extra_values": 1469,
+      "format_claimed_nnz_perc": 0.45,
+      "residual_nnz_perc": 99.55
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 64527330.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 68489130.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.061,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nemeth21",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 1173746,
+      "density": 0.013
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 578065,
+      "residual_nnz": 595681,
+      "format_area": 770726,
+      "extra_values": 192661,
+      "format_claimed_nnz_perc": 49.25,
+      "residual_nnz_perc": 50.75
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 39365960.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 81932900.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 2.081,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nemeth22",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 1358832,
+      "density": 0.015
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 1250973,
+      "residual_nnz": 107859,
+      "format_area": 1630785,
+      "extra_values": 379812,
+      "format_claimed_nnz_perc": 92.06,
+      "residual_nnz_perc": 7.94
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 8075200.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 94754440.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 11.734,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nemeth23",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 1506810,
+      "density": 0.017
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 12128,
+      "residual_nnz": 1494682,
+      "format_area": 16093,
+      "extra_values": 3965,
+      "format_claimed_nnz_perc": 0.8,
+      "residual_nnz_perc": 99.2
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 99287840.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 104905590.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.057,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nemeth24",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 1506550,
+      "density": 0.017
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 12529,
+      "residual_nnz": 1494021,
+      "format_area": 16644,
+      "extra_values": 4115,
+      "format_claimed_nnz_perc": 0.83,
+      "residual_nnz_perc": 99.17
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 114854250.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 104962140.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 0.914,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nemeth25",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 1511758,
+      "density": 0.017
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 12381,
+      "residual_nnz": 1499377,
+      "format_area": 16463,
+      "extra_values": 4082,
+      "format_claimed_nnz_perc": 0.82,
+      "residual_nnz_perc": 99.18
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 110446930.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 104956280.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 0.95,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "nemeth26",
+    "matrix_dimensions": {
+      "rows": 9506,
+      "cols": 9506,
+      "nnz": 1511760,
+      "density": 0.017
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 12381,
+      "residual_nnz": 1499379,
+      "format_area": 16463,
+      "extra_values": 4082,
+      "format_claimed_nnz_perc": 0.82,
+      "residual_nnz_perc": 99.18
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 100107320.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 105313590.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.052,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "olafu",
+    "matrix_dimensions": {
+      "rows": 16146,
+      "cols": 16146,
+      "nnz": 1015156,
+      "density": 0.004
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 44573,
+      "residual_nnz": 970583,
+      "format_area": 59110,
+      "extra_values": 14537,
+      "format_claimed_nnz_perc": 4.39,
+      "residual_nnz_perc": 95.61
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 70884570.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 76687420.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.082,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "opt1",
+    "matrix_dimensions": {
+      "rows": 15449,
+      "cols": 15449,
+      "nnz": 1930655,
+      "density": 0.008
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 1943,
+      "residual_nnz": 1928712,
+      "format_area": 2581,
+      "extra_values": 638,
+      "format_claimed_nnz_perc": 0.1,
+      "residual_nnz_perc": 99.9
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 133348910.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 140987650.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.057,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "pkustk07",
+    "matrix_dimensions": {
+      "rows": 16860,
+      "cols": 16860,
+      "nnz": 2418804,
+      "density": 0.009
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 11851,
+      "residual_nnz": 2406953,
+      "format_area": 15410,
+      "extra_values": 3559,
+      "format_claimed_nnz_perc": 0.49,
+      "residual_nnz_perc": 99.51
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 180419190.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 188120280.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.043,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "pkustk08",
+    "matrix_dimensions": {
+      "rows": 22209,
+      "cols": 22209,
+      "nnz": 3226671,
+      "density": 0.007
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 14557,
+      "residual_nnz": 3212114,
+      "format_area": 18844,
+      "extra_values": 4287,
+      "format_claimed_nnz_perc": 0.45,
+      "residual_nnz_perc": 99.55
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 246435880.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 254099080.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.031,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "thread",
+    "matrix_dimensions": {
+      "rows": 29736,
+      "cols": 29736,
+      "nnz": 4470048,
+      "density": 0.005
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 10320,
+      "residual_nnz": 4459728,
+      "format_area": 13414,
+      "extra_values": 3094,
+      "format_claimed_nnz_perc": 0.23,
+      "residual_nnz_perc": 99.77
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 318691290.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 334580160.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.05,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  },
+  {
+    "matrix_name": "vsp_c-30_data_data",
+    "matrix_dimensions": {
+      "rows": 11023,
+      "cols": 11023,
+      "nnz": 124368,
+      "density": 0.001
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": null,
+    "nnz": {
+      "format_claimed_nnz": 4878,
+      "residual_nnz": 119490,
+      "format_area": 5722,
+      "extra_values": 844,
+      "format_claimed_nnz_perc": 3.92,
+      "residual_nnz_perc": 96.08
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 12988790.0,
+        "dispatch_times": {},
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 14366010.0,
+        "csr_baseline_source": "converted:spmm_vdia_csr_d075.json:per_backend.naive.baseline_us (looked up from sable_spmm_mkl_naive.json fully_sparse_time, not measured with the composed program)",
+        "speedup": 1.106,
+        "compile_time_composed_s": null,
+        "compile_time_csr_baseline_s": null,
+        "codegen_time_composed_ms": null,
+        "codegen_time_csr_baseline_ms": null,
+        "staged_data_time_composed_ms": null,
+        "staged_data_time_csr_baseline_ms": null
+      }
+    }
+  }
+]

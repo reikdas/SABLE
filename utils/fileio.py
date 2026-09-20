@@ -1,3 +1,15 @@
+"""Files the benchmarks, tests, and Skip extractors read and write.
+
+Dense right-hand-side inputs: the generated C opens the right-hand side by
+path when it runs, so one file per shape is enough. The writers are
+idempotent: a file that already exists with the expected length and value is
+left alone and its path is returned, so calling them once per kernel variant
+costs one stat rather than one rewrite.
+
+Extraction recordings: the YAML written by find-submatrices (blocks) and
+find_vdia.py (bands) is the input of BlockDetectorSkip and BandExtractorSkip,
+and of the benchmarks that replay a stored extraction.
+"""
 import os
 import pathlib
 import re
@@ -8,13 +20,41 @@ import yaml
 FILEPATH = pathlib.Path(__file__).resolve().parent
 BASE_PATH = os.path.join(FILEPATH, "..")
 
-def _generated_dense_tensors_dir() -> str:
+
+def dense_tensors_dir() -> str:
     return os.environ.get("SABLE_DENSE_TENSOR_DIR") or os.path.join(BASE_PATH, "Generated_dense_tensors")
 
 
-def _write_repeated_values(path: str, val: float, size: int, chunk_size: int = 65536) -> None:
+def dense_vector_path(size: int) -> str:
+    return os.path.abspath(os.path.join(dense_tensors_dir(), f"generated_vector_{size}.vector"))
+
+
+def dense_matrix_path(rows: int, cols: int) -> str:
+    return os.path.abspath(os.path.join(dense_tensors_dir(), f"generated_matrix_{rows}x{cols}.matrix"))
+
+
+def _expected_length(value: str, count: int) -> int:
+    # "v,v,...,v\n": count values, count - 1 separators, one newline.
+    return len(value) * count + max(count - 1, 0) + 1
+
+
+def _already_written(path: str, value: str, size: int) -> bool:
+    if not os.path.isfile(path) or os.path.getsize(path) != _expected_length(value, size):
+        return False
+    with open(path) as f:
+        head = f.read(len(value) + 1)
+    return head == value + ("," if size > 1 else "\n")
+
+
+def _write_repeated_values(path: str, val: float, size: int, chunk_size: int = 65536) -> str:
     value = str(val)
-    with open(path, "w") as f:
+    if _already_written(path, value, size):
+        return path
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    # Write to a temporary name and rename, so a partial file from an
+    # interrupted run never passes the length check above.
+    tmp_path = f"{path}.tmp.{os.getpid()}"
+    with open(tmp_path, "w") as f:
         written = 0
         first = True
         while written < size:
@@ -26,21 +66,24 @@ def _write_repeated_values(path: str, val: float, size: int, chunk_size: int = 6
             first = False
             written += chunk_count
         f.write("\n")
+    os.replace(tmp_path, path)
+    return path
 
 
-def write_dense_vector(val: float, size: int):
-    filename = f"generated_vector_{size}.vector"
-    dir_name = _generated_dense_tensors_dir()
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    _write_repeated_values(os.path.join(dir_name, filename), val, size)
+def write_dense_vector(val: float, size: int) -> str:
+    """Write the all-`val` vector of length `size` if absent; return its path."""
+    return _write_repeated_values(dense_vector_path(size), val, size)
 
-def write_dense_matrix(val: float, m: int, n: int):
-    filename = f"generated_matrix_{m}x{n}.matrix"
-    dir_name = _generated_dense_tensors_dir()
-    if not os.path.exists(dir_name):
-        os.makedirs(dir_name)
-    _write_repeated_values(os.path.join(dir_name, filename), val, n * m)
+
+def write_dense_matrix(val: float, m: int, n: int) -> str:
+    """Write the all-`val` m x n row-major matrix if absent; return its path."""
+    return _write_repeated_values(dense_matrix_path(m, n), val, n * m)
+
+
+# ---------------------------------------------------------------------------
+# Extraction recordings
+# ---------------------------------------------------------------------------
+
 
 def parse_yaml_blocks(yaml_path: str) -> List[Tuple[int, int, int, int]]:
     """
@@ -57,7 +100,7 @@ def parse_yaml_blocks(yaml_path: str) -> List[Tuple[int, int, int, int]]:
     
     blocks = []
     for block in data.get('blocks', []):
-        # Parse rows: [start, end] format (end is exclusive in code, but written as inclusive in YAML)
+        # rows/cols are [start, end) with the end exclusive, as the partitioner writes them
         rows_data = block['rows']
         cols_data = block['cols']
         

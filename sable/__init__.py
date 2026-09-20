@@ -1,5 +1,4 @@
-from .compiler import CompiledExecutor, build_compile_command_for_plan, compile
-from .codegen import OutOfLineCode, out_of_line
+from .compiler import CompiledExecutor, OutOfLineCode, build_compile_command_for_plan, compile, out_of_line
 from .matrix import Matrix, ResidualMatrix
 from .operation import Operation
 from .plan import Plan

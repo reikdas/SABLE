@@ -1,39 +1,10 @@
 #!/usr/bin/env python3
-"""Measure SABLE inspection (extraction) + codegen + gcc compile times.
-
-Runs the real extraction pipeline (not the precomputed-YAML skip paths) on the
-three matrix sets evaluated in the SABLE paper:
-
-  vbr_csr       55 matrices: BlockDetector -> CSRConvertor
-  vdia_csr      28 matrices: BandExtractor -> CSRConvertor
-                (24 band-extractor matrices + 4 Fukaya et al. matrices)
-  vdia_vbr_csr  24 matrices: BandExtractor -> BlockDetector -> CSRConvertor
-                (block search runs on the residual left after band extraction)
-
-For every matrix it records, into results/inspection/inspection_<set>_<op>.json:
-  - VDIA band search time (plus to_csr/pack/residual breakdown and a
-    found_at_seconds timestamp for every accepted band),
-  - VBR block partitioner time (subprocess wall time, in-binary read/search
-    split, timeout flag, and a found_at_seconds timestamp for every accepted
-    block) -- the per-region timestamps let us evaluate post-hoc what a shorter
-    search budget would have found,
-  - CSR conversion time,
-  - codegen time (writing the .c and .sabledata files),
-  - gcc compile time of the generated code.
-
-Results are written after every matrix; matrices that already have a
-successful entry are skipped on re-runs, so the script is safe to restart.
-Downloaded matrices and generated artifacts are never deleted.
-
-Render tables with gen_inspection_table.py.
-"""
 
 import argparse
 import json
 import os
 import pathlib
 import subprocess
-import sys
 import time
 import traceback
 from typing import Any, Dict, Optional
@@ -43,6 +14,8 @@ from scipy.sparse import csr_matrix
 
 from bench_suitesparse import (
     COMPILE_TIMEOUT,
+    SPMM_NRHS,
+    density_token,
     download_matrix_from_suitesparse,
     _csr_spmm_kernel,
     _csr_spmv_kernel,
@@ -60,10 +33,9 @@ from utils.fileio import write_dense_matrix, write_dense_vector
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 DEFAULT_OUTPUT_DIR = FILEPATH / "results" / "inspection"
-SPMM_NRHS = 512
 
 # The 55 matrices of the VBR+CSR evaluation (paper Sec. Evaluation; the
-# matrices of SABLE-paper/results/sable_spmv_blas_mkl.json).
+# matrices of results/spmv_vbr050-blockmixed_csr-mkl.json that the paper reports).
 VBR_CSR_55 = [
     "FX_March2010", "TSC_OPF_1047", "TSC_OPF_300", "TSOPF_FS_b162_c1",
     "TSOPF_RS_b162_c1", "TSOPF_RS_b162_c3", "TSOPF_RS_b162_c4",
@@ -79,8 +51,7 @@ VBR_CSR_55 = [
     "orani678", "std1_Jac2", "std1_Jac3", "vsp_c-30_data_data",
 ]
 
-# The 24 matrices the band extractor identified (paper VDIA+VBR+CSR set;
-# spmv_vdia_vbr_csr_d075.json minus the excluded 'thread' matrix).
+# The 24 matrices the band extractor identified (paper VDIA+VBR+CSR set).
 VDIA_24 = [
     "TSC_OPF_1047", "bcsstk28", "bcsstk32", "cegb2802", "cegb2919", "gupta3",
     "heart1", "heart2", "heart3", "msc10848", "nd3k", "nemeth19", "nemeth20",
@@ -97,21 +68,18 @@ MATRIX_SETS = {
     "vdia_vbr_csr": VDIA_24,
 }
 
+# The formats each set extracts, in extraction order; they name the output file.
+SET_FORMATS = {
+    "vbr_csr": ("vbr",),
+    "vdia_csr": ("vdia",),
+    "vdia_vbr_csr": ("vdia", "vbr"),
+}
+
 
 def _timed(fn, *args, **kwargs):
     start = time.perf_counter()
     result = fn(*args, **kwargs)
     return result, time.perf_counter() - start
-
-
-def _generated_vector_path(size: int) -> str:
-    dense_dir = os.environ.get("SABLE_DENSE_TENSOR_DIR") or str(FILEPATH / "Generated_dense_tensors")
-    return os.path.abspath(os.path.join(dense_dir, f"generated_vector_{size}.vector"))
-
-
-def _generated_matrix_path(rows: int, cols: int) -> str:
-    dense_dir = os.environ.get("SABLE_DENSE_TENSOR_DIR") or str(FILEPATH / "Generated_dense_tensors")
-    return os.path.abspath(os.path.join(dense_dir, f"generated_matrix_{rows}x{cols}.matrix"))
 
 
 def _make_kernels(operation: Operation, args) -> Dict[str, Any]:
@@ -150,13 +118,11 @@ def run_matrix(matrix_name: str, set_name: str, operation: Operation, args) -> O
     plan = Plan(matrix, artifact_dir=artifact_dir)
 
     if operation == Operation.SPMV:
-        write_dense_vector(1.0, cols)
-        plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+        plan.rhs(DenseInput.vector(write_dense_vector(1.0, cols), cols))
     else:
-        write_dense_matrix(1.0, cols, SPMM_NRHS)
         plan.rhs(
             DenseInput.matrix(
-                _generated_matrix_path(cols, SPMM_NRHS),
+                write_dense_matrix(1.0, cols, SPMM_NRHS),
                 shape=(cols, SPMM_NRHS),
                 layout=DenseLayout.ROW_MAJOR,
             )
@@ -228,7 +194,8 @@ def run_matrix(matrix_name: str, set_name: str, operation: Operation, args) -> O
     executor, codegen_wall = _timed(plan.compile, filename=matrix_name, bench=args.bench)
     phases["codegen"] = {
         "wall_seconds": codegen_wall,
-        "codegen_time_ms": executor.codegen_time_ms,
+        # Emitting the C plus writing the staged data, as the docstring says.
+        "codegen_time_ms": executor.codegen_time_ms + executor.staged_data_time_ms,
     }
     print(f"  [CodeGen] {codegen_wall:.2f}s -> {executor.c_path}")
 
@@ -355,7 +322,9 @@ def main() -> int:
                 print(f"[{set_name}] Skipping matrices not in this set: {sorted(unknown)}")
             matrices = [m for m in matrices if m in requested]
 
-        output_file = output_dir / f"inspection_{set_name}_{operation.value}.json"
+        densities = {"vdia": args.band_min_density, "vbr": args.block_min_density}
+        extraction = "_".join(density_token(kind, densities[kind]) for kind in SET_FORMATS[set_name])
+        output_file = output_dir / f"inspection_{operation.value}_{extraction}_csr.json"
         results = _load_results(output_file)
         done = {entry["matrix_name"] for entry in results if "error" not in entry}
 

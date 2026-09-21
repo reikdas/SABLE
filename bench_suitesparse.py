@@ -727,6 +727,11 @@ def _process_and_benchmark_frontend(
     dispatch_times, dispatch_part_times, compile_time_composed_ns = eval_frontend_executor_timings(
         composed_executor, bench_iterations, threads=threads
     )
+    if not dispatch_times:
+        # The program failed to compile, timed out, or never printed a timing.
+        # A record built from that would read as a measured time of zero.
+        print(f"  [{variant_name}] Composed program produced no timings; nothing recorded for {matrix_name}")
+        return None
 
     baseline_dispatch_times: dict[int, float]
     compile_time_baseline_ns = 0.0
@@ -771,6 +776,9 @@ def _process_and_benchmark_frontend(
         baseline_dispatch_times, _, compile_time_baseline_ns = eval_frontend_executor_timings(
             baseline_executor, bench_iterations, threads=threads
         )
+        if not baseline_dispatch_times:
+            print(f"  [{variant_name}] CSR baseline produced no timings; nothing recorded for {matrix_name}")
+            return None
         codegen_time_baseline_ms = baseline_executor.codegen_time_ms
         baseline_source = "measured_in_this_run"
 
@@ -852,6 +860,33 @@ def _resolve_csr_kernels(operation: Operation, csr_arg: str, parser: argparse.Ar
         if not selected:
             parser.error(f"No valid SpMM CSR kernels. Valid options: {valid}")
         return selected
+
+
+_UNBUILT_REPORTED: set[tuple[str, str]] = set()
+
+
+def _buildable_csr_kernels(operation: Operation, csr_kernels: list[CSRKernel]) -> list[CSRKernel]:
+    """Drop the CSR kernels whose native component is not built on this machine.
+
+    A kernel names what it links in source_files() (SpV8 its object file, for
+    one). When such a file is missing every program using the kernel fails at
+    the link step, once per matrix and per format kernel, so it is reported
+    once here and the kernel is left out of the run instead.
+    """
+    buildable = []
+    for csr_kernel in csr_kernels:
+        kernel = _csr_spmv_kernel(csr_kernel) if operation == Operation.SPMV else _csr_spmm_kernel(csr_kernel)
+        source_files = getattr(kernel, "source_files", None)
+        missing = [path for path in (source_files() if source_files else []) if not os.path.exists(path)]
+        if not missing:
+            buildable.append(csr_kernel)
+            continue
+        if (operation.value, csr_kernel.value) not in _UNBUILT_REPORTED:
+            _UNBUILT_REPORTED.add((operation.value, csr_kernel.value))
+            print(f"  [{operation.value}] Skipping the {csr_kernel.value} CSR kernel: {', '.join(missing)} "
+                  "is not built. Run build_native.sh first; it skips SpV8 on a CPU without AVX-512, "
+                  "which SpV8 requires.")
+    return buildable
 
 
 def _resolve_vbr_kernels(arg: str, parser: argparse.ArgumentParser) -> list[VBRKernel]:
@@ -1048,6 +1083,9 @@ def main() -> int:
             for operation in operations:
                 op_label = operation.value.upper()
                 csr_kernels = _resolve_csr_kernels(operation, args.csr_kernels, parser)
+                if not args.codegen_only:
+                    # Codegen links nothing, so it needs no native component.
+                    csr_kernels = _buildable_csr_kernels(operation, csr_kernels)
                 vdia_kernels = _resolve_vdia_kernels(operation, args.vdia_kernels, parser)
                 bench_iterations = args.bench
                 if bench_iterations is None:

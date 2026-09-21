@@ -529,8 +529,7 @@
           "dispatch_1_part_99": 2131.26
         },
         "csr_baseline_time_ns": 25273249.35,
-        "fully_sparse_baseline_time_ns": 25273249.35,
-        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_source": "measured_in_this_run",
         "csr_baseline_dispatch_times": {
           "dispatch_1": 25273249.35
         },
@@ -1010,8 +1009,7 @@
           "dispatch_1_part_99": 2280.93
         },
         "csr_baseline_time_ns": 18066049.8,
-        "fully_sparse_baseline_time_ns": 18066049.8,
-        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_source": "measured_in_this_run",
         "csr_baseline_dispatch_times": {
           "dispatch_1": 18066049.8
         },
@@ -1479,8 +1477,7 @@
           "dispatch_1_part_99": 319.01
         },
         "csr_baseline_time_ns": 9884924.94,
-        "fully_sparse_baseline_time_ns": 9884924.94,
-        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_source": "measured_in_this_run",
         "csr_baseline_dispatch_times": {
           "dispatch_1": 9884924.94
         },
@@ -4734,8 +4731,7 @@
           "dispatch_1_part_999": 2209.66
         },
         "csr_baseline_time_ns": 19822022.66,
-        "fully_sparse_baseline_time_ns": 19822022.66,
-        "fully_sparse_baseline_source": "measured_in_this_run",
+        "csr_baseline_source": "measured_in_this_run",
         "csr_baseline_dispatch_times": {
           "dispatch_1": 19822022.66
         },

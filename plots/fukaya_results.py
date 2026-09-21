@@ -18,17 +18,19 @@ import json
 import os
 import re
 
+from matrix_sets import load_matrix_set
+
 # thread is excluded from all VDIA results: its band-extraction metadata
 # is defective and its generated program produces incorrect output.
 EXCLUDED_MATRICES = frozenset({'thread'})
 
 FUKAYA_FILES = {
     'spmv': {
-        'mkl': 'sable_spmv_bandmkl_mkl_circuit5M_dc_memchip_ohne2_CoupCons3D.json',
-        'spv8': 'sable_spmv_bandmkl_spv8_circuit5M_dc_memchip_ohne2_CoupCons3D.json',
+        'mkl': 'sable_spmv_bandmkl_mkl.json',
+        'spv8': 'sable_spmv_bandmkl_spv8.json',
     },
     'spmm': {
-        'mkl': 'sable_spmm_bandnaive_mkl_circuit5M_dc_memchip_ohne2_CoupCons3D.json',
+        'mkl': 'sable_spmm_bandnaive_mkl.json',
     },
 }
 
@@ -45,11 +47,15 @@ def _n_segments(timing):
 def load_fukaya(results_dir, operation):
     """Return {matrix_name: entry} for the given operation ('spmv'/'spmm')."""
     out = {}
+    # The band-kernel files hold every matrix run with those kernels.
+    fukaya = load_matrix_set('fukaya')
     for backend, fname in FUKAYA_FILES[operation].items():
         path = os.path.join(results_dir, fname)
         with open(path) as f:
             raw = json.load(f)
         for e in raw:
+            if e['matrix_name'] not in fukaya:
+                continue
             t = e['timing']['1 thread']
             baseline_us = t['csr_baseline_time_ns'] / 1000.0
             vdia_us = t['total_time_ns'] / 1000.0

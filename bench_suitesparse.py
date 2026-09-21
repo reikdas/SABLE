@@ -20,6 +20,7 @@ import statistics
 import subprocess
 import sys
 import time
+import traceback
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy
@@ -86,6 +87,7 @@ SUITESPARSE_DIR = pathlib.Path(os.environ.get("SABLE_SUITESPARSE_DIR") or str(FI
 RESULTS_DIR = FILEPATH / "find-submatrices" / "results"
 BANDS_RESULTS_DIR = FILEPATH / "find-submatrices" / "results_bands_075"
 DEFAULT_BASELINE_RESULTS_DIR = FILEPATH / "results"
+BASELINE_TIME_KEY = "csr_baseline_time_ns"
 _RESULTS_JSON_CACHE: dict[pathlib.Path, list[dict[str, Any]]] = {}
 
 
@@ -169,7 +171,7 @@ def _baseline_result_file(
     csr_kernel: CSRKernel,
     baseline_results_dir: pathlib.Path,
 ) -> pathlib.Path:
-    preferred = baseline_results_dir / f"sable_{operation.value}_mkl_{csr_kernel.value}.json"
+    preferred = baseline_results_dir / f"sable_{operation.value}_blockmixed_{csr_kernel.value}.json"
     if preferred.exists():
         return preferred
 
@@ -179,15 +181,15 @@ def _baseline_result_file(
             data = _load_results_json(candidate)
         except Exception:
             continue
-        if any("fully_sparse_time" in timing for entry in data for timing in entry.get("timing", {}).values()):
+        if any(BASELINE_TIME_KEY in timing for entry in data for timing in entry.get("timing", {}).values()):
             return candidate
 
     raise FileNotFoundError(
-        f"No fully sparse baseline file found for {operation.value}/{csr_kernel.value} in {baseline_results_dir}"
+        f"No results file with CSR baselines found for {operation.value}/{csr_kernel.value} in {baseline_results_dir}"
     )
 
 
-def _lookup_fully_sparse_baseline(
+def _lookup_existing_baseline(
     operation: Operation,
     csr_kernel: CSRKernel,
     matrix_name: str,
@@ -202,10 +204,10 @@ def _lookup_fully_sparse_baseline(
         thread_timing = entry.get("timing", {}).get(thread_key)
         if thread_timing is None:
             raise KeyError(f"{baseline_file} has no '{thread_key}' baseline for {matrix_name}")
-        if "fully_sparse_time" not in thread_timing:
-            raise KeyError(f"{baseline_file} has no fully_sparse_time for {matrix_name} ({thread_key})")
-        baseline_time = float(thread_timing["fully_sparse_time"])
-        source = f"{baseline_file.name}:{matrix_name}:{thread_key}:fully_sparse_time"
+        if BASELINE_TIME_KEY not in thread_timing:
+            raise KeyError(f"{baseline_file} has no {BASELINE_TIME_KEY} for {matrix_name} ({thread_key})")
+        baseline_time = float(thread_timing[BASELINE_TIME_KEY])
+        source = f"{baseline_file.name}:{matrix_name}:{thread_key}:{BASELINE_TIME_KEY}"
         return baseline_time, source
     raise KeyError(f"{baseline_file} has no baseline entry for matrix {matrix_name}")
 
@@ -338,6 +340,13 @@ def get_available_matrices() -> List[str]:
 # than the paper reports. --matrix-set restricts to a paper set instead.
 MATRIX_SETS_FILE = FILEPATH / "matrices.json"
 PAPER_SET_GROUPS = ("vbr_csr", "vdia_only", "fukaya")
+
+# What the evaluation ran, and so what a --matrix-set run does unless kernels
+# are named: the mixed block kernel on the VBR+CSR set, and, on every matrix
+# with bands, MKL's DIA for SpMV and the naive band kernel for SpMM.
+PAPER_VBR_KERNELS = (VBRKernel.MIXED,)
+PAPER_VBR_SET = "vbr_csr"
+PAPER_VDIA_KERNELS = {Operation.SPMV: (VDIAKernel.MKL_DIA,), Operation.SPMM: (VDIAKernel.NAIVE,)}
 
 
 def get_matrix_set(name: str) -> List[str]:
@@ -484,11 +493,20 @@ def _convert_and_prepare(
 
 
 # ---------------------------------------------------------------------------
-# Frontend compilation per operation
+# Frontend compilation
 # ---------------------------------------------------------------------------
 
 
-def _compile_spmv_frontend(
+def _format_kernel_for(operation: Operation, format_kind: str, format_kernel):
+    if format_kind == "vdia":
+        return _vdia_spmv_kernel(format_kernel) if operation == Operation.SPMV else _vdia_spmm_kernel(format_kernel)
+    if format_kind == "vbr":
+        return _vbr_spmv_kernel(format_kernel) if operation == Operation.SPMV else _vbr_spmm_kernel(format_kernel)
+    raise ValueError(f"Unknown format kind: {format_kind}")
+
+
+def _compile_frontend(
+    operation: Operation,
     matrix_name: str,
     matrix_source,
     format_kind: str,
@@ -500,76 +518,30 @@ def _compile_spmv_frontend(
     data_dir: str | None = None,
     data_key: str | None = None,
     write_rhs: bool = True,
+    num_threads: int = 1,
 ):
+    """Extract the format's regions, dispatch them and the CSR residual, and
+    generate the program. With no regions this is the CSR-only baseline."""
     matrix = Matrix(matrix_source, name=matrix_name)
-    # Codegen only embeds the path; a benchmark run writes the file it names.
-    rhs_path = write_dense_vector(1.0, matrix.ncols) if write_rhs else dense_vector_path(matrix.ncols)
-
     plan = Plan(matrix, artifact_dir=artifact_dir)
-    plan.rhs(DenseInput.vector(rhs_path, matrix.ncols))
-    if format_regions:
-        if format_kind == "vdia":
-            vdia = plan.extract(BandExtractorSkip(format_regions))
-            plan.dispatch(vdia, _vdia_spmv_kernel(format_kernel))
-        elif format_kind == "vbr":
-            vbr = plan.extract(BlockDetectorSkip(format_regions))
-            plan.dispatch(vbr, _vbr_spmv_kernel(format_kernel))
-        else:
-            raise ValueError(f"Unknown format kind: {format_kind}")
-    csr = plan.extract(CSRConvertor())
-    plan.dispatch(csr, _csr_spmv_kernel(csr_kernel))
-    return plan.compile(
-        filename=matrix_name,
-        bench=bench_iterations,
-        data_dir=data_dir,
-        data_key=data_key,
-    )
-
-
-def _compile_spmm_frontend(
-    matrix_name: str,
-    matrix_source,
-    format_kind: str,
-    format_regions: list[Any],
-    artifact_dir: str,
-    format_kernel,
-    csr_kernel: CSRKernel,
-    bench_iterations: int,
-    data_dir: str | None = None,
-    data_key: str | None = None,
-    write_rhs: bool = True,
-):
-    matrix = Matrix(matrix_source, name=matrix_name)
-    if write_rhs:
-        rhs_path = write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS)
+    # Codegen only embeds the right-hand side's path; a benchmark run writes the file it names.
+    if operation == Operation.SPMV:
+        rhs_path = write_dense_vector(1.0, matrix.ncols) if write_rhs else dense_vector_path(matrix.ncols)
+        plan.rhs(DenseInput.vector(rhs_path, matrix.ncols))
     else:
-        rhs_path = dense_matrix_path(matrix.ncols, SPMM_NRHS)
-
-    plan = Plan(matrix, artifact_dir=artifact_dir)
-    plan.rhs(
-        DenseInput.matrix(
-            rhs_path,
-            shape=(matrix.ncols, SPMM_NRHS),
-            layout=DenseLayout.ROW_MAJOR,
-        )
-    )
-    if format_regions:
-        if format_kind == "vdia":
-            vdia = plan.extract(BandExtractorSkip(format_regions))
-            plan.dispatch(vdia, _vdia_spmm_kernel(format_kernel))
-        elif format_kind == "vbr":
-            vbr = plan.extract(BlockDetectorSkip(format_regions))
-            plan.dispatch(vbr, _vbr_spmm_kernel(format_kernel))
+        if write_rhs:
+            rhs_path = write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS)
         else:
-            raise ValueError(f"Unknown format kind: {format_kind}")
+            rhs_path = dense_matrix_path(matrix.ncols, SPMM_NRHS)
+        plan.rhs(DenseInput.matrix(rhs_path, shape=(matrix.ncols, SPMM_NRHS), layout=DenseLayout.ROW_MAJOR))
+    if format_regions:
+        extractor = BandExtractorSkip(format_regions) if format_kind == "vdia" else BlockDetectorSkip(format_regions)
+        fmt = plan.extract(extractor)
+        plan.dispatch(fmt, _format_kernel_for(operation, format_kind, format_kernel), num_threads=num_threads)
     csr = plan.extract(CSRConvertor())
-    plan.dispatch(csr, _csr_spmm_kernel(csr_kernel))
-    return plan.compile(
-        filename=matrix_name,
-        bench=bench_iterations,
-        data_dir=data_dir,
-        data_key=data_key,
-    )
+    csr_kernel_obj = _csr_spmv_kernel(csr_kernel) if operation == Operation.SPMV else _csr_spmm_kernel(csr_kernel)
+    plan.dispatch(csr, csr_kernel_obj, num_threads=num_threads)
+    return plan.compile(filename=matrix_name, bench=bench_iterations, data_dir=data_dir, data_key=data_key)
 
 
 # ---------------------------------------------------------------------------
@@ -626,8 +598,7 @@ def _build_matrix_result(
             "dispatch_times": dispatch_timing,
             "dispatch_part_times": {key: round(value, 2) for key, value in sorted(dispatch_part_times.items())},
             "csr_baseline_time_ns": round(baseline_time, 2),
-            "fully_sparse_baseline_time_ns": round(baseline_time, 2),
-            "fully_sparse_baseline_source": baseline_source,
+            "csr_baseline_source": baseline_source,
             "csr_baseline_dispatch_times": baseline_timing,
             "speedup": round((baseline_time / total_time), 3) if total_time > 0 else 0,
             "compile_time_composed_s": compile_time_composed_ns / 1e9 if compile_time_composed_ns else 0.0,
@@ -663,19 +634,10 @@ def _process_and_benchmark_frontend(
     baseline_results_dir: pathlib.Path = DEFAULT_BASELINE_RESULTS_DIR,
     allow_baseline_run_on_missing: bool = False,
     codegen_only: bool = False,
+    baseline_cache: dict | None = None,
 ) -> Optional[Dict[str, Any]]:
-    if threads != 1:
-        raise ValueError("The frontend benchmark path is single-threaded for now")
-
-    if operation == Operation.SPMV:
-        csr_label = csr_kernel.value
-        compile_fn = _compile_spmv_frontend
-        dir_prefix = "Generated_SpMV_C"
-    else:
-        csr_label = csr_kernel.value
-        compile_fn = _compile_spmm_frontend
-        dir_prefix = "Generated_SpMM_C"
-
+    csr_label = csr_kernel.value
+    dir_prefix = "Generated_SpMV_C" if operation == Operation.SPMV else "Generated_SpMM_C"
     format_kind = composed_data["format_kind"]
     variant_name = f"{format_kernel.value}_{csr_label}"
     codegen_root = pathlib.Path(os.environ.get("SABLE_CODEGEN_DIR") or str(FILEPATH))
@@ -686,28 +648,12 @@ def _process_and_benchmark_frontend(
     codegen_dir_composed = str(base_codegen_dir / "composed")
     codegen_dir_baseline = str(base_codegen_dir / "csr_baseline")
     os.makedirs(codegen_dir_composed, exist_ok=True)
-    if baseline_source_mode == "run" or allow_baseline_run_on_missing:
-        os.makedirs(codegen_dir_baseline, exist_ok=True)
 
-    print(f"  [{variant_name}] Generating frontend C code (composed)...")
-    composed_executor = compile_fn(
-        matrix_name,
-        composed_data["matrix"],
-        format_kind,
-        composed_data["format_regions"],
-        codegen_dir_composed,
-        format_kernel,
-        csr_kernel,
-        bench_iterations,
-        data_dir=staged_data_dir,
-        data_key=f"{matrix_name}_{format_kind}",
-        write_rhs=not codegen_only,
-    )
-
-    if codegen_only:
+    def compile_baseline():
         os.makedirs(codegen_dir_baseline, exist_ok=True)
         print(f"  [{variant_name}] Generating frontend C code (CSR baseline)...")
-        compile_fn(
+        return _compile_frontend(
+            operation,
             matrix_name,
             baseline_data["matrix"],
             format_kind,
@@ -719,7 +665,28 @@ def _process_and_benchmark_frontend(
             data_dir=staged_data_dir,
             data_key=f"{matrix_name}_csr_baseline",
             write_rhs=not codegen_only,
+            num_threads=threads,
         )
+
+    print(f"  [{variant_name}] Generating frontend C code (composed)...")
+    composed_executor = _compile_frontend(
+        operation,
+        matrix_name,
+        composed_data["matrix"],
+        format_kind,
+        composed_data["format_regions"],
+        codegen_dir_composed,
+        format_kernel,
+        csr_kernel,
+        bench_iterations,
+        data_dir=staged_data_dir,
+        data_key=f"{matrix_name}_{format_kind}",
+        write_rhs=not codegen_only,
+        num_threads=threads,
+    )
+
+    if codegen_only:
+        compile_baseline()
         print(f"  [{variant_name}] Codegen only; skipping compilation and timing")
         return None
 
@@ -733,45 +700,33 @@ def _process_and_benchmark_frontend(
         print(f"  [{variant_name}] Composed program produced no timings; nothing recorded for {matrix_name}")
         return None
 
-    baseline_dispatch_times: dict[int, float]
-    compile_time_baseline_ns = 0.0
-    codegen_time_baseline_ms = 0
-    baseline_source = ""
+    # The CSR-only program depends on the CSR kernel and the thread count, not
+    # on the format kernel, so one measurement serves every variant of a matrix.
+    baseline_key = (operation.value, csr_label, threads)
+    baseline = baseline_cache.get(baseline_key) if baseline_cache is not None else None
+    if baseline is not None:
+        print(f"  [{variant_name}] Reusing this matrix's {csr_label} CSR baseline")
 
-    if baseline_source_mode == "existing":
+    if baseline is None and baseline_source_mode == "existing":
         try:
-            baseline_time_ns, baseline_source = _lookup_fully_sparse_baseline(
+            baseline_time_ns, baseline_source = _lookup_existing_baseline(
                 operation,
                 csr_kernel,
                 matrix_name,
                 threads,
                 baseline_results_dir,
             )
-            baseline_dispatch_times = {1: baseline_time_ns}
-            print(f"  [{variant_name}] Using existing fully sparse baseline: {baseline_source}")
+            baseline = {"dispatch_times": {1: baseline_time_ns}, "compile_time_ns": 0.0,
+                        "codegen_time_ms": 0, "source": baseline_source}
+            print(f"  [{variant_name}] Using existing CSR baseline: {baseline_source}")
         except Exception as exc:
             if not allow_baseline_run_on_missing:
-                print(f"  [{variant_name}] Missing existing fully sparse baseline: {exc}")
+                print(f"  [{variant_name}] Missing existing CSR baseline: {exc}")
                 return None
             print(f"  [{variant_name}] Existing baseline missing ({exc}); running CSR baseline instead")
-            baseline_source_mode = "run"
 
-    if baseline_source_mode == "run":
-        print(f"  [{variant_name}] Generating frontend C code (CSR baseline)...")
-        baseline_executor = compile_fn(
-            matrix_name,
-            baseline_data["matrix"],
-            format_kind,
-            [],
-            codegen_dir_baseline,
-            format_kernel,
-            csr_kernel,
-            bench_iterations,
-            data_dir=staged_data_dir,
-            data_key=f"{matrix_name}_csr_baseline",
-            write_rhs=not codegen_only,
-        )
-
+    if baseline is None:
+        baseline_executor = compile_baseline()
         print(f"  [{variant_name}] Evaluating CSR baseline...")
         baseline_dispatch_times, _, compile_time_baseline_ns = eval_frontend_executor_timings(
             baseline_executor, bench_iterations, threads=threads
@@ -779,8 +734,11 @@ def _process_and_benchmark_frontend(
         if not baseline_dispatch_times:
             print(f"  [{variant_name}] CSR baseline produced no timings; nothing recorded for {matrix_name}")
             return None
-        codegen_time_baseline_ms = baseline_executor.codegen_time_ms
-        baseline_source = "measured_in_this_run"
+        baseline = {"dispatch_times": baseline_dispatch_times, "compile_time_ns": compile_time_baseline_ns,
+                    "codegen_time_ms": baseline_executor.codegen_time_ms, "source": "measured_in_this_run"}
+
+    if baseline_cache is not None:
+        baseline_cache[baseline_key] = baseline
 
     return _build_matrix_result(
         matrix_name,
@@ -790,13 +748,42 @@ def _process_and_benchmark_frontend(
         matrix_nnz,
         dispatch_times,
         dispatch_part_times,
-        baseline_dispatch_times,
+        baseline["dispatch_times"],
         compile_time_composed_ns,
-        compile_time_baseline_ns,
+        baseline["compile_time_ns"],
         composed_executor.codegen_time_ms,
-        codegen_time_baseline_ms,
-        baseline_source,
+        baseline["codegen_time_ms"],
+        baseline["source"],
     )
+
+
+def _output_entries(
+    all_results: dict[str, list[dict[str, Any]]],
+    results_key: str,
+    output_file: pathlib.Path,
+) -> list[dict[str, Any]]:
+    """The entries of one output file, read once per run and then kept in step with it."""
+    if results_key not in all_results:
+        entries: list[dict[str, Any]] = []
+        if output_file.exists():
+            with open(output_file) as f:
+                data = json.load(f)
+            entries = data if isinstance(data, list) else []
+        all_results[results_key] = entries
+    return all_results[results_key]
+
+
+def _already_measured(entries: list[dict[str, Any]], matrix_name: str, num_threads: int) -> bool:
+    """True if this driver has already timed the matrix at this thread count.
+
+    dispatch_times is what a run of this driver records, so its presence tells
+    a finished measurement from an entry that came from somewhere else.
+    """
+    for entry in entries:
+        if entry.get("matrix_name") == matrix_name:
+            timing = entry.get("timing", {}).get(_thread_key(num_threads), {})
+            return bool(timing.get("dispatch_times")) and timing.get("total_time_ns", 0) > 0
+    return False
 
 
 def _append_result(
@@ -807,26 +794,35 @@ def _append_result(
     num_threads: int,
     output_file: pathlib.Path,
 ) -> None:
-    results_list = all_results.setdefault(results_key, [])
+    """Merge one matrix's result into the output file.
+
+    The file's existing entries are the starting point, so a run over some of
+    the matrices updates those and leaves the others, and the other thread
+    counts of this matrix, in place.
+    """
+    results_list = _output_entries(all_results, results_key, output_file)
     existing_idx = next((i for i, r in enumerate(results_list) if r["matrix_name"] == matrix_name), None)
+    timing = dict(results_list[existing_idx].get("timing", {})) if existing_idx is not None else {}
+    timing[_thread_key(num_threads)] = dict(result["timing"])
+    matrix_entry = {
+        "matrix_name": result["matrix_name"],
+        "matrix_dimensions": result["matrix_dimensions"],
+        "timing": timing,
+        "nnz": result["nnz"],
+    }
     if existing_idx is not None:
-        matrix_entry = results_list[existing_idx]
+        results_list[existing_idx] = matrix_entry
         print(f"  [{results_key}] Updating result for {matrix_name}")
     else:
-        matrix_entry = {
-            "matrix_name": result["matrix_name"],
-            "matrix_dimensions": result["matrix_dimensions"],
-            "timing": {},
-            "nnz": result["nnz"],
-        }
         results_list.append(matrix_entry)
         print(f"  [{results_key}] Added new result for {matrix_name}")
 
-    thread_key = f"{num_threads} thread"
-    thread_timing = dict(result["timing"])
-    matrix_entry["timing"][thread_key] = thread_timing
-    with open(output_file, "w") as f:
+    # Write beside the file and rename, so an interrupted run never leaves a
+    # truncated results file behind.
+    tmp_file = output_file.with_name(output_file.name + f".tmp.{os.getpid()}")
+    with open(tmp_file, "w") as f:
         json.dump(results_list, f, indent=2)
+    os.replace(tmp_file, output_file)
     print(f"  [{results_key}] Results written to {output_file}")
 
 
@@ -883,9 +879,11 @@ def _buildable_csr_kernels(operation: Operation, csr_kernels: list[CSRKernel]) -
             continue
         if (operation.value, csr_kernel.value) not in _UNBUILT_REPORTED:
             _UNBUILT_REPORTED.add((operation.value, csr_kernel.value))
-            print(f"  [{operation.value}] Skipping the {csr_kernel.value} CSR kernel: {', '.join(missing)} "
-                  "is not built. Run build_native.sh first; it skips SpV8 on a CPU without AVX-512, "
-                  "which SpV8 requires.")
+            others = f" and {len(missing) - 1} more" if len(missing) > 1 else ""
+            print(f"  [{operation.value}] Skipping the {csr_kernel.value} CSR kernel: it links {missing[0]}{others}, "
+                  "which does not exist. build_native.sh builds the native components (it leaves SpV8 out "
+                  "on a CPU without AVX-512, which SpV8 requires); a missing source file means the "
+                  "submodule is not checked out.")
     return buildable
 
 
@@ -937,6 +935,7 @@ def _resolve_vdia_kernels(operation: Operation, arg: str,
 
 
 def main() -> int:
+    global BANDS_RESULTS_DIR, COMPILE_TIMEOUT
     parser = argparse.ArgumentParser(
         description="Benchmark SABLE sparse matrix operations (SpMV / SpMM)",
         epilog=(
@@ -971,43 +970,68 @@ def main() -> int:
     parser.add_argument("--output-dir", type=str, default="results")
     parser.add_argument("--csr-kernels", type=str, default="all",
                         help="SpMV: naive,spv8,mkl,uzp. SpMM: naive,mkl,spreg. Invalid names silently skipped per operation.")
-    parser.add_argument("--vbr-kernels", type=str, default="all",
-                        help="blocknaive, blockmixed, blockmkl, all, none, or comma-separated")
-    parser.add_argument("--vdia-kernels", type=str, default="all",
+    parser.add_argument("--vbr-kernels", type=str, default=None,
+                        help="blocknaive, blockmixed, blockmkl, all, none, or comma-separated "
+                             "(default: all; with --matrix-set, blockmixed on the VBR+CSR set, "
+                             "which is what the evaluation reports)")
+    parser.add_argument("--vdia-kernels", type=str, default=None,
                         help="bandnaive, bandmkl, all, none, or comma-separated. "
                              "SpMV offers both; SpMM offers bandnaive only, and "
                              "names not available for an operation are skipped "
-                             "for that operation.")
-    parser.add_argument("--threads", type=str, default="1")
+                             "for that operation. (default: all; with --matrix-set, "
+                             "bandmkl for SpMV and bandnaive for SpMM, as in the evaluation)")
+    parser.add_argument("--threads", type=str, default="1",
+                        help="Comma-separated thread counts; each is a separate run pinned to that "
+                             "many cores and recorded under its own '<n> thread' key (default: 1)")
+    parser.add_argument("--skip-existing", action="store_true",
+                        help="Skip every (matrix, kernels, thread count) this driver has already "
+                             "timed into the output file, for resuming a run that stopped part-way. "
+                             "A matrix with nothing left to run is not even loaded.")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Print the configurations that would run for each matrix and stop, "
+                             "without loading a matrix: how large a run is before starting it")
+    parser.add_argument("--compile-timeout", type=int, default=COMPILE_TIMEOUT, metavar="SECONDS",
+                        help="Give up on compiling one generated program after this long "
+                             "(default: %(default)s, i.e. four hours)")
     parser.add_argument("--baseline-source", choices=("existing", "run"), default="run",
-                        help="Use fully sparse timings from --baseline-results-dir, or rerun CSR baselines (default: run)")
+                        help="Take CSR baselines from --baseline-results-dir, or measure them in this run (default: run)")
     parser.add_argument("--baseline-results-dir", type=str, default=str(DEFAULT_BASELINE_RESULTS_DIR),
-                        help="Directory containing sable_<op>_mkl_<csr>.json fully sparse timing files")
+                        help="Directory holding sable_<op>_blockmixed_<csr>.json files whose entries carry csr_baseline_time_ns")
     parser.add_argument("--allow-baseline-run-on-missing", action="store_true",
                         help="If --baseline-source existing is missing an entry, run the CSR baseline instead")
     parser.add_argument("--bands-results-dir", type=str, default=None,
                         help="Override directory for band YAML files (default: find-submatrices/results_bands/)")
     args = parser.parse_args()
 
-    global BANDS_RESULTS_DIR
     if args.bands_results_dir:
         _bands_path = pathlib.Path(args.bands_results_dir)
         if not _bands_path.is_absolute():
             _bands_path = FILEPATH / _bands_path
         BANDS_RESULTS_DIR = _bands_path
 
+    COMPILE_TIMEOUT = args.compile_timeout
+
     operations = [Operation(op.strip()) for op in args.operation.split(",")]
 
     thread_counts = [int(t.strip()) for t in args.threads.split(",")]
-    if any(thread_count != 1 for thread_count in thread_counts):
-        parser.error("The frontend benchmark path is single-threaded for now; use --threads 1")
+    if any(thread_count < 1 for thread_count in thread_counts):
+        parser.error("--threads counts must be at least 1")
 
-    vbr_kernels = _resolve_vbr_kernels(args.vbr_kernels, parser)
-    # VDIA is resolved inside the operation loop instead, since which kernels
-    # exist depends on the operation. "none" is the only argument that selects
-    # nothing for every operation, so it is what this check tests against.
-    if not vbr_kernels and args.vdia_kernels == "none":
+    # A --matrix-set run reproduces the evaluation, so unless kernels are named
+    # it runs the evaluation's kernels, not every kernel on every matrix.
+    paper_vbr = bool(args.matrix_set) and args.vbr_kernels is None
+    paper_vdia = bool(args.matrix_set) and args.vdia_kernels is None
+    vbr_kernels = list(PAPER_VBR_KERNELS) if paper_vbr else _resolve_vbr_kernels(args.vbr_kernels or "all", parser)
+    vdia_arg = args.vdia_kernels or "all"
+    # VDIA is resolved per operation, since which kernels exist depends on it.
+    # "none" is the only argument that selects nothing for every operation.
+    if not vbr_kernels and not paper_vdia and vdia_arg == "none":
         parser.error("At least one VBR or VDIA kernel must be selected")
+    paper_vbr_set = set(get_matrix_set(PAPER_VBR_SET)) if paper_vbr else None
+    if paper_vbr or paper_vdia:
+        print("Matrix set given without kernels: running the evaluation's configuration "
+              "(blockmixed on the VBR+CSR set; bandmkl for SpMV and bandnaive for SpMM on "
+              "matrices with bands). Name --vbr-kernels/--vdia-kernels to run something else.")
 
     matrices = args.matrices or args.matrices_flag
     specific_matrices_requested = matrices is not None and len(matrices) > 0
@@ -1035,26 +1059,83 @@ def main() -> int:
     ops_label = "+".join(op.value.upper() for op in operations)
     print(f"[{ops_label}] Will process {len(matrices)} matrices")
     output_dir = pathlib.Path(args.output_dir)
-    output_dir.mkdir(exist_ok=True)
+    if not output_dir.is_absolute():
+        output_dir = FILEPATH / output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
     baseline_results_dir = pathlib.Path(args.baseline_results_dir)
     if not baseline_results_dir.is_absolute():
         baseline_results_dir = FILEPATH / baseline_results_dir
     SUITESPARSE_DIR.mkdir(exist_ok=True)
 
     all_results: dict[str, list[dict[str, Any]]] = {}
+    measured: dict[str, list[tuple[str, int]]] = {}
+    failed: list[str] = []
+    already_done = 0
+    dry_run_total = 0
+    spreg_threads_noted = False
 
     for matrix_name in matrices:
         yaml_path = RESULTS_DIR / f"{matrix_name}.yaml"
         bands_yaml_path = BANDS_RESULTS_DIR / f"{matrix_name}.yaml"
-        if not yaml_path.exists() and not bands_yaml_path.exists():
-            print(f"Warning: YAML file not found for {matrix_name}, skipping")
+        regions = {
+            "vbr": parse_yaml_blocks(str(yaml_path)) if yaml_path.exists() else [],
+            "vdia": parse_yaml_bands(str(bands_yaml_path)) if bands_yaml_path.exists() else [],
+        }
+        print(f"\nProcessing {matrix_name}: {len(regions['vbr'])} VBR blocks, {len(regions['vdia'])} VDIA bands")
+
+        # Plan this matrix's runs before touching the matrix itself. A format
+        # with no regions here would compile to the CSR-only program recorded
+        # under the format's name, so it is left out, as is anything an earlier
+        # run already measured.
+        run_vbr = bool(regions["vbr"]) and (paper_vbr_set is None or matrix_name in paper_vbr_set)
+        planned = []
+        for operation in operations:
+            csr_kernels = _resolve_csr_kernels(operation, args.csr_kernels, parser)
+            if not args.codegen_only:
+                # Codegen links nothing, so it needs no native component.
+                csr_kernels = _buildable_csr_kernels(operation, csr_kernels)
+            if paper_vdia:
+                vdia_kernels = list(PAPER_VDIA_KERNELS[operation])
+            else:
+                vdia_kernels = _resolve_vdia_kernels(operation, vdia_arg, parser)
+            kernels_by_kind = {
+                "vbr": vbr_kernels if run_vbr else [],
+                "vdia": vdia_kernels if regions["vdia"] else [],
+            }
+            for num_threads in thread_counts:
+                for format_kind, format_kernels in kernels_by_kind.items():
+                    for format_kernel in format_kernels:
+                        for csr_kernel in csr_kernels:
+                            if num_threads > 1 and csr_kernel == CSRKernel.SPREG:
+                                if not spreg_threads_noted:
+                                    print("  [spmm] The spreg CSR kernel is wired for one thread; "
+                                          "skipping it for the other thread counts")
+                                    spreg_threads_noted = True
+                                continue
+                            results_key = f"{operation.value}_{format_kernel.value}_{csr_kernel.value}"
+                            output_file = output_dir / f"sable_{results_key}{output_suffix}.json"
+                            if args.skip_existing and not args.codegen_only and _already_measured(
+                                _output_entries(all_results, results_key, output_file), matrix_name, num_threads
+                            ):
+                                already_done += 1
+                                continue
+                            planned.append((operation, num_threads, format_kind, format_kernel, csr_kernel,
+                                            results_key, output_file))
+        if not planned:
+            print(f"  Nothing to run for {matrix_name}: no regions for the requested formats, "
+                  "or every configuration is already measured")
+            continue
+        if args.dry_run:
+            for _op, num_threads, _kind, _fk, _ck, results_key, _out in planned:
+                print(f"  would run {results_key} ({_thread_key(num_threads)})")
+            dry_run_total += len(planned)
             continue
 
-        print(f"\nProcessing {matrix_name}...")
         print("  Downloading matrix from SuiteSparse...")
         download_result = download_matrix_from_suitesparse(matrix_name)
         if download_result is None:
             print(f"  Failed to download {matrix_name}, skipping")
+            failed.append(f"{matrix_name}: matrix not available")
             continue
 
         mtx_path, matrix_info, tar_path, matrix_subdir = download_result
@@ -1066,116 +1147,107 @@ def main() -> int:
             matrix_nnz = A.nnz
             print(f"  Matrix shape: {matrix_rows} x {matrix_cols}, NNZ: {matrix_nnz}")
 
-            if yaml_path.exists():
-                print(f"  Parsing VBR blocks from {yaml_path}...")
-                block_coords = parse_yaml_blocks(str(yaml_path))
-            else:
-                block_coords = []
-            print(f"  Found {len(block_coords)} VBR blocks")
+            prepared: dict[tuple[Operation, str], tuple[dict[str, Any], dict[str, Any]]] = {}
+            # One CSR baseline per (operation, CSR kernel, thread count) for
+            # this matrix, shared by every format kernel.
+            baseline_cache: dict[tuple[str, str, int], dict[str, Any]] = {}
 
-            if bands_yaml_path.exists():
-                print(f"  Parsing VDIA bands from {bands_yaml_path}...")
-                vdia_bands = parse_yaml_bands(str(bands_yaml_path))
-            else:
-                vdia_bands = []
-            print(f"  Found {len(vdia_bands)} VDIA bands")
-
-            for operation in operations:
-                op_label = operation.value.upper()
-                csr_kernels = _resolve_csr_kernels(operation, args.csr_kernels, parser)
-                if not args.codegen_only:
-                    # Codegen links nothing, so it needs no native component.
-                    csr_kernels = _buildable_csr_kernels(operation, csr_kernels)
-                vdia_kernels = _resolve_vdia_kernels(operation, args.vdia_kernels, parser)
+            for operation, num_threads, format_kind, format_kernel, csr_kernel, results_key, output_file in planned:
+                if (operation, format_kind) not in prepared:
+                    print(f"\n  === Converting to frontend formats ({operation.value.upper()}, {format_kind}) ===")
+                    prepared[(operation, format_kind)] = _convert_and_prepare(
+                        operation, matrix_name, regions[format_kind], A, format_kind,
+                        write_rhs=not args.codegen_only,
+                    )
+                composed_data, baseline_data = prepared[(operation, format_kind)]
                 bench_iterations = args.bench
                 if bench_iterations is None:
                     bench_iterations = DEFAULT_SPMV_BENCH_ITERATIONS if operation == Operation.SPMV else DEFAULT_SPMM_BENCH_ITERATIONS
 
-                print(f"\n  === Converting to frontend formats ({op_label}) ===")
-                vbr_data, baseline_data = _convert_and_prepare(
-                    operation, matrix_name, block_coords, A, "vbr",
-                    write_rhs=not args.codegen_only,
-                )
-                vdia_data, _ = _convert_and_prepare(
-                    operation, matrix_name, vdia_bands, A, "vdia",
-                    write_rhs=not args.codegen_only,
-                )
-                format_runs = [
-                    ("vbr", kernel, vbr_data)
-                    for kernel in vbr_kernels
-                ] + [
-                    ("vdia", kernel, vdia_data)
-                    for kernel in vdia_kernels
-                ]
+                if args.codegen_only:
+                    print(f"\n  === Generating {results_key} code ===")
+                else:
+                    print(f"\n  === Running {results_key} benchmark (threads={num_threads}) ===")
 
-                for num_threads in thread_counts:
-                    for format_kind, format_kernel, composed_data in format_runs:
-                        for csr_kernel in csr_kernels:
-                            csr_label = csr_kernel.value
-                            results_key = f"{operation.value}_{format_kernel.value}_{csr_label}"
-                            if args.codegen_only:
-                                print(f"\n  === Generating {results_key} code ===")
-                            else:
-                                print(f"\n  === Running {results_key} benchmark (threads={num_threads}) ===")
+                label = f"{matrix_name} {results_key} ({_thread_key(num_threads)})"
+                try:
+                    result = _process_and_benchmark_frontend(
+                        operation,
+                        matrix_name,
+                        composed_data,
+                        baseline_data,
+                        matrix_rows,
+                        matrix_cols,
+                        matrix_nnz,
+                        bench_iterations,
+                        format_kernel=format_kernel,
+                        csr_kernel=csr_kernel,
+                        threads=num_threads,
+                        baseline_source_mode=args.baseline_source,
+                        baseline_results_dir=baseline_results_dir,
+                        allow_baseline_run_on_missing=args.allow_baseline_run_on_missing,
+                        codegen_only=args.codegen_only,
+                        baseline_cache=baseline_cache,
+                    )
+                except Exception as exc:
+                    # One configuration failing must not cost the rest of the matrix.
+                    print(f"  Error in {label}: {exc}")
+                    traceback.print_exc()
+                    failed.append(label)
+                    continue
 
-                            result = _process_and_benchmark_frontend(
-                                operation,
-                                matrix_name,
-                                composed_data,
-                                baseline_data,
-                                matrix_rows,
-                                matrix_cols,
-                                matrix_nnz,
-                                bench_iterations,
-                                format_kernel=format_kernel,
-                                csr_kernel=csr_kernel,
-                                threads=num_threads,
-                                baseline_source_mode=args.baseline_source,
-                                baseline_results_dir=baseline_results_dir,
-                                allow_baseline_run_on_missing=args.allow_baseline_run_on_missing,
-                                codegen_only=args.codegen_only,
-                            )
-
-                            if result:
-                                output_file = output_dir / f"sable_{results_key}{output_suffix}.json"
-                                _append_result(all_results, results_key, matrix_name, result, num_threads, output_file)
+                if result:
+                    _append_result(all_results, results_key, matrix_name, result, num_threads, output_file)
+                    measured.setdefault(results_key, []).append((matrix_name, num_threads))
+                elif not args.codegen_only:
+                    failed.append(label)
 
             print(f"\nCompleted processing {matrix_name}")
         except Exception as exc:
             print(f"  Error processing {matrix_name}: {exc}")
-            import traceback
-
             traceback.print_exc()
+            failed.append(f"{matrix_name}: {exc}")
         finally:
-            if "matrix_info" in locals() and matrix_info is not None:
-                if not os.environ.get("SABLE_NO_CLEANUP"):
+            if not os.environ.get("SABLE_NO_CLEANUP"):
+                if tar_path is not None or matrix_subdir is not None:
                     print(f"  Cleaning up downloaded files for {matrix_name}...")
-                    if tar_path is not None or matrix_subdir is not None:
-                        cleanup_matrix_files(tar_path, matrix_subdir)
+                    cleanup_matrix_files(tar_path, matrix_subdir)
+
+    if args.dry_run:
+        print(f"\n{dry_run_total} configuration(s) would run; {already_done} already measured")
+        return 0
 
     print("\n" + "=" * 60)
     print(f"Benchmark Summary ({ops_label})")
     print("=" * 60)
-    for results_key, results_list in all_results.items():
-        if results_list:
-            print(f"\n{results_key} Results ({len(results_list)} matrices):")
-            for result in results_list:
-                for thread_key, thread_timing in result["timing"].items():
-                    dispatch_times = thread_timing.get("dispatch_times", {})
-                    dispatch_summary = ", ".join(
-                        f"{name}: {info.get('time_ns', 0):.0f}ns"
-                        for name, info in dispatch_times.items()
-                    )
-                    print(
-                        f"  {result['matrix_name']} ({thread_key}): "
-                        f"total: {thread_timing['total_time_ns']:.0f}ns, "
-                        f"CSR baseline: {thread_timing.get('csr_baseline_time_ns', 0):.0f}ns, "
-                        f"speedup: {thread_timing.get('speedup', 0):.3f}x"
-                        + (f", {dispatch_summary}" if dispatch_summary else "")
-                    )
+    # Only what this run measured: the output files also hold earlier entries.
+    for results_key, runs in measured.items():
+        print(f"\n{results_key} Results ({len(runs)} measured in this run):")
+        entries = {entry["matrix_name"]: entry for entry in all_results[results_key]}
+        for matrix_name, num_threads in runs:
+            thread_key = _thread_key(num_threads)
+            thread_timing = entries[matrix_name]["timing"][thread_key]
+            dispatch_summary = ", ".join(
+                f"{name}: {info.get('time_ns', 0):.0f}ns"
+                for name, info in thread_timing.get("dispatch_times", {}).items()
+            )
+            print(
+                f"  {matrix_name} ({thread_key}): "
+                f"total: {thread_timing['total_time_ns']:.0f}ns, "
+                f"CSR baseline: {thread_timing.get('csr_baseline_time_ns', 0):.0f}ns, "
+                f"speedup: {thread_timing.get('speedup', 0):.3f}x"
+                + (f", {dispatch_summary}" if dispatch_summary else "")
+            )
+    if already_done:
+        print(f"\nSkipped {already_done} configuration(s) already measured (--skip-existing)")
+    if failed:
+        print(f"\n{len(failed)} configuration(s) produced no result and were not recorded:")
+        for label in failed:
+            print(f"  {label}")
+        print("Re-run with --skip-existing to retry just these.")
 
     print(f"\nResults written to {output_dir}/")
-    return 0
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

@@ -34,6 +34,7 @@ from matplotlib.lines import Line2D
 import numpy as np
 
 from fukaya_results import EXCLUDED_MATRICES, load_fukaya
+from matrix_sets import load_matrix_set
 
 
 # ---------------------------------------------------------------------------
@@ -324,23 +325,31 @@ def _entry_sort_key(entry):
     return (2, float('inf'), 0)
 
 
-EVAL_SET_MARKER = 'blas'
+# Fig 5 reports the mixed block kernel (the name bench_suitesparse.py writes
+# its results under) on the 55 matrices of the VBR+CSR evaluation set.
+EVAL_VBR_KERNEL = 'blockmixed'
 
 
 def _load_sable_data(results_dir, op, parse_filename, dedupe):
     """Load the evaluation set into {(dense, sparse): {matrix: entry}}."""
     all_data = defaultdict(dict)
     matrix_nnz = {}
+    eval_set = load_matrix_set('vbr_csr')
     for json_file in glob.glob(os.path.join(results_dir, f'sable_{op}_*.json')):
         parsed = parse_filename(json_file)
         dense, sparse = parsed[0], parsed[1]
-        if dense != EVAL_SET_MARKER:
+        if dense != EVAL_VBR_KERNEL:
+            continue
+        # Only the canonical file of a kernel pair. A run over an explicit
+        # matrix list writes sable_<op>_<kernels>_<matrices>.json beside it,
+        # and that is somebody's spot check, not the evaluation.
+        if os.path.basename(json_file) != f'sable_{op}_{dense}_{sparse}.json' or '_' in sparse:
             continue
         with open(json_file) as f:
             data = json.load(f)
         for entry in data:
             matrix = entry.get('matrix_name')
-            if not matrix:
+            if not matrix or matrix not in eval_set:
                 continue
             key = (dense, sparse)
             existing = all_data[key].get(matrix)
@@ -367,7 +376,7 @@ def compute_best_speedups(all_data):
         for matrix, entry in matrices.items():
             timing = _get_timing(entry)
             total_time = timing.get('total_time_ns')
-            fully_sparse = timing.get('fully_sparse_time')
+            fully_sparse = timing.get('csr_baseline_time_ns')
             if total_time is not None and total_time > 0:
                 if matrix not in best_total or total_time < best_total[matrix][0]:
                     best_total[matrix] = (total_time, dense, sparse)

@@ -19,6 +19,8 @@ from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 import numpy as np
 
+from matrix_sets import load_matrix_set
+
 
 # ---------------------------------------------------------------------------
 # Hatching helpers
@@ -52,18 +54,20 @@ def _hatch_legend_handles(hatch_map):
 THREAD_COUNTS = ['1 thread', '2 thread', '4 thread', '8 thread', '12 thread']
 PARALLEL_TC = '8 thread'
 SPMV_FILES = {
-    'mkl':   'sable_spmv_blas_mkl.json',
-    'naive': 'sable_spmv_blas_naive.json',
-    'spv8':  'sable_spmv_blas_spv8.json',
-    'uzp':   'sable_spmv_blas_uzp.json',
+    'mkl':   'sable_spmv_blockmixed_mkl.json',
+    'naive': 'sable_spmv_blockmixed_naive.json',
+    'spv8':  'sable_spmv_blockmixed_spv8.json',
+    'uzp':   'sable_spmv_blockmixed_uzp.json',
 }
 SPMM_FILES = {
-    'mkl':   'sable_spmm_blas_mkl.json',
-    'naive': 'sable_spmm_blas_naive.json',
+    'mkl':   'sable_spmm_blockmixed_mkl.json',
+    'naive': 'sable_spmm_blockmixed_naive.json',
 }
 BASELINE_DISPLAY = {
     'mkl': 'MKL', 'naive': 'Naive', 'spv8': 'SpV8', 'uzp': 'UZP',
 }
+# The result files hold the whole 117-matrix block sweep; the paper reports these 55.
+EVAL_SET = load_matrix_set('vbr_csr')
 EXCLUDE = set()
 MIN_BLOCK_COVERAGE = 15.0
 MAX_BLOCK_ASPECT_RATIO = 100.0
@@ -92,7 +96,7 @@ def load_all_spmv(results_dir):
             print(f"Warning: {path} not found")
             continue
         with open(path) as f:
-            all_data[baseline] = json.load(f)
+            all_data[baseline] = [e for e in json.load(f) if e['matrix_name'] in EVAL_SET]
     return all_data
 
 
@@ -108,7 +112,7 @@ def load_all_spmm(results_dir):
             print(f"Warning: {path} not found")
             continue
         with open(path) as f:
-            all_data[baseline] = json.load(f)
+            all_data[baseline] = [e for e in json.load(f) if e['matrix_name'] in EVAL_SET]
     return all_data
 
 
@@ -185,7 +189,7 @@ def compute_spmv_speedups(all_data, tc_key):
                     continue
                 timing = entry['timing'].get(tc_key, {})
                 total = timing.get('total_time_ns')
-                fully_sparse = timing.get('fully_sparse_time')
+                fully_sparse = timing.get('csr_baseline_time_ns')
 
                 if total is not None and total > 0 and (best_sable_time is None or total < best_sable_time):
                     best_sable_time = total
@@ -231,7 +235,7 @@ def compute_spmm_speedups(all_data, tc_key):
                     continue
                 timing = entry['timing'].get(tc_key, {})
                 total = timing.get('total_time_ns')
-                fully_sparse = timing.get('fully_sparse_time')
+                fully_sparse = timing.get('csr_baseline_time_ns')
 
                 if total is not None and total > 0 and (best_sable_time is None or total < best_sable_time):
                     best_sable_time = total
@@ -410,7 +414,7 @@ def _plot_scaling_subplot(ax, all_data, matrix, baselines, thread_keys, thread_l
             if entry['matrix_name'] != matrix:
                 continue
             timing = entry['timing'].get('1 thread', {})
-            fs = timing.get('fully_sparse_time')
+            fs = timing.get('csr_baseline_time_ns')
             if fs is not None and (best_1t_sparse is None or fs < best_1t_sparse):
                 best_1t_sparse = fs
 
@@ -442,7 +446,7 @@ def _plot_scaling_subplot(ax, all_data, matrix, baselines, thread_keys, thread_l
             speedups = []
             for tc in thread_keys:
                 timing = entry['timing'].get(tc, {})
-                t = timing.get('fully_sparse_time')
+                t = timing.get('csr_baseline_time_ns')
                 speedups.append(best_1t_sparse / t if t and t > 0 else None)
             ax.plot(range(len(thread_labels)), speedups,
                     marker='s', linewidth=1.5, markersize=5, linestyle='--',

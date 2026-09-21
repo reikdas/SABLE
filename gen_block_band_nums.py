@@ -174,11 +174,11 @@ def build_and_measure(matrix_name, A, variant, regions, operation, backend_name)
 # --------------------------------------------------------------------------
 
 SWEEP_FILES = {
-    ("spmv", "naive"): "sable_spmv_mkl_naive.json",
-    ("spmv", "mkl"): "sable_spmv_mkl_mkl.json",
-    ("spmv", "spv8"): "sable_spmv_mkl_spv8.json",
-    ("spmm", "naive"): "sable_spmm_mkl_naive.json",
-    ("spmm", "mkl"): "sable_spmm_mkl_mkl.json",
+    ("spmv", "naive"): "sable_spmv_blockmixed_naive.json",
+    ("spmv", "mkl"): "sable_spmv_blockmixed_mkl.json",
+    ("spmv", "spv8"): "sable_spmv_blockmixed_spv8.json",
+    ("spmm", "naive"): "sable_spmm_blockmixed_naive.json",
+    ("spmm", "mkl"): "sable_spmm_blockmixed_mkl.json",
 }
 
 BACKENDS = {"spmv": ["naive", "mkl", "spv8"], "spmm": ["naive", "mkl"]}

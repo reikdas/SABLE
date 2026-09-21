@@ -27,7 +27,7 @@ from sable.kernels import (
     NaiveVDIASpmm,
     SPV8CSRSpmv,
 )
-from sable.kernels.vbr import _vbr_blocks
+from sable.kernels.vbr import vbr_blocks
 from sable.tensor import DenseInput, DenseLayout
 from utils.fileio import parse_yaml_bands, parse_yaml_blocks, write_dense_matrix, write_dense_vector
 
@@ -95,7 +95,7 @@ def _band_segment_mapping(bands: list[dict]) -> list[int]:
 def _packed_block_mapping(vbr_fmt, yaml_blocks) -> list[dict[str, Any]]:
     """Map each packed VBR part (in emission order) to the YAML blocks containing it."""
     mapping = []
-    for r0, r1, c0, c1, _ in _vbr_blocks(vbr_fmt):
+    for r0, r1, c0, c1, _ in vbr_blocks(vbr_fmt):
         containing = [
             i
             for i, (br0, br1, bc0, bc1) in enumerate(yaml_blocks)
@@ -113,14 +113,12 @@ def build_and_measure(matrix_name, A, variant, regions, operation, backend_name)
 
     plan = Plan(matrix, artifact_dir=artifact_dir)
     if operation == Operation.SPMV:
-        write_dense_vector(1.0, matrix.ncols)
-        plan.rhs(DenseInput.vector(bs._generated_vector_path(matrix.ncols), matrix.ncols))
+        plan.rhs(DenseInput.vector(write_dense_vector(1.0, matrix.ncols), matrix.ncols))
         vdia_kernel, vbr_kernel = MKLDIASpmv(), MixedVBRSpmv()
     else:
-        write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS)
         plan.rhs(
             DenseInput.matrix(
-                bs._generated_matrix_path(matrix.ncols, SPMM_NRHS),
+                write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS),
                 shape=(matrix.ncols, SPMM_NRHS),
                 layout=DenseLayout.ROW_MAJOR,
             )

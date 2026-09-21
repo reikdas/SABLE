@@ -15,12 +15,14 @@ import json
 import os
 import pathlib
 import re
+import resource
 import statistics
 import subprocess
 import sys
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
+import numpy
 import scipy
 from scipy.io import mmread
 from scipy.sparse import csc_matrix
@@ -35,6 +37,8 @@ from sable.extractors import BandExtractorSkip, BlockDetectorSkip, CSRConvertor
 from sable.kernels import (
     MKLCSRSpmm,
     MKLCSRSpmv,
+    MKLDIASpmm,
+    MKLDIASpmv,
     MKLVBRSpmm,
     MKLVBRSpmv,
     MixedVBRSpmm,
@@ -50,12 +54,17 @@ from sable.kernels import (
     UZPCSRSpmv,
 )
 from sable.tensor import DenseInput, DenseLayout
-from utils.fileio import parse_yaml_bands, parse_yaml_blocks, write_dense_matrix, write_dense_vector
-from utils.utils import remove_outliers_deciles, set_ulimit
+from utils.fileio import (
+    dense_matrix_path,
+    dense_vector_path,
+    parse_yaml_bands,
+    parse_yaml_blocks,
+    write_dense_matrix,
+    write_dense_vector,
+)
 
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
-BASE_PATH = os.path.join(FILEPATH)
 
 COMPILE_TIMEOUT = 60 * 60 * 4
 DEFAULT_SPMV_BENCH_ITERATIONS = 30
@@ -85,14 +94,17 @@ _RESULTS_JSON_CACHE: dict[pathlib.Path, list[dict[str, Any]]] = {}
 # ---------------------------------------------------------------------------
 
 
-def _generated_vector_path(size: int) -> str:
-    dense_dir = os.environ.get("SABLE_DENSE_TENSOR_DIR") or os.path.join(BASE_PATH, "Generated_dense_tensors")
-    return os.path.abspath(os.path.join(dense_dir, f"generated_vector_{size}.vector"))
+def set_ulimit():
+    resource.setrlimit(resource.RLIMIT_STACK, (resource.RLIM_INFINITY, resource.RLIM_INFINITY))
 
 
-def _generated_matrix_path(rows: int, cols: int) -> str:
-    dense_dir = os.environ.get("SABLE_DENSE_TENSOR_DIR") or os.path.join(BASE_PATH, "Generated_dense_tensors")
-    return os.path.abspath(os.path.join(dense_dir, f"generated_matrix_{rows}x{cols}.matrix"))
+def remove_outliers_deciles(data):
+    """Drop values outside the 10th..90th percentiles"""
+    if len(data) < 10:
+        return data
+    d1 = numpy.percentile(data, 10)
+    d9 = numpy.percentile(data, 90)
+    return [x for x in data if d1 <= x <= d9]
 
 
 def _executor_env(command: list[str], runtime_env: dict[str, str]) -> dict[str, str] | None:
@@ -354,7 +366,6 @@ def _vdia_spmv_kernel(vdia_kernel: VDIAKernel):
     if vdia_kernel == VDIAKernel.NAIVE:
         return NaiveVDIASpmv()
     if vdia_kernel == VDIAKernel.MKL_DIA:
-        from sable.kernels import MKLDIASpmv
         return MKLDIASpmv()
     raise ValueError(f"Unknown SpMV VDIA kernel: {vdia_kernel}")
 
@@ -388,7 +399,6 @@ def _vdia_spmm_kernel(vdia_kernel: VDIAKernel):
     if vdia_kernel == VDIAKernel.NAIVE:
         return NaiveVDIASpmm()
     if vdia_kernel == VDIAKernel.MKL_DIA:
-        from sable.kernels import MKLDIASpmm
         return MKLDIASpmm()
     raise ValueError(f"Unknown SpMM VDIA kernel: {vdia_kernel}")
 
@@ -492,11 +502,11 @@ def _compile_spmv_frontend(
     write_rhs: bool = True,
 ):
     matrix = Matrix(matrix_source, name=matrix_name)
-    if write_rhs:
-        write_dense_vector(1.0, matrix.ncols)
+    # Codegen only embeds the path; a benchmark run writes the file it names.
+    rhs_path = write_dense_vector(1.0, matrix.ncols) if write_rhs else dense_vector_path(matrix.ncols)
 
     plan = Plan(matrix, artifact_dir=artifact_dir)
-    plan.rhs(DenseInput.vector(_generated_vector_path(matrix.ncols), matrix.ncols))
+    plan.rhs(DenseInput.vector(rhs_path, matrix.ncols))
     if format_regions:
         if format_kind == "vdia":
             vdia = plan.extract(BandExtractorSkip(format_regions))
@@ -531,12 +541,14 @@ def _compile_spmm_frontend(
 ):
     matrix = Matrix(matrix_source, name=matrix_name)
     if write_rhs:
-        write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS)
+        rhs_path = write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS)
+    else:
+        rhs_path = dense_matrix_path(matrix.ncols, SPMM_NRHS)
 
     plan = Plan(matrix, artifact_dir=artifact_dir)
     plan.rhs(
         DenseInput.matrix(
-            _generated_matrix_path(matrix.ncols, SPMM_NRHS),
+            rhs_path,
             shape=(matrix.ncols, SPMM_NRHS),
             layout=DenseLayout.ROW_MAJOR,
         )
@@ -848,7 +860,7 @@ def _resolve_vbr_kernels(arg: str, parser: argparse.ArgumentParser) -> list[VBRK
     if arg == "all":
         return list(VBRKernel)
     names = [name.strip() for name in arg.split(",")]
-    valid = {kernel.value for kernel in VBRKernel} | {"blocksmixed"}
+    valid = {kernel.value for kernel in VBRKernel}
     invalid = set(names) - valid
     if invalid:
         parser.error(f"Invalid VBR kernel(s): {invalid}. Valid options: {valid}")

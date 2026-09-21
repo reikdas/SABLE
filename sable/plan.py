@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from .compiler import compile as compile_plan
 from .formats import Format
 from .matrix import Matrix, ResidualMatrix
 from .operation import kernel_operation, rhs_rank_for_operation
@@ -12,6 +13,7 @@ from .tensor import DenseInput
 class Dispatch:
     fmt: Format
     kernel: object
+    num_threads: int = 1
 
 
 class Plan:
@@ -75,7 +77,15 @@ class Plan:
             self._pending_formats[id(fmt)] = type(fmt).__name__
         return fmt
 
-    def dispatch(self, fmt: Format, kernel: object) -> None:
+    def dispatch(self, fmt: Format, kernel: object, num_threads: int = 1) -> None:
+        """Bind a kernel to an extracted format.
+
+        num_threads is the OpenMP and MKL thread count the generated program
+        sets before this dispatch runs; kernels with a parallel loop read it
+        from their `num_threads` attribute when they emit code.
+        """
+        if num_threads < 1:
+            raise ValueError("num_threads must be at least 1")
         accepts = getattr(kernel, "accepts", None)
         if accepts is not None and not isinstance(fmt, accepts):
             raise TypeError(f"{type(kernel).__name__} expects {accepts.__name__}, got {type(fmt).__name__}")
@@ -98,7 +108,7 @@ class Plan:
         if operation is not None and existing_operations and operation not in existing_operations:
             raise ValueError("All kernels in a plan must agree on operation")
 
-        self.dispatches.append(Dispatch(fmt=fmt, kernel=kernel))
+        self.dispatches.append(Dispatch(fmt=fmt, kernel=kernel, num_threads=num_threads))
         self._pending_formats.pop(id(fmt), None)
 
     def ensure_complete(self) -> None:
@@ -112,17 +122,13 @@ class Plan:
         self,
         filename: str | None = None,
         bench: int = 5,
-        threads: int = 1,
         data_dir: str | None = None,
         data_key: str | None = None,
     ):
-        from .compiler import compile as compile_plan
-
         return compile_plan(
             self,
             filename=filename,
             bench=bench,
-            threads=threads,
             data_dir=data_dir,
             data_key=data_key,
         )

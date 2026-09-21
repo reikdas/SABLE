@@ -7,17 +7,16 @@ from typing import Any
 
 import numpy
 
-from utils.fileio import parse_yaml_bands
-
 from sable.formats import Rep, VDIA
 from sable.matrix import ResidualMatrix
+from utils.fileio import parse_yaml_bands
+
+# The band finder lives in find-submatrices/, which is not a package.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "find-submatrices"))
+from find_vdia import find_vdia_regions  # noqa: E402
 
 
-Band = dict[str, Any]
 Segment = tuple[int, int, int, int]
-
-_REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-_VDIA_FINDER_ROOT = _REPO_ROOT / "find-submatrices"
 
 
 def _pair(value: Any, name: str) -> tuple[int, int]:
@@ -142,10 +141,6 @@ class BandExtractor:
         self.last_timing: dict[str, Any] | None = None
 
     def extract(self, A: ResidualMatrix) -> tuple[VDIA, ResidualMatrix]:
-        if str(_VDIA_FINDER_ROOT) not in sys.path:
-            sys.path.insert(0, str(_VDIA_FINDER_ROOT))
-        from find_vdia import find_vdia_regions
-
         t0 = time.perf_counter()
         csr = A.to_csr()
         t1 = time.perf_counter()
@@ -192,10 +187,6 @@ class BandExtractorSkip:
         if bands is not None and yaml_path is not None:
             raise ValueError("Pass either bands or yaml_path, not both")
         self.bands = parse_yaml_bands(str(yaml_path)) if yaml_path is not None else list(bands or [])
-
-    @classmethod
-    def from_yaml(cls, yaml_path: str | pathlib.Path) -> "BandExtractorSkip":
-        return cls(yaml_path=yaml_path)
 
     def extract(self, A: ResidualMatrix) -> tuple[VDIA, ResidualMatrix]:
         fmt = pack_bands_as_vdia(A, self.bands)

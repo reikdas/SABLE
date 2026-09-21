@@ -10,12 +10,9 @@ from typing import Any
 import scipy.io
 import yaml
 
-from utils.fileio import parse_yaml_blocks
-
 from sable.formats import Rep, VBR
 from sable.matrix import ResidualMatrix
-
-from .vbr_packing import convert_matrix_to_vbrc_with_blocks
+from utils.fileio import parse_yaml_blocks
 
 
 Block = tuple[int, int, int, int]
@@ -26,19 +23,62 @@ _PARTITIONER_BUILD_DIR = _PARTITIONER_ROOT / "build"
 _PARTITIONER_BIN = _PARTITIONER_BUILD_DIR / "partition_matrix"
 
 
+def _block_partitioning(nrows: int, ncols: int, blocks: list[Block]) -> tuple[list[int], list[int]]:
+    """Row and column boundaries induced by every block's edges plus the matrix edges."""
+    row_boundaries = {0, nrows}
+    col_boundaries = {0, ncols}
+    for row_start, row_end, col_start, col_end in blocks:
+        row_boundaries.update((int(row_start), int(row_end)))
+        col_boundaries.update((int(col_start), int(col_end)))
+    return sorted(row_boundaries), sorted(col_boundaries)
+
+
 def pack_blocks_as_vbr(A: ResidualMatrix, blocks: list[Block]) -> VBR:
-    val, indx, bindx, rpntr, cpntr, bpntrb, _, _, _ = (
-        convert_matrix_to_vbrc_with_blocks(A.to_scipy(), blocks)
-    )
+    """Pack the cells of the block partition that lie inside a selected block.
+    """
+    mat = A.to_scipy()
+    rpntr, cpntr = _block_partitioning(A.nrows, A.ncols, blocks)
+
+    def is_selected(r_start: int, r_end: int, c_start: int, c_end: int) -> bool:
+        return any(
+            selected_r_start <= r_start
+            and r_end <= selected_r_end
+            and selected_c_start <= c_start
+            and c_end <= selected_c_end
+            for selected_r_start, selected_r_end, selected_c_start, selected_c_end in blocks
+        )
+
+    val: list[float] = []
+    indx: list[int] = [0]
+    bindx: list[int] = []
+    bpntrb: list[int] = []
+
+    for row_idx in range(len(rpntr) - 1):
+        bpntrb.append(len(bindx))
+        r_start, r_end = rpntr[row_idx], rpntr[row_idx + 1]
+
+        for col_idx in range(len(cpntr) - 1):
+            c_start, c_end = cpntr[col_idx], cpntr[col_idx + 1]
+            if not is_selected(r_start, r_end, c_start, c_end):
+                continue
+            block = mat[r_start:r_end, c_start:c_end]
+            if block.nnz == 0:
+                continue
+            val.extend(block.toarray().flatten(order="F").tolist())
+            indx.append(len(val))
+            bindx.append(col_idx)
+
+    bpntrb.append(len(bindx))
+
     return VBR(
         nrows=A.nrows,
         ncols=A.ncols,
-        val=Rep(list(map(float, val)), label="vbr_val"),
-        indx=list(map(int, indx)),
-        bindx=list(map(int, bindx)),
-        rpntr=list(map(int, rpntr)),
-        cpntr=list(map(int, cpntr)),
-        bpntrb=list(map(int, bpntrb)),
+        val=Rep(val, label="vbr_val"),
+        indx=indx,
+        bindx=bindx,
+        rpntr=rpntr,
+        cpntr=cpntr,
+        bpntrb=bpntrb,
         blocks=list(blocks),
     )
 
@@ -154,21 +194,6 @@ def find_blocks_with_meta(
         meta["mmwrite_seconds"] = t1 - t0
         meta["partitioner_seconds"] = t2 - t1
         return blocks, meta
-
-
-def find_blocks(
-    A: ResidualMatrix,
-    min_density: float,
-    min_area: int,
-    gamma: float,
-    timeout_seconds: float,
-    threads: int,
-    partitioner_path: str | os.PathLike[str] | None = None,
-) -> list[Block]:
-    blocks, _ = find_blocks_with_meta(
-        A, min_density, min_area, gamma, timeout_seconds, threads, partitioner_path
-    )
-    return blocks
 
 
 class BlockDetector:

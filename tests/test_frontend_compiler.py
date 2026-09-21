@@ -15,6 +15,7 @@ from sable.kernels import (
     SPRegCSRSpmm,
     SPV8CSRSpmv,
     UZPCSRSpmv,
+    NaiveCSRSpmv,
 )
 from sable.tensor import DenseInput, DenseLayout
 
@@ -432,3 +433,26 @@ def test_plan_compile_rejects_extracted_format_without_dispatch(tmp_path):
 
     with pytest.raises(ValueError, match="no dispatched kernel"):
         plan.compile(filename="undispatched", bench=1)
+
+
+def _naive_csr_plan(tmp_path, num_threads):
+    rhs_path = tmp_path / "x.vector"
+    rhs_path.write_text("1.0,1.0,1.0\n")
+    A = scipy.sparse.csr_matrix(numpy.array([[2.0, 0.0, 4.0], [0.0, 5.0, 0.0], [7.0, 0.0, 8.0]]))
+    plan = Plan(Matrix(A, name=f"threads_{num_threads}"), artifact_dir=str(tmp_path))
+    plan.rhs(DenseInput.vector(str(rhs_path), size=3))
+    csr = plan.extract(CSRConvertor())
+    plan.dispatch(csr, NaiveCSRSpmv(), num_threads=num_threads)
+    return plan
+
+
+def test_dispatch_num_threads_emits_openmp_only_when_asked(tmp_path):
+    single = pathlib.Path(_naive_csr_plan(tmp_path, 1).compile(filename="t1", bench=1).c_path).read_text()
+    assert "omp" not in single
+
+    threaded = pathlib.Path(_naive_csr_plan(tmp_path, 4).compile(filename="t4", bench=1).c_path).read_text()
+    assert "#include <omp.h>" in threaded
+    assert "omp_set_num_threads(4);" in threaded
+    assert "#pragma omp parallel for schedule(dynamic, 64)" in threaded
+    # No MKL kernel in the plan, so no MKL thread count is set.
+    assert "mkl_set_num_threads" not in threaded

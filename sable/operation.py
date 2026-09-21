@@ -8,14 +8,8 @@ class Operation(str, Enum):
     SPMM = "spmm"
 
 
-OPERATION_RHS_RANK = {
-    Operation.SPMV: 1,
-    Operation.SPMM: 2,
-}
-
-
 def rhs_rank_for_operation(operation: Operation | str) -> int:
-    return OPERATION_RHS_RANK[Operation(operation)]
+    return {Operation.SPMV: 1, Operation.SPMM: 2}[Operation(operation)]
 
 
 def kernel_operation(kernel: object) -> Operation | None:

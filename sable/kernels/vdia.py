@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from sable.build_config import MKL_FLAGS
-from sable.codegen import OutOfLineCode, out_of_line
+from sable.compiler import OutOfLineCode, out_of_line
 from sable.formats import VDIA
 from sable.kernels.base import SpmmKernel, SpmvKernel
+
+_SPMV_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
+_SPMM_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off", "int nrhs"]
+_SPMV_MKL_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
 
 
 def _empty_list() -> list[str]:
@@ -89,9 +93,6 @@ def _spmv_naive_helper_name(fmt: VDIA) -> str:
     return f"{fmt.val}_spmv_naive_segment"
 
 
-_SPMV_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
-
-
 def _spmv_naive_args(fmt: VDIA, seg_idx: int) -> list[int]:
     return [
         fmt.seg_row_start[seg_idx],
@@ -124,9 +125,6 @@ for (int row = 0; row < nrows; row++) {{
 
 def _spmm_naive_helper_name(fmt: VDIA) -> str:
     return f"{fmt.val}_spmm_naive_segment"
-
-
-_SPMM_NAIVE_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off", "int nrhs"]
 
 
 def _spmm_naive_args(fmt: VDIA, seg_idx: int, nrhs: int) -> list[int]:
@@ -164,9 +162,6 @@ mkl_ddiamv(&mkl_transa, &mkl_m, &mkl_k, &mkl_alpha, mkl_matdescra,
 
 def _spmv_mkl_helper_name(fmt: VDIA) -> str:
     return f"{fmt.val}_spmv_mkl_dia_segment"
-
-
-_SPMV_MKL_PARAMS = ["int row0", "int nrows", "int ndiags", "int idiag_off", "int val_off"]
 
 
 def _spmv_mkl_args(fmt: VDIA, seg_idx: int) -> list[int]:

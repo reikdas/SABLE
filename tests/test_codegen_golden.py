@@ -4,6 +4,7 @@ Each test regenerates C source from a small fixture matrix and compares it
 against a stored reference file in ``tests/golden/fixture``.
 """
 
+import difflib
 import os
 import pathlib
 import re
@@ -37,13 +38,6 @@ from sable.tensor import DenseInput, DenseLayout
 
 GOLDEN_DIR = pathlib.Path(__file__).resolve().parent / "golden" / "fixture"
 _PATH_RE = re.compile(r'fopen\("([^"]+)"')
-
-
-@pytest.fixture
-def update_golden(request):
-    return request.config.getoption("--update-golden")
-
-
 FIXTURE_SIZE = 14
 BAND_REGIONS = [
     {
@@ -65,6 +59,108 @@ CSR_RESIDUAL_ENTRIES = [
     (12, 1, 1.0),
     (13, 0, 2.0),
 ]
+TWO_VBR_BLOCKS = [(0, 2, 0, 2), (3, 6, 3, 6)]
+TWO_VDIA_SEGMENTS = [
+    {
+        "diag_offset": 0,
+        "segments": [
+            {
+                "rows": [0, 3],
+                "bandwidth": [0, 1],
+            },
+            {
+                "rows": [3, 6],
+                "bandwidth": [1, 0],
+            },
+        ],
+    }
+]
+SPMV_KERNELS = {
+    "band": {
+        "bandnaive": NaiveVDIASpmv,
+        "bandmkl": MKLDIASpmv,
+    },
+    "block": {
+        "blocknaive": NaiveVBRSpmv,
+        "blockmkl": MKLVBRSpmv,
+        "blockmixed": MixedVBRSpmv,
+    },
+    "csr": {
+        "csrnaive": NaiveCSRSpmv,
+        "csrmkl": MKLCSRSpmv,
+        "csrspv8": SPV8CSRSpmv,
+        "csruzp": UZPCSRSpmv,
+    },
+}
+SPMM_KERNELS = {
+    "band": {
+        "bandnaive": NaiveVDIASpmm,
+        "bandmkl": MKLDIASpmm,
+    },
+    "block": {
+        "blocknaive": NaiveVBRSpmm,
+        "blockmkl": MKLVBRSpmm,
+        "blockmixed": MixedVBRSpmm,
+    },
+    "csr": {
+        "csrnaive": NaiveCSRSpmm,
+        "csrmkl": MKLCSRSpmm,
+        "csrspreg": SPRegCSRSpmm,
+    },
+}
+
+PARAMETERIZED_OUT_OF_LINE_VARIANTS = {
+    "spmv_blocknaive_two_blocks": lambda tmpdir: _generate_two_vbr_c("spmv", tmpdir),
+    "spmm_blocknaive_two_blocks": lambda tmpdir: _generate_two_vbr_c("spmm", tmpdir),
+    "spmv_bandnaive_two_segments": lambda tmpdir: _generate_two_vdia_c("spmv", tmpdir),
+    "spmm_bandnaive_two_segments": lambda tmpdir: _generate_two_vdia_c("spmm", tmpdir),
+    "spmv_bandmkl_two_segments": lambda tmpdir: _generate_two_vdia_mkl_c(tmpdir),
+    "spmm_bandmkl_two_segments": lambda tmpdir: _generate_two_vdia_mkl_spmm_c(tmpdir),
+}
+
+
+def _build_codegen_variants() -> dict[str, tuple[int, list[tuple[str, str, type]]]]:
+    variants: dict[str, tuple[int, list[tuple[str, str, type]]]] = {}
+    for op_name, rhs_rank, kernels_by_format in (
+        ("spmv", 1, SPMV_KERNELS),
+        ("spmm", 2, SPMM_KERNELS),
+    ):
+        for include_band in (False, True):
+            for include_block in (False, True):
+                for include_csr in (False, True):
+                    if not (include_band or include_block or include_csr):
+                        continue
+
+                    selected_formats = []
+                    if include_band:
+                        selected_formats.append("band")
+                    if include_block:
+                        selected_formats.append("block")
+                    if include_csr:
+                        selected_formats.append("csr")
+
+                    def add_variants(
+                        index: int,
+                        dispatches: list[tuple[str, str, type]],
+                    ) -> None:
+                        if index == len(selected_formats):
+                            variant = "_".join([op_name] + [token for _, token, _ in dispatches])
+                            variants[variant] = (rhs_rank, dispatches)
+                            return
+                        format_kind = selected_formats[index]
+                        for token, kernel_type in kernels_by_format[format_kind].items():
+                            add_variants(index + 1, dispatches + [(format_kind, token, kernel_type)])
+
+                    add_variants(0, [])
+    return variants
+
+
+CODEGEN_VARIANTS = _build_codegen_variants()
+
+
+@pytest.fixture
+def update_golden(request):
+    return request.config.getoption("--update-golden")
 
 
 def _fixture_matrix(include_band: bool, include_block: bool, include_csr: bool) -> scipy.sparse.csr_matrix:
@@ -107,81 +203,6 @@ def _write_vector(path: pathlib.Path, size: int) -> None:
 
 def _write_matrix(path: pathlib.Path, rows: int, cols: int) -> None:
     path.write_text(",".join(["1.0"] * (rows * cols)) + "\n")
-
-
-SPMV_KERNELS = {
-    "band": {
-        "bandnaive": NaiveVDIASpmv,
-        "bandmkl": MKLDIASpmv,
-    },
-    "block": {
-        "blocknaive": NaiveVBRSpmv,
-        "blockmkl": MKLVBRSpmv,
-        "blockmixed": MixedVBRSpmv,
-    },
-    "csr": {
-        "csrnaive": NaiveCSRSpmv,
-        "csrmkl": MKLCSRSpmv,
-        "csrspv8": SPV8CSRSpmv,
-        "csruzp": UZPCSRSpmv,
-    },
-}
-
-SPMM_KERNELS = {
-    "band": {
-        "bandnaive": NaiveVDIASpmm,
-        "bandmkl": MKLDIASpmm,
-    },
-    "block": {
-        "blocknaive": NaiveVBRSpmm,
-        "blockmkl": MKLVBRSpmm,
-        "blockmixed": MixedVBRSpmm,
-    },
-    "csr": {
-        "csrnaive": NaiveCSRSpmm,
-        "csrmkl": MKLCSRSpmm,
-        "csrspreg": SPRegCSRSpmm,
-    },
-}
-
-
-def _build_codegen_variants() -> dict[str, tuple[int, list[tuple[str, str, type]]]]:
-    variants: dict[str, tuple[int, list[tuple[str, str, type]]]] = {}
-    for op_name, rhs_rank, kernels_by_format in (
-        ("spmv", 1, SPMV_KERNELS),
-        ("spmm", 2, SPMM_KERNELS),
-    ):
-        for include_band in (False, True):
-            for include_block in (False, True):
-                for include_csr in (False, True):
-                    if not (include_band or include_block or include_csr):
-                        continue
-
-                    selected_formats = []
-                    if include_band:
-                        selected_formats.append("band")
-                    if include_block:
-                        selected_formats.append("block")
-                    if include_csr:
-                        selected_formats.append("csr")
-
-                    def add_variants(
-                        index: int,
-                        dispatches: list[tuple[str, str, type]],
-                    ) -> None:
-                        if index == len(selected_formats):
-                            variant = "_".join([op_name] + [token for _, token, _ in dispatches])
-                            variants[variant] = (rhs_rank, dispatches)
-                            return
-                        format_kind = selected_formats[index]
-                        for token, kernel_type in kernels_by_format[format_kind].items():
-                            add_variants(index + 1, dispatches + [(format_kind, token, kernel_type)])
-
-                    add_variants(0, [])
-    return variants
-
-
-CODEGEN_VARIANTS = _build_codegen_variants()
 
 
 def _generate_c(variant: str, tmpdir: pathlib.Path) -> str:
@@ -250,24 +271,6 @@ def _two_segment_vdia_matrix() -> scipy.sparse.csr_matrix:
     return scipy.sparse.csr_matrix(values)
 
 
-TWO_VBR_BLOCKS = [(0, 2, 0, 2), (3, 6, 3, 6)]
-TWO_VDIA_SEGMENTS = [
-    {
-        "diag_offset": 0,
-        "segments": [
-            {
-                "rows": [0, 3],
-                "bandwidth": [0, 1],
-            },
-            {
-                "rows": [3, 6],
-                "bandwidth": [1, 0],
-            },
-        ],
-    }
-]
-
-
 def _generate_two_vbr_c(op_name: str, tmpdir: pathlib.Path) -> str:
     A = _two_block_vbr_matrix()
     plan = Plan(Matrix(A, name="fixture"), artifact_dir=str(tmpdir / "codegen"))
@@ -334,16 +337,6 @@ def _generate_two_vdia_mkl_spmm_c(tmpdir: pathlib.Path) -> str:
     return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
 
 
-PARAMETERIZED_OUT_OF_LINE_VARIANTS = {
-    "spmv_blocknaive_two_blocks": lambda tmpdir: _generate_two_vbr_c("spmv", tmpdir),
-    "spmm_blocknaive_two_blocks": lambda tmpdir: _generate_two_vbr_c("spmm", tmpdir),
-    "spmv_bandnaive_two_segments": lambda tmpdir: _generate_two_vdia_c("spmv", tmpdir),
-    "spmm_bandnaive_two_segments": lambda tmpdir: _generate_two_vdia_c("spmm", tmpdir),
-    "spmv_bandmkl_two_segments": lambda tmpdir: _generate_two_vdia_mkl_c(tmpdir),
-    "spmm_bandmkl_two_segments": lambda tmpdir: _generate_two_vdia_mkl_spmm_c(tmpdir),
-}
-
-
 def _assert_parameterized_out_of_line_shape(variant: str, source: str) -> None:
     if variant == "spmv_blocknaive_two_blocks":
         assert source.count("static void vbr_val_spmv_naive_block(") == 1
@@ -402,8 +395,6 @@ def _assert_golden(variant: str, actual: str, golden_path: pathlib.Path, update_
 
     expected = golden_path.read_text()
     if actual != expected:
-        import difflib
-
         diff = difflib.unified_diff(
             expected.splitlines(keepends=True),
             actual.splitlines(keepends=True),

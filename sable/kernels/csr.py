@@ -11,9 +11,21 @@ from sable.kernels.base import SpmmKernel, SpmvKernel
 
 _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 _SPREG_BASE = os.path.join(_REPO_ROOT, "sparse-register-tiling", "spmm_nano_kernels")
+_SPREG_LIB = os.path.join(_SPREG_BASE, "build", "libspreg.a")
 _SPV8_BASE = os.path.join(_REPO_ROOT, "spv8-public")
 _UZP_GENEX_DIR = os.path.join(_REPO_ROOT, "uzp-artifact", "spmv-executors", "uzp-genex")
 _UZP_PREPARE_SCRIPT = os.path.join(_REPO_ROOT, "uzp_prepare.sh")
+
+
+def _omp_rows_pragma(num_threads: int) -> str:
+    """The row-parallel pragma of the naive CSR loops, empty for one thread.
+
+    Rows are independent, so the loop over them parallelizes without any
+    synchronization; the dynamic schedule follows the original generator.
+    """
+    if num_threads <= 1:
+        return ""
+    return "#pragma omp parallel for schedule(dynamic, 64)\n"
 
 
 def _mkl_compile_flags() -> list[str]:
@@ -30,9 +42,6 @@ def _empty_list() -> list[str]:
 
 def _empty_dict() -> dict[str, str]:
     return {}
-
-
-_SPREG_LIB = os.path.join(_SPREG_BASE, "build", "libspreg.a")
 
 
 def _spreg_source_files() -> list[str]:
@@ -107,7 +116,7 @@ class NaiveCSRSpmv(SpmvKernel):
         if fmt.nnz == 0:
             return ""
         return f"""\
-for (int i = 0; i < {fmt.nrows}; i++) {{
+{_omp_rows_pragma(self.num_threads)}for (int i = 0; i < {fmt.nrows}; i++) {{
     for (int p = {fmt.indptr}[i]; p < {fmt.indptr}[i + 1]; p++) {{
         {y}[i] += {fmt.values}[p] * {x}[{fmt.indices}[p]];
     }}
@@ -337,7 +346,7 @@ class NaiveCSRSpmm(SpmmKernel):
             return ""
         nrhs = rhs.shape[1]
         return f"""\
-for (int i = 0; i < {fmt.nrows}; i++) {{
+{_omp_rows_pragma(self.num_threads)}for (int i = 0; i < {fmt.nrows}; i++) {{
     for (int p = {fmt.indptr}[i]; p < {fmt.indptr}[i + 1]; p++) {{
         int col = {fmt.indices}[p];
         double a = {fmt.values}[p];
@@ -407,9 +416,6 @@ mkl_sparse_d_mm(SPARSE_OPERATION_NON_TRANSPOSE, 1.0, csr_handle, csr_descr,
 class SPRegCSRSpmm(SpmmKernel):
     accepts = CSR
 
-    def __init__(self, threads: int = 1):
-        self.threads = threads
-
     def compiler(self) -> str:
         return "g++"
 
@@ -444,7 +450,7 @@ class SPRegCSRSpmm(SpmmKernel):
         return _SPREG_BASE
 
     def emit_includes(self) -> list[str]:
-        if self.threads != 1:
+        if self.num_threads != 1:
             raise ValueError("SPRegCSRSpmm is currently wired for single-threaded frontend tests")
         return [
             "#ifdef __cplusplus",
@@ -466,7 +472,7 @@ class SPRegCSRSpmm(SpmmKernel):
         scratch = _spreg_name(fmt, "spreg_y")
         return f"""\
 void *{handle} = spmm_spreg_init({fmt.values}, {fmt.indices}, {fmt.indptr},
-    {fmt.nrows}, {fmt.ncols}, {nrhs}, {self.threads});
+    {fmt.nrows}, {fmt.ncols}, {nrhs}, {self.num_threads});
 if ({handle} == NULL) {{
     fprintf(stderr, "Failed to initialize sparse-register-tiling executor\\n");
     return 1;

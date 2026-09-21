@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from sable.build_config import MKL_FLAGS
-from sable.codegen import OutOfLineCode, out_of_line
+from sable.compiler import OutOfLineCode, out_of_line
 from sable.formats import VBR
 from sable.kernels.base import SpmmKernel, SpmvKernel
 
@@ -30,7 +30,7 @@ def _should_use_mkl_for_block(rows: int, cols: int) -> bool:
     return max_dim / min_dim <= 100
 
 
-def _vbr_blocks(fmt: VBR):
+def vbr_blocks(fmt: VBR):
     # VBR stores only packed dense blocks; bpntrb is a CSR-style row pointer, so
     # row `block_row`'s packed blocks are bindx[bpntrb[x]:bpntrb[x+1]] and the
     # k-th packed block reads its values at val offset indx[k].
@@ -119,7 +119,7 @@ def _vbr_loop_arguments(operation: str, block: tuple[int, int, int, int, int], r
 
 def _vbr_part_modes(fmt: VBR, mode: str) -> list[tuple[str, tuple[int, int, int, int, int]]]:
     parts = []
-    for block in _vbr_blocks(fmt):
+    for block in vbr_blocks(fmt):
         r0, r1, c0, c1, _ = block
         if mode == "mixed":
             part_mode = "mkl" if _should_use_mkl_for_block(r1 - r0, c1 - c0) else "naive"

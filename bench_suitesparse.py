@@ -1072,6 +1072,11 @@ def main() -> int:
     if not output_dir.is_absolute():
         output_dir = FILEPATH / output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
+    if output_dir.resolve() != DEFAULT_BASELINE_RESULTS_DIR.resolve():
+        # The suffix keeps a run over a few named matrices out of the shipped
+        # measurements in results/. A directory of one's own has nothing to
+        # protect, and gets the canonical names the plotting scripts read.
+        output_suffix = ""
     baseline_results_dir = pathlib.Path(args.baseline_results_dir)
     if not baseline_results_dir.is_absolute():
         baseline_results_dir = FILEPATH / baseline_results_dir

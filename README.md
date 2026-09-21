@@ -320,9 +320,10 @@ Two scripts write under `results/`:
   `sable_spmv_blockmixed_naive.json`. `--matrix-set paper` runs the
   evaluation's configuration; `--dry-run` prints what a run would do,
   `--skip-existing` resumes one, and `--threads 1,8` times several thread
-  counts. A run over an explicit matrix list writes to
+  counts. In `results/`, a run over an explicit matrix list writes to
   `sable_<...>_<matrices>.json` instead, so a spot check never touches the
-  shipped measurements. The plotting scripts under `plots/` read the canonical
+  shipped measurements; with `--output-dir` elsewhere it writes the canonical
+  names. The plotting scripts under `plots/` read the canonical
   files; `plot_speedups.py` and `plot_parallel_speedups.py` take
   `--results-dir` to plot a run written elsewhere with `--output-dir`.
 - `bench_inspection.py` runs the extractors themselves and records extraction,

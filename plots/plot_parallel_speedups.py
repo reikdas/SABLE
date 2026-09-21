@@ -378,6 +378,7 @@ def plot_parallel_bar(spmv_data, spmm_data, matrix_nnz, output_path):
     if max_speed > y_limit:
         ax.set_ylim(top=y_limit)
 
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     fig.savefig(output_path, bbox_inches='tight', dpi=300,
                 metadata={'Creator': 'SABLE'})
     plt.close(fig)
@@ -514,6 +515,7 @@ def plot_combined_scaling_subplots(spmv_data, spmm_data, selected_matrices,
                ncol=4, fontsize=9, bbox_to_anchor=(0.5, -0.02))
 
     fig.tight_layout(rect=[0, 0.04, 1, 1.0])
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     fig.savefig(output_path, bbox_inches='tight', dpi=300,
                 metadata={'Creator': 'SABLE'})
     plt.close(fig)

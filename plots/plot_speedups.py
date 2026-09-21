@@ -257,6 +257,7 @@ def plot_grouped_bars(spmv, spmm, matrix_nnz, output_path, style,
     if max_speed > y_limit:
         ax.set_ylim(top=y_limit)
 
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
     fig.savefig(output_path, bbox_inches='tight', dpi=300,
                 metadata={'Creator': 'SABLE'})
     plt.close(fig)

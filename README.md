@@ -48,7 +48,7 @@ csr = plan.extract(CSRConvertor())
 plan.dispatch(vbr, MixedVBRSpmm())
 
 # NaiveCSRSpmm multiplies the CSR residual with a triple-nested loop.
-plan.dispatch(csr, NaiveCSRSpmm())
+plan.dispatch(csr, NaiveCSRSpmm(), num_threads=1)
 
 # ── 5. Compile, build, and run ───────────────────────────────────────
 executor = plan.compile(filename="my_spmm", bench=5)
@@ -292,28 +292,41 @@ cd ..
 
 #### sparse-register-tiling/ (for `SPRegCSRSpmm` kernel)
 
-First generate the micro-kernels, then build with CMake:
+Generate the micro-kernels, then build the static library the kernel links:
 
 ```bash
 cd sparse-register-tiling/spmm_nano_kernels/
 python3 -m codegen.generate_ukernels
-cd ..
-mkdir -p build && cd build
-cmake .. -DCMAKE_BUILD_TYPE=Release -DENABLE_AVX512=True
-make -j$(nproc) SPMM_demo
+make -j$(nproc)          # produces build/libspreg.a
 cd ../..
 ```
+
+`build_native.sh` does this, and builds the block partitioner and SpV8 too.
 
 ### 6. Configuration
 
 Shared compiler flags, MKL discovery, and kernel-family enum names live in
-`sable/build_config.py`.  UZP, SPV8, MKL, naive CSR/VBR/VDIA, and mixed VBR
-kernels are exposed through the frontend kernel API.  Benchmark kernels are
+`sable/build_config.py`.  UZP, SPV8, SpReg, MKL, naive CSR/VBR/VDIA, and mixed
+VBR kernels are exposed through the frontend kernel API.  Benchmark kernels are
 grouped by format family: CSR, VBR, and VDIA.
 
 ### 7. Running Benchmarks
 
-To benchmark, run `bench_suitesparse.py`.
+Two scripts write under `results/`:
+
+- `bench_suitesparse.py` composes stored extractions with a CSR kernel, times
+  the program against a CSR-only baseline, and merges one record per matrix
+  into `results/sable_<op>_<format kernel>_<csr kernel>.json`, for example
+  `sable_spmv_blockmixed_naive.json`. `--matrix-set paper` runs the
+  evaluation's configuration; `--dry-run` prints what a run would do,
+  `--skip-existing` resumes one, and `--threads 1,8` times several thread
+  counts. A run over an explicit matrix list writes to
+  `sable_<...>_<matrices>.json` instead, so a spot check never touches the
+  shipped measurements. The plotting scripts under `plots/` read the canonical
+  files; `plot_speedups.py` and `plot_parallel_speedups.py` take
+  `--results-dir` to plot a run written elsewhere with `--output-dir`.
+- `bench_inspection.py` runs the extractors themselves and records extraction,
+  codegen, and compile times under `results/inspection/`.
 
 ## Testing
 
@@ -321,7 +334,9 @@ To benchmark, run `bench_suitesparse.py`.
 
 These tests verify the benchmarking infrastructure itself — frontend compiler
 assembly and C code generation — without running any actual sparse
-computations.  They run in seconds and need only Python + pytest:
+computations.  They run in seconds and need only Python, pytest, and the
+`find-submatrices` submodule checked out (importing `sable` loads its band
+finder):
 
 ```bash
 # Frontend compiler unit tests, including kernel build requirements

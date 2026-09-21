@@ -33,7 +33,6 @@ import json
 import os
 import pathlib
 import subprocess
-import sys
 import time
 import traceback
 from typing import Any, Dict, Optional
@@ -43,6 +42,7 @@ from scipy.sparse import csr_matrix
 
 from bench_suitesparse import (
     COMPILE_TIMEOUT,
+    SPMM_NRHS,
     download_matrix_from_suitesparse,
     _csr_spmm_kernel,
     _csr_spmv_kernel,
@@ -60,10 +60,9 @@ from utils.fileio import write_dense_matrix, write_dense_vector
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 DEFAULT_OUTPUT_DIR = FILEPATH / "results" / "inspection"
-SPMM_NRHS = 512
 
 # The 55 matrices of the VBR+CSR evaluation (paper Sec. Evaluation; the
-# matrices of SABLE-paper/results/sable_spmv_blas_mkl.json).
+# matrices of results/sable_spmv_blockmixed_mkl.json that the paper reports).
 VBR_CSR_55 = [
     "FX_March2010", "TSC_OPF_1047", "TSC_OPF_300", "TSOPF_FS_b162_c1",
     "TSOPF_RS_b162_c1", "TSOPF_RS_b162_c3", "TSOPF_RS_b162_c4",
@@ -104,16 +103,6 @@ def _timed(fn, *args, **kwargs):
     return result, time.perf_counter() - start
 
 
-def _generated_vector_path(size: int) -> str:
-    dense_dir = os.environ.get("SABLE_DENSE_TENSOR_DIR") or str(FILEPATH / "Generated_dense_tensors")
-    return os.path.abspath(os.path.join(dense_dir, f"generated_vector_{size}.vector"))
-
-
-def _generated_matrix_path(rows: int, cols: int) -> str:
-    dense_dir = os.environ.get("SABLE_DENSE_TENSOR_DIR") or str(FILEPATH / "Generated_dense_tensors")
-    return os.path.abspath(os.path.join(dense_dir, f"generated_matrix_{rows}x{cols}.matrix"))
-
-
 def _make_kernels(operation: Operation, args) -> Dict[str, Any]:
     if operation == Operation.SPMV:
         return {
@@ -150,13 +139,11 @@ def run_matrix(matrix_name: str, set_name: str, operation: Operation, args) -> O
     plan = Plan(matrix, artifact_dir=artifact_dir)
 
     if operation == Operation.SPMV:
-        write_dense_vector(1.0, cols)
-        plan.rhs(DenseInput.vector(_generated_vector_path(cols), cols))
+        plan.rhs(DenseInput.vector(write_dense_vector(1.0, cols), cols))
     else:
-        write_dense_matrix(1.0, cols, SPMM_NRHS)
         plan.rhs(
             DenseInput.matrix(
-                _generated_matrix_path(cols, SPMM_NRHS),
+                write_dense_matrix(1.0, cols, SPMM_NRHS),
                 shape=(cols, SPMM_NRHS),
                 layout=DenseLayout.ROW_MAJOR,
             )
@@ -228,7 +215,8 @@ def run_matrix(matrix_name: str, set_name: str, operation: Operation, args) -> O
     executor, codegen_wall = _timed(plan.compile, filename=matrix_name, bench=args.bench)
     phases["codegen"] = {
         "wall_seconds": codegen_wall,
-        "codegen_time_ms": executor.codegen_time_ms,
+        # Emitting the C plus writing the staged data, as the docstring says.
+        "codegen_time_ms": executor.codegen_time_ms + executor.staged_data_time_ms,
     }
     print(f"  [CodeGen] {codegen_wall:.2f}s -> {executor.c_path}")
 

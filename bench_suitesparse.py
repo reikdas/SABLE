@@ -563,6 +563,8 @@ def _build_matrix_result(
     codegen_time_composed_ms: int,
     codegen_time_baseline_ms: int,
     baseline_source: str,
+    staged_data_time_composed_ms: int = 0,
+    staged_data_time_baseline_ms: int = 0,
 ) -> Dict[str, Any]:
     total_time = sum(dispatch_times.values())
     baseline_time = sum(baseline_dispatch_times.values())
@@ -603,8 +605,12 @@ def _build_matrix_result(
             "speedup": round((baseline_time / total_time), 3) if total_time > 0 else 0,
             "compile_time_composed_s": compile_time_composed_ns / 1e9 if compile_time_composed_ns else 0.0,
             "compile_time_csr_baseline_s": compile_time_baseline_ns / 1e9 if compile_time_baseline_ns else 0.0,
+            # Emitting the C. Writing the staged data is timed on its own, and is
+            # zero for a variant that reused the file an earlier variant wrote.
             "codegen_time_composed_ms": codegen_time_composed_ms,
             "codegen_time_csr_baseline_ms": codegen_time_baseline_ms,
+            "staged_data_time_composed_ms": staged_data_time_composed_ms,
+            "staged_data_time_csr_baseline_ms": staged_data_time_baseline_ms,
         },
         "nnz": {
             "format_claimed_nnz": claimed_nnz,
@@ -717,7 +723,7 @@ def _process_and_benchmark_frontend(
                 baseline_results_dir,
             )
             baseline = {"dispatch_times": {1: baseline_time_ns}, "compile_time_ns": 0.0,
-                        "codegen_time_ms": 0, "source": baseline_source}
+                        "codegen_time_ms": 0, "staged_data_time_ms": 0, "source": baseline_source}
             print(f"  [{variant_name}] Using existing CSR baseline: {baseline_source}")
         except Exception as exc:
             if not allow_baseline_run_on_missing:
@@ -735,7 +741,9 @@ def _process_and_benchmark_frontend(
             print(f"  [{variant_name}] CSR baseline produced no timings; nothing recorded for {matrix_name}")
             return None
         baseline = {"dispatch_times": baseline_dispatch_times, "compile_time_ns": compile_time_baseline_ns,
-                    "codegen_time_ms": baseline_executor.codegen_time_ms, "source": "measured_in_this_run"}
+                    "codegen_time_ms": baseline_executor.codegen_time_ms,
+                    "staged_data_time_ms": baseline_executor.staged_data_time_ms,
+                    "source": "measured_in_this_run"}
 
     if baseline_cache is not None:
         baseline_cache[baseline_key] = baseline
@@ -754,6 +762,8 @@ def _process_and_benchmark_frontend(
         composed_executor.codegen_time_ms,
         baseline["codegen_time_ms"],
         baseline["source"],
+        composed_executor.staged_data_time_ms,
+        baseline["staged_data_time_ms"],
     )
 
 

@@ -4,11 +4,9 @@
 # machine-specific flags (-march=native, or fixed AVX-512 flags).
 #
 # IMPORTANT: because of -march=native, binaries built by this script are
-# tied to the CPU of the machine it runs on. The Dockerfile runs this once
-# at `docker build` time, which is correct as long as you build and run the
-# container on the same machine (the normal case for artifact evaluation).
-# If you build on one machine and run on another, re-run this script inside
-# the running container first:
+# tied to the CPU of the machine it runs on. The artifact image therefore
+# ships without them: run this once inside the container, on the machine the
+# benchmarks will run on, before benchmarking:
 #
 #   docker run --rm -it <image> bash
 #   bash build_native.sh
@@ -24,10 +22,8 @@ if grep -q avx512f /proc/cpuinfo 2>/dev/null; then
 else
     HAVE_AVX512=0
     echo "AVX-512: NOT supported on this CPU."
-    echo "  -> The SpV8 baseline (spv8-public) requires AVX-512 and will be built"
-    echo "     but is NOT expected to run correctly here."
-    echo "  -> sparse-register-tiling will be built with -DENABLE_AVX2=True instead"
-    echo "     of -DENABLE_AVX512=True."
+    echo "  -> The SpV8 (SpMV) and SpReg (SpMM) baselines require AVX-512, which the"
+    echo "     artifact lists as a hardware requirement. They are not built here."
 fi
 echo
 
@@ -49,29 +45,27 @@ fi
 echo
 
 echo "=== [3/4] Building sparse-register-tiling/ (SpReg SpMM baseline) ==="
-( cd "$SABLE_DIR/sparse-register-tiling/spmm_nano_kernels" && python3 -m codegen.generate_ukernels )
-mkdir -p "$SABLE_DIR/sparse-register-tiling/build"
+# SABLE's SpReg kernel links spmm_nano_kernels/build/libspreg.a. Without it
+# every generated SpReg program compiles the library's ~115 C++ files itself,
+# so building it once here is what keeps SpMM benchmarking to a sane length.
+# It needs no network access.
 if [ "$HAVE_AVX512" -eq 1 ]; then
-    AVX_FLAG="-DENABLE_AVX512=True"
+    ( cd "$SABLE_DIR/sparse-register-tiling/spmm_nano_kernels" && \
+      python3 -m codegen.generate_ukernels && \
+      make -j"$(nproc)" )
+    echo "  -> $SABLE_DIR/sparse-register-tiling/spmm_nano_kernels/build/libspreg.a"
 else
-    AVX_FLAG="-DENABLE_AVX2=True"
+    echo "  -> skipping build: SABLE drives SpReg through its AVX-512 micro-kernels"
+    echo "     (-DENABLE_AVX512 -mavx512f) and this CPU lacks AVX-512."
+    echo "     The SPRegCSRSpmm kernel will not be usable in this environment."
 fi
-# NOTE: this CMake project downloads two dependencies at *configure* time --
-# rapidyaml (FetchContent git clone) and Google Benchmark v1.5.5
-# (ExternalProject zip). They are fetched here rather than pre-staged in the
-# image, so this step needs network access. Nothing else in the artifact does:
-# the matrices and all sources already ship inside the image.
-( cd "$SABLE_DIR/sparse-register-tiling/build" && \
-  cmake .. -DCMAKE_BUILD_TYPE=Release "$AVX_FLAG" && \
-  make -j"$(nproc)" SPMM_demo )
-echo "  -> built with $AVX_FLAG"
 echo
 
 echo "=== [4/4] Rust toolchain check (for the UZP baseline) ==="
 if command -v rustup >/dev/null 2>&1; then
     echo "  rustup found at $(command -v rustup); UZP's z_polyhedrator will build lazily"
-    echo "  on first use via uzp_prepare.sh (no network access needed -- the 1.85.0"
-    echo "  toolchain was pre-installed at image build time)."
+    echo "  on first use via uzp_prepare.sh. The 1.85.0 toolchain is already installed;"
+    echo "  that first build fetches the crates pinned in Cargo.lock, so it needs network access."
 else
     echo "  WARNING: rustup not found on PATH. The UZP baseline (UZPCSRSpmv) will try to"
     echo "  self-install rustup via 'curl https://sh.rustup.rs | sh' the first time it is"
@@ -85,10 +79,6 @@ echo "NOT built here -- uzp_prepare.sh builds and caches both automatically, per
 echo "matrix, the first time a UZP kernel runs against that matrix."
 echo
 
-# NOTE: this script deliberately does NOT delete any .git directory.
-#
-# An earlier version stripped them, to remove the stray checkout CMake's
-# FetchContent leaves under sparse-register-tiling/build/_deps/ryml-src/.
-# That is harmless, and deleting indiscriminately was not: the SABLE clone
-# keeps its .git on purpose, and wiping it would break the `git pull` inside
-# the container that picks up new commits on the artifact branch.
+# NOTE: this script deliberately does NOT delete any .git directory. The SABLE
+# clone keeps its .git on purpose: `git pull` inside the container is how new
+# commits on the artifact branch are picked up.

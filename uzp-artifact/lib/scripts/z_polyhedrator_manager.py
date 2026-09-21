@@ -112,7 +112,9 @@ class ZPolyhedratorManager:
 
         try:
             subprocess.run(["rustup", "install", "1.85.0"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env)
-            subprocess.run(["cargo", "build", "--release"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env_with_rustflags)
+            # --locked: build the dependency versions recorded in Cargo.lock. Resolving
+            # afresh picks up releases that need a newer rustc than the 1.85.0 above.
+            subprocess.run(["cargo", "build", "--release", "--locked"], check=True, cwd=self.Z_POLYHEDRAL_DIR, env=env_with_rustflags)
             subprocess.run(
                 [zpoly_bin, "search", pattern_file, input_matrix_file, "-w", output_file_name],
                 check=True,

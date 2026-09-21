@@ -14,9 +14,9 @@ tests/csr_indptr_tmp_*
 *.o
 *.openmp.o
 **/spmv_spv8
-# uzp-artifact build artifacts
+# uzp-artifact build artifacts. z_polyhedrator/Cargo.lock is tracked on purpose:
+# the build is --locked, so a fresh clone gets versions that build with rustc 1.85.0.
 uzp-artifact/z_polyhedrator/target/
-uzp-artifact/z_polyhedrator/Cargo.lock
 uzp-artifact/spmv-executors/uzp-genex/spf_matvec
 uzp-artifact/spmv-executors/uzp-genex/spf_matvec_omp
 uzp-artifact/spmv-executors/uzp-genex/spf_aggregator

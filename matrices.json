@@ -89,6 +89,18 @@
     ]
   },
 
+  "vdia_in_vbr_csr": {
+    "_comment": "The 5 matrices of the 24-matrix VDIA band set (fig:vdia_csr_best, fig:vdia_vbr_csr_best) that are also in vbr_csr above; with vdia_only they make up the 24. A subset of vbr_csr, listed so that run_extraction.py knows which vbr_csr matrices the band extractor was run on for the evaluation.",
+    "count": 5,
+    "matrices": [
+      {"group": "IPSO", "name": "TSC_OPF_1047"},
+      {"group": "Norris", "name": "heart1"},
+      {"group": "Norris", "name": "heart2"},
+      {"group": "Norris", "name": "heart3"},
+      {"group": "DIMACS10", "name": "vsp_c-30_data_data"}
+    ]
+  },
+
   "fukaya": {
     "_comment": "The 4 matrices drawn from Fukaya et al. 2021, added to the VDIA+CSR comparison only (fig:vdia_csr_best), not VDIA+VBR+CSR.",
     "count": 4,

@@ -6,8 +6,13 @@ idempotent: a file that already exists with the expected length and value is
 left alone and its path is returned, so calling them once per kernel variant
 costs one stat rather than one rewrite.
 
+Check inputs: the benchmarks use a non-uniform right-hand side so that the
+output check (bench_suitesparse.py) catches a value added into the wrong
+column, which an all-ones input hides. `check_values` regenerates the same
+values in Python for the reference product.
+
 Extraction recordings: the YAML written by find-submatrices (blocks) and
-find_vdia.py (bands) is the input of BlockDetectorSkip and BandExtractorSkip,
+scan_bands.py (bands) is the input of BlockDetectorSkip and BandExtractorSkip,
 and of the benchmarks that replay a stored extraction.
 """
 import os
@@ -15,6 +20,7 @@ import pathlib
 import re
 from typing import Any, List, Tuple
 
+import numpy
 import yaml
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
@@ -78,6 +84,57 @@ def write_dense_vector(val: float, size: int) -> str:
 def write_dense_matrix(val: float, m: int, n: int) -> str:
     """Write the all-`val` m x n row-major matrix if absent; return its path."""
     return _write_repeated_values(dense_matrix_path(m, n), val, n * m)
+
+
+CHECK_MULTIPLIER = 40503
+CHECK_MODULUS = 65521
+CHECK_LEVELS = 16
+# 0.5 + m/16 has an exact binary value and a short decimal form, which keeps
+# the check inputs of million-column SpMM operands near the size of the
+# all-ones files.
+_CHECK_STRINGS = [repr(0.5 + m / CHECK_LEVELS) for m in range(CHECK_LEVELS)]
+
+
+def check_values(size: int) -> numpy.ndarray:
+    """Values in [0.5, 1.5): position k holds 0.5 + m/16, m = (k * 40503 mod 65521) mod 16."""
+    k = numpy.arange(size, dtype=numpy.int64)
+    return 0.5 + ((k * CHECK_MULTIPLIER) % CHECK_MODULUS % CHECK_LEVELS) / CHECK_LEVELS
+
+
+def check_vector_path(size: int) -> str:
+    return os.path.abspath(os.path.join(dense_tensors_dir(), f"check16_vector_{size}.vector"))
+
+
+def check_matrix_path(rows: int, cols: int) -> str:
+    return os.path.abspath(os.path.join(dense_tensors_dir(), f"check16_matrix_{rows}x{cols}.matrix"))
+
+
+def _write_check_values(path: str, size: int, chunk_size: int = 1 << 20) -> str:
+    # Files are only ever renamed into place complete, so one that exists is whole.
+    if os.path.isfile(path):
+        return path
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp_path = f"{path}.tmp.{os.getpid()}"
+    with open(tmp_path, "w") as f:
+        for start in range(0, size, chunk_size):
+            k = numpy.arange(start, min(start + chunk_size, size), dtype=numpy.int64)
+            levels = ((k * CHECK_MULTIPLIER) % CHECK_MODULUS % CHECK_LEVELS).tolist()
+            if start:
+                f.write(",")
+            f.write(",".join(_CHECK_STRINGS[m] for m in levels))
+        f.write("\n")
+    os.replace(tmp_path, path)
+    return path
+
+
+def write_check_vector(size: int) -> str:
+    """Write the check vector of length `size` if absent; return its path."""
+    return _write_check_values(check_vector_path(size), size)
+
+
+def write_check_matrix(m: int, n: int) -> str:
+    """Write the m x n row-major check matrix if absent; return its path."""
+    return _write_check_values(check_matrix_path(m, n), m * n)
 
 
 # ---------------------------------------------------------------------------

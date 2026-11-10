@@ -137,7 +137,6 @@ def _parse_partitioner_yaml(yaml_path: str) -> dict[str, Any]:
         )
     return {
         "timeout": bool(data.get("timeout", False)),
-        "timeout_seconds_budget": float(data.get("timeout_seconds_budget", 0.0)),
         "partitioner_read_seconds": float(data.get("read_seconds", 0.0)),
         "partitioner_search_seconds": float(data.get("search_seconds", 0.0)),
         "blocks": blocks,

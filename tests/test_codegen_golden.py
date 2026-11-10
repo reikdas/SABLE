@@ -18,7 +18,6 @@ from sable.extractors import BandExtractorSkip, BlockDetectorSkip, CSRConvertor
 from sable.kernels import (
     MKLCSRSpmm,
     MKLCSRSpmv,
-    MKLDIASpmv,
     MKLVBRSpmm,
     MKLVBRSpmv,
     MixedVBRSpmm,
@@ -77,7 +76,6 @@ TWO_VDIA_SEGMENTS = [
 SPMV_KERNELS = {
     "band": {
         "bandnaive": NaiveVDIASpmv,
-        "bandmkl": MKLDIASpmv,
     },
     "block": {
         "blocknaive": NaiveVBRSpmv,
@@ -112,7 +110,6 @@ PARAMETERIZED_OUT_OF_LINE_VARIANTS = {
     "spmm_blocknaive_two_blocks": lambda tmpdir: _generate_two_vbr_c("spmm", tmpdir),
     "spmv_bandnaive_two_segments": lambda tmpdir: _generate_two_vdia_c("spmv", tmpdir),
     "spmm_bandnaive_two_segments": lambda tmpdir: _generate_two_vdia_c("spmm", tmpdir),
-    "spmv_bandmkl_two_segments": lambda tmpdir: _generate_two_vdia_mkl_c(tmpdir),
 }
 
 
@@ -308,19 +305,6 @@ def _generate_two_vdia_c(op_name: str, tmpdir: pathlib.Path) -> str:
     return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
 
 
-def _generate_two_vdia_mkl_c(tmpdir: pathlib.Path) -> str:
-    A = _two_segment_vdia_matrix()
-    plan = Plan(Matrix(A, name="fixture"), artifact_dir=str(tmpdir / "codegen"))
-    rhs_path = tmpdir / "x.vector"
-    _write_vector(rhs_path, A.shape[1])
-    plan.rhs(DenseInput.vector(str(rhs_path), A.shape[1]))
-
-    vdia = plan.extract(BandExtractorSkip(bands=TWO_VDIA_SEGMENTS))
-    plan.dispatch(vdia, MKLDIASpmv())
-    executor = plan.compile(filename="fixture", bench=1)
-    return _normalize_c_source(pathlib.Path(executor.c_path).read_text())
-
-
 def _assert_parameterized_out_of_line_shape(variant: str, source: str) -> None:
     if variant == "spmv_blocknaive_two_blocks":
         assert source.count("static void vbr_val_spmv_naive_block(") == 1
@@ -333,23 +317,16 @@ def _assert_parameterized_out_of_line_shape(variant: str, source: str) -> None:
         assert "vbr_val_spmm_naive_block(y, x, vbr_val, 3, 6, 3, 6, 4, 4);" in source
         assert "vbr_val_spmm_naive_block_0" not in source
     elif variant == "spmv_bandnaive_two_segments":
-        assert source.count("static void vdia_val_spmv_naive_segment(") == 1
-        assert "vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 0, 3, 2, 0, 0);" in source
-        assert "vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6);" in source
-        assert "vdia_val_spmv_naive_segment_0" not in source
+        # One call for all segments, which loops over a file-scope segment table.
+        assert source.count("static void vdia_val_spmv(") == 1
+        assert source.count("vdia_val_spmv(y, x, vdia_val);") == 1
+        assert "static const long vdia_val_seg_row0[] = {0, 3};" in source
+        assert "static const long vdia_val_seg_off0[] = {0, -1};" in source
     elif variant == "spmm_bandnaive_two_segments":
-        assert source.count("static void vdia_val_spmm_naive_segment(") == 1
-        assert "vdia_val_spmm_naive_segment(y, x, vdia_val, vdia_idiag, 0, 3, 2, 0, 0, 4);" in source
-        assert "vdia_val_spmm_naive_segment(y, x, vdia_val, vdia_idiag, 3, 3, 2, 2, 6, 4);" in source
-        assert "vdia_val_spmm_naive_segment_0" not in source
-    elif variant == "spmv_bandmkl_two_segments":
-        # One shared helper; idiag is now read from a row0-shifted file-scope
-        # array (vdia_val_mkl_diag), so it is no longer passed as an argument.
-        assert source.count("static void vdia_val_spmv_mkl_dia_segment(") == 1
-        assert "static const MKL_INT vdia_val_mkl_diag[] = {0, 1, 2, 3};" in source
-        assert "vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, 0, 3, 2, 0, 0);" in source
-        assert "vdia_val_spmv_mkl_dia_segment(y, x, vdia_val, 3, 3, 2, 2, 6);" in source
-        assert "(MKL_INT *)&vdia_val_mkl_diag[idiag_off]" in source
+        assert source.count("static void vdia_val_spmm(") == 1
+        assert source.count("vdia_val_spmm(y, x, vdia_val, vdia_val_pad, 4);") == 1
+        assert "static const long vdia_val_seg_row0[] = {0, 3};" in source
+        assert "static const long vdia_val_seg_off0[] = {0, -1};" in source
     else:
         raise AssertionError(f"Unhandled parameterized out_of_line variant: {variant}")
 

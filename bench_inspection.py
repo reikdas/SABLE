@@ -15,7 +15,7 @@ from scipy.sparse import csr_matrix
 from bench_suitesparse import (
     COMPILE_TIMEOUT,
     SPMM_NRHS,
-    density_token,
+    format_token,
     download_matrix_from_suitesparse,
     _csr_spmm_kernel,
     _csr_spmv_kernel,
@@ -27,9 +27,9 @@ from bench_suitesparse import (
 from sable import Matrix, Operation, Plan
 from sable.build_config import CSRKernel, VBRKernel, VDIAKernel
 from sable.compiler import build_compile_command_for_plan
-from sable.extractors import BandExtractor, BlockDetector, CSRConvertor
+from sable.extractors import BlockDetector, BlockDetectorSkip, CSRConvertor, SpMMBandExtractor, SpMVBandExtractor
 from sable.tensor import DenseInput, DenseLayout
-from utils.fileio import write_dense_matrix, write_dense_vector
+from utils.fileio import parse_yaml_blocks, write_dense_matrix, write_dense_vector
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
 DEFAULT_OUTPUT_DIR = FILEPATH / "results" / "inspection"
@@ -51,29 +51,56 @@ VBR_CSR_55 = [
     "orani678", "std1_Jac2", "std1_Jac3", "vsp_c-30_data_data",
 ]
 
-# The 24 matrices the band extractor identified (paper VDIA+VBR+CSR set).
-VDIA_24 = [
-    "TSC_OPF_1047", "bcsstk28", "bcsstk32", "cegb2802", "cegb2919", "gupta3",
-    "heart1", "heart2", "heart3", "msc10848", "nd3k", "nemeth19", "nemeth20",
-    "nemeth21", "nemeth22", "nemeth23", "nemeth24", "nemeth25", "nemeth26",
-    "olafu", "opt1", "pkustk07", "pkustk08", "vsp_c-30_data_data",
+# The matrices each operation's band extractor selects bands for (the stored
+# bands find-submatrices/scan_bands.py writes, find-submatrices/results_vdia<op>):
+# SpMVBandExtractor 43, SpMMBandExtractor 49. Both VDIA sets use the
+# operation's list.
+VDIA_SPMV = [
+    "Baumann", "G2_circuit", "G3_circuit", "Hardesty1", "Lin",
+    "Spielman_k100", "Spielman_k200", "TSC_OPF_1047", "TSOPF_RS_b2052_c1",
+    "TSOPF_RS_b678_c1", "TSOPF_RS_b678_c2", "apache1", "apache2", "atmosmodd",
+    "atmosmodj", "atmosmodl", "atmosmodm", "bloweybl", "bodyy4", "bodyy5",
+    "bodyy6", "chem_master1", "cont-201", "cont-300", "denormal", "dixmaanl",
+    "ecology1", "ecology2", "exdata_1", "jnlbrng1", "mc2depi", "minsurfo",
+    "mip1", "obstclae", "rajat09", "rajat10", "shyy161", "t2em", "tmt_sym",
+    "tmt_unsym", "torsion1", "wang3", "wang4"
 ]
+VDIA_SPMM = [
+    "G2_circuit", "G3_circuit", "Spielman_k100", "Spielman_k200",
+    "TSC_OPF_1047", "TSC_OPF_300", "TSOPF_RS_b162_c1", "TSOPF_RS_b162_c3",
+    "TSOPF_RS_b162_c4", "TSOPF_RS_b2052_c1", "TSOPF_RS_b300_c1",
+    "TSOPF_RS_b300_c2", "TSOPF_RS_b300_c3", "TSOPF_RS_b678_c1",
+    "TSOPF_RS_b678_c2", "chem_master1", "ecology1", "ecology2", "exdata_1",
+    "jnlbrng1", "mip1", "nemeth01", "nemeth02", "nemeth03", "nemeth04",
+    "nemeth05", "nemeth06", "nemeth07", "nemeth08", "nemeth09", "nemeth10",
+    "nemeth11", "nemeth12", "nemeth13", "nemeth14", "nemeth15", "nemeth16",
+    "nemeth17", "nemeth18", "nemeth19", "nemeth20", "nemeth21", "nemeth22",
+    "nemeth23", "nemeth24", "nemeth25", "nemeth26", "piston", "spmsrtls"
+]
+VDIA_MATRICES = {Operation.SPMV: VDIA_SPMV, Operation.SPMM: VDIA_SPMM}
 
-# The 4 matrices from Fukaya et al. (2021) added to the VDIA+CSR evaluation.
-FUKAYA_4 = ["circuit5M_dc", "memchip", "ohne2", "CoupCons3D"]
-
-MATRIX_SETS = {
-    "vbr_csr": VBR_CSR_55,
-    "vdia_csr": VDIA_24 + FUKAYA_4,
-    "vdia_vbr_csr": VDIA_24,
-}
+# The blocks-first evaluation (three_format.py): its operation--matrix pairs,
+# and the stored blocks it replays before searching the residual for bands.
+THREE_FORMAT_EXTRACTIONS = FILEPATH / "find-submatrices" / "three_format"
+STORED_BLOCKS = FILEPATH / "find-submatrices" / "results"
 
 # The formats each set extracts, in extraction order; they name the output file.
+# vbr_vdia_csr replays the stored blocks instead of running the partitioner.
 SET_FORMATS = {
     "vbr_csr": ("vbr",),
     "vdia_csr": ("vdia",),
     "vdia_vbr_csr": ("vdia", "vbr"),
+    "vbr_vdia_csr": ("vbr", "vdia"),
 }
+
+
+def matrix_set(set_name: str, operation: Operation) -> list[str]:
+    if set_name == "vbr_csr":
+        return VBR_CSR_55
+    if set_name == "vbr_vdia_csr":
+        composed = THREE_FORMAT_EXTRACTIONS / f"results_vbr050_vdia{operation.value}"
+        return sorted(p.stem for p in composed.glob("*.yaml"))
+    return VDIA_MATRICES[operation]
 
 
 def _timed(fn, *args, **kwargs):
@@ -85,15 +112,58 @@ def _timed(fn, *args, **kwargs):
 def _make_kernels(operation: Operation, args) -> Dict[str, Any]:
     if operation == Operation.SPMV:
         return {
-            "vdia": _vdia_spmv_kernel(VDIAKernel(args.vdia_kernel)),
+            "vdia": _vdia_spmv_kernel(VDIAKernel.NAIVE),
             "vbr": _vbr_spmv_kernel(VBRKernel(args.vbr_kernel)),
             "csr": _csr_spmv_kernel(CSRKernel(args.csr_kernel)),
         }
     return {
-        "vdia": _vdia_spmm_kernel(VDIAKernel(args.vdia_kernel)),
+        "vdia": _vdia_spmm_kernel(VDIAKernel.NAIVE),
         "vbr": _vbr_spmm_kernel(VBRKernel(args.vbr_kernel)),
         "csr": _csr_spmm_kernel(CSRKernel(args.csr_kernel)),
     }
+
+
+def run_vbr_phase(matrix_name: str, set_name: str, plan: Plan, kernels: Dict[str, Any],
+                  phases: Dict[str, Any], args) -> None:
+    nnz = plan.residual.nnz
+    if set_name == "vbr_vdia_csr":
+        blocks = parse_yaml_blocks(str(STORED_BLOCKS / f"{matrix_name}.yaml"))
+        print(f"  [VBR] replaying {len(blocks)} stored block(s) ...")
+        vbr_fmt, wall = _timed(plan.extract, BlockDetectorSkip(blocks))
+        phases["vbr"] = {
+            "wall_seconds": wall,
+            "claimed_nnz": nnz - plan.residual.nnz,
+            "replayed": True,
+            "block_count": len(blocks),
+        }
+        plan.dispatch(vbr_fmt, kernels["vbr"])
+        print(f"  [VBR] claimed {phases['vbr']['claimed_nnz']}/{nnz} nnz (wall {wall:.1f}s)")
+        return
+    print(
+        f"  [VBR] block search (timeout={args.block_timeout:.0f}s, "
+        f"threads={args.block_threads}) ..."
+    )
+    detector = BlockDetector(
+        min_density=args.block_min_density,
+        min_area=args.block_min_area,
+        gamma=args.block_gamma,
+        timeout_seconds=args.block_timeout,
+        threads=args.block_threads,
+    )
+    vbr_fmt, wall = _timed(plan.extract, detector)
+    claimed = nnz - plan.residual.nnz
+    phases["vbr"] = {
+        "wall_seconds": wall,
+        "claimed_nnz": claimed,
+        **(detector.last_timing or {}),
+    }
+    plan.dispatch(vbr_fmt, kernels["vbr"])
+    timeout_note = " [TIMEOUT]" if phases["vbr"].get("timeout") else ""
+    print(
+        f"  [VBR] {len(phases['vbr'].get('blocks', []))} block(s), "
+        f"claimed {claimed}/{nnz} nnz, partitioner "
+        f"{phases['vbr'].get('partitioner_seconds', 0):.1f}s (wall {wall:.1f}s){timeout_note}"
+    )
 
 
 def run_matrix(matrix_name: str, set_name: str, operation: Operation, args) -> Optional[Dict[str, Any]]:
@@ -131,16 +201,18 @@ def run_matrix(matrix_name: str, set_name: str, operation: Operation, args) -> O
     kernels = _make_kernels(operation, args)
     phases: Dict[str, Any] = {}
 
-    if set_name in ("vdia_csr", "vdia_vbr_csr"):
-        print(f"  [VDIA] band search (min_density={args.band_min_density}) ...")
-        extractor = BandExtractor(min_density=args.band_min_density)
+    for kind in SET_FORMATS[set_name]:
+        if kind == "vbr":
+            run_vbr_phase(matrix_name, set_name, plan, kernels, phases, args)
+            continue
+        extractor = SpMVBandExtractor() if operation == Operation.SPMV else SpMMBandExtractor()
+        print(f"  [VDIA] band search ({type(extractor).__name__}) ...")
         nnz_before = plan.residual.nnz
         vdia_fmt, wall = _timed(plan.extract, extractor)
         claimed = nnz_before - plan.residual.nnz
         phases["vdia"] = {
             "wall_seconds": wall,
             "claimed_nnz": claimed,
-            "residual_nnz_after": plan.residual.nnz,
             **(extractor.last_timing or {}),
         }
         plan.dispatch(vdia_fmt, kernels["vdia"])
@@ -150,42 +222,13 @@ def run_matrix(matrix_name: str, set_name: str, operation: Operation, args) -> O
             f"{phases['vdia'].get('search_seconds', 0):.1f}s (wall {wall:.1f}s)"
         )
 
-    if set_name in ("vbr_csr", "vdia_vbr_csr"):
-        print(
-            f"  [VBR] block search (timeout={args.block_timeout:.0f}s, "
-            f"threads={args.block_threads}) ..."
-        )
-        detector = BlockDetector(
-            min_density=args.block_min_density,
-            min_area=args.block_min_area,
-            gamma=args.block_gamma,
-            timeout_seconds=args.block_timeout,
-            threads=args.block_threads,
-        )
-        nnz_before = plan.residual.nnz
-        vbr_fmt, wall = _timed(plan.extract, detector)
-        claimed = nnz_before - plan.residual.nnz
-        phases["vbr"] = {
-            "wall_seconds": wall,
-            "claimed_nnz": claimed,
-            "residual_nnz_after": plan.residual.nnz,
-            **(detector.last_timing or {}),
-        }
-        plan.dispatch(vbr_fmt, kernels["vbr"])
-        timeout_note = " [TIMEOUT]" if phases["vbr"].get("timeout") else ""
-        print(
-            f"  [VBR] {len(phases['vbr'].get('blocks', []))} block(s), "
-            f"claimed {claimed}/{nnz} nnz, partitioner "
-            f"{phases['vbr'].get('partitioner_seconds', 0):.1f}s (wall {wall:.1f}s){timeout_note}"
-        )
-
     convertor = CSRConvertor()
     nnz_before = plan.residual.nnz
     csr_fmt, wall = _timed(plan.extract, convertor)
     phases["csr"] = {
         "wall_seconds": wall,
         "claimed_nnz": nnz_before,
-        **(convertor.last_timing or {}),
+        "convert_seconds": convertor.last_timing["convert_seconds"],
     }
     plan.dispatch(csr_fmt, kernels["csr"])
     print(f"  [CSR] claimed {nnz_before}/{nnz} nnz, convert {phases['csr']['convert_seconds']:.2f}s")
@@ -203,50 +246,36 @@ def run_matrix(matrix_name: str, set_name: str, operation: Operation, args) -> O
     command = build_compile_command_for_plan(plan, executor.c_path, output_path)
     print(f"  [gcc] compiling (timeout={args.compile_timeout:.0f}s) ...")
     gcc_start = time.perf_counter()
-    gcc_timed_out = False
-    gcc_returncode: Optional[int] = None
+    # A failed compile keeps its phases but is recorded as an error, so the
+    # next run retries it rather than reading its gcc time as a measurement.
+    error = None
     try:
         proc = subprocess.run(command, capture_output=True, text=True, timeout=args.compile_timeout)
-        gcc_returncode = proc.returncode
         if proc.returncode != 0:
             print(f"  [gcc] FAILED:\n{proc.stderr[-2000:]}")
+            error = f"gcc failed with return code {proc.returncode}"
     except subprocess.TimeoutExpired:
-        gcc_timed_out = True
         print("  [gcc] TIMEOUT")
+        error = f"gcc timed out after {args.compile_timeout:.0f}s"
     gcc_wall = time.perf_counter() - gcc_start
-    phases["gcc"] = {
-        "wall_seconds": gcc_wall,
-        "returncode": gcc_returncode,
-        "timed_out": gcc_timed_out,
-        "command": command,
-    }
+    phases["gcc"] = {"wall_seconds": gcc_wall}
     print(f"  [gcc] {gcc_wall:.1f}s")
 
-    return {
+    # The operation, set and block density are in the file name, and the
+    # matrix's shape and nonzeros are in the benchmark result files.
+    entry = {
         "matrix_name": matrix_name,
-        "set": set_name,
-        "operation": operation.value,
-        "rows": rows,
-        "cols": cols,
-        "nnz": nnz,
         "load_seconds": load_seconds,
-        "params": {
-            "band_min_density": args.band_min_density,
-            "block_min_density": args.block_min_density,
-            "block_min_area": args.block_min_area,
-            "block_gamma": args.block_gamma,
-            "block_timeout_seconds": args.block_timeout,
-            "block_threads": args.block_threads,
-            "bench": args.bench,
-        },
         "kernels": {
-            "vdia": args.vdia_kernel,
+            "vdia": VDIAKernel.NAIVE.value,
             "vbr": args.vbr_kernel,
             "csr": args.csr_kernel,
         },
         "phases": phases,
-        "recorded_at": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
+    if error:
+        entry["error"] = error
+    return entry
 
 
 def _load_results(path: pathlib.Path) -> list:
@@ -269,26 +298,23 @@ def main() -> int:
         epilog=(
             "Examples:\n"
             "  %(prog)s                                # all three sets, spmv\n"
-            "  %(prog)s --sets vdia_vbr_csr            # one set\n"
+            "  %(prog)s --sets vbr_vdia_csr --operation spmm\n"
             "  %(prog)s --sets vbr_csr --matrices eris1176 --block-timeout 600\n"
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--sets", type=str, default="vbr_csr,vdia_csr,vdia_vbr_csr",
-                        help="Comma-separated sets: vbr_csr, vdia_csr, vdia_vbr_csr (default: all)")
+    parser.add_argument("--sets", type=str, default="vbr_csr,vdia_csr,vbr_vdia_csr",
+                        help="Comma-separated sets: vbr_csr, vdia_csr, vbr_vdia_csr (blocks first, "
+                             "replaying the stored blocks), vdia_vbr_csr (bands first)")
     parser.add_argument("--matrices", nargs="*", default=None,
                         help="Restrict to these matrices (must belong to the selected sets)")
     parser.add_argument("--operation", type=str, default="spmv", choices=("spmv", "spmm"))
-    parser.add_argument("--band-min-density", type=float, default=0.75,
-                        help="Band extractor min density (default: 0.75, as in the paper)")
     parser.add_argument("--block-min-density", type=float, default=0.5)
     parser.add_argument("--block-min-area", type=int, default=2500)
     parser.add_argument("--block-gamma", type=float, default=1.5)
     parser.add_argument("--block-timeout", type=float, default=4.0 * 60.0 * 60.0,
                         help="Block partitioner time budget in seconds (default: 4h)")
     parser.add_argument("--block-threads", type=int, default=20)
-    parser.add_argument("--vdia-kernel", type=str, default=VDIAKernel.NAIVE.value,
-                        choices=[k.value for k in VDIAKernel])
     parser.add_argument("--vbr-kernel", type=str, default=VBRKernel.NAIVE.value,
                         choices=[k.value for k in VBRKernel])
     parser.add_argument("--csr-kernel", type=str, default=CSRKernel.NAIVE.value,
@@ -306,15 +332,15 @@ def main() -> int:
 
     sets = [s.strip() for s in args.sets.split(",") if s.strip()]
     for set_name in sets:
-        if set_name not in MATRIX_SETS:
-            parser.error(f"Unknown set '{set_name}'. Valid: {sorted(MATRIX_SETS)}")
+        if set_name not in SET_FORMATS:
+            parser.error(f"Unknown set '{set_name}'. Valid: {sorted(SET_FORMATS)}")
 
     operation = Operation(args.operation)
     output_dir = pathlib.Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for set_name in sets:
-        matrices = MATRIX_SETS[set_name]
+        matrices = matrix_set(set_name, operation)
         if args.matrices:
             requested = set(args.matrices)
             unknown = requested - set(matrices)
@@ -322,8 +348,9 @@ def main() -> int:
                 print(f"[{set_name}] Skipping matrices not in this set: {sorted(unknown)}")
             matrices = [m for m in matrices if m in requested]
 
-        densities = {"vdia": args.band_min_density, "vbr": args.block_min_density}
-        extraction = "_".join(density_token(kind, densities[kind]) for kind in SET_FORMATS[set_name])
+        # Bands have no density: their token names the operation, whose extractor found them.
+        densities = {"vdia": operation.value, "vbr": args.block_min_density}
+        extraction = "_".join(format_token(kind, densities[kind]) for kind in SET_FORMATS[set_name])
         output_file = output_dir / f"inspection_{operation.value}_{extraction}_csr.json"
         results = _load_results(output_file)
         done = {entry["matrix_name"] for entry in results if "error" not in entry}
@@ -338,12 +365,10 @@ def main() -> int:
             try:
                 entry = run_matrix(matrix_name, set_name, operation, args)
                 if entry is None:
-                    entry = {"matrix_name": matrix_name, "set": set_name,
-                             "operation": operation.value, "error": "download failed"}
+                    entry = {"matrix_name": matrix_name, "error": "download failed"}
             except Exception as exc:
                 traceback.print_exc()
-                entry = {"matrix_name": matrix_name, "set": set_name,
-                         "operation": operation.value, "error": str(exc)}
+                entry = {"matrix_name": matrix_name, "error": str(exc)}
 
             results = [r for r in results if r["matrix_name"] != matrix_name]
             results.append(entry)

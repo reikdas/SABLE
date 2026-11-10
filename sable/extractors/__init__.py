@@ -1,4 +1,4 @@
-from .band_extractor import BandExtractor, BandExtractorSkip
+from .band_extractor import BandExtractor, BandExtractorSkip, SpMMBandExtractor, SpMVBandExtractor
 from .block_detector import BlockDetector, BlockDetectorSkip
 from .csr_convertor import CSRConvertor
 
@@ -8,4 +8,6 @@ __all__ = [
     "BlockDetector",
     "BlockDetectorSkip",
     "CSRConvertor",
+    "SpMMBandExtractor",
+    "SpMVBandExtractor",
 ]

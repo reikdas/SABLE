@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <immintrin.h>
 
 
 static void skip_to_array(FILE *file) {
@@ -71,16 +72,72 @@ static void read_dense_input(FILE *file, double *out, int size) {
     }
 }
 
-static void vdia_val_spmv_naive_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off) {
-for (int d = 0; d < ndiags; d++) {
-    int diag = vdia_idiag[idiag_off + d];
-    for (int row = 0; row < nrows; row++) {
-        int col = row0 + row + diag;
-        if (0 <= col && col < 14) {
-            y[row0 + row] += vdia_val[val_off + d * nrows + row] * x[col];
+
+#ifndef SABLE_VDIA_SPMV
+#define SABLE_VDIA_SPMV
+static void sable_vdia_spmv_guarded(const double *dv, long r0, long nr, long off0, long nd, long a, long b,
+        long m, const double *x, double *y) {
+    for (long r = a; r < b; r++) {
+        double t = 0.0;
+        for (long d = 0; d < nd; d++) {
+            long c = r + off0 + d;
+            if (c >= 0 && c < m) t += dv[d * nr + (r - r0)] * x[c];
         }
+        y[r] += t;
     }
 }
+static void sable_vdia_spmv_segment(const double *dv, long r0, long nr, long off0, long nd, long m,
+        const double *x, double *y) {
+    long e = r0 + nr, lo = r0 > -off0 ? r0 : -off0, hi = m - off0 - nd + 1;
+    if (hi > e) hi = e;
+    if (lo > e) lo = e;
+    if (hi < lo) hi = lo;
+    sable_vdia_spmv_guarded(dv, r0, nr, off0, nd, r0, lo, m, x, y);
+    long r = lo;
+    for (; r + 32 <= hi; r += 32) {
+        __m512d a0 = _mm512_setzero_pd(), a1 = _mm512_setzero_pd(), a2 = _mm512_setzero_pd(), a3 = _mm512_setzero_pd();
+        const double *vp = dv + (r - r0), *xp = x + r + off0;
+        for (long d = 0; d < nd; d++, vp += nr, xp++) {
+            a0 = _mm512_fmadd_pd(_mm512_loadu_pd(vp), _mm512_loadu_pd(xp), a0);
+            a1 = _mm512_fmadd_pd(_mm512_loadu_pd(vp + 8), _mm512_loadu_pd(xp + 8), a1);
+            a2 = _mm512_fmadd_pd(_mm512_loadu_pd(vp + 16), _mm512_loadu_pd(xp + 16), a2);
+            a3 = _mm512_fmadd_pd(_mm512_loadu_pd(vp + 24), _mm512_loadu_pd(xp + 24), a3);
+        }
+        double *yp = y + r;
+        _mm512_storeu_pd(yp, _mm512_add_pd(_mm512_loadu_pd(yp), a0));
+        _mm512_storeu_pd(yp + 8, _mm512_add_pd(_mm512_loadu_pd(yp + 8), a1));
+        _mm512_storeu_pd(yp + 16, _mm512_add_pd(_mm512_loadu_pd(yp + 16), a2));
+        _mm512_storeu_pd(yp + 24, _mm512_add_pd(_mm512_loadu_pd(yp + 24), a3));
+    }
+    for (; r + 8 <= hi; r += 8) {
+        __m512d a0 = _mm512_setzero_pd();
+        const double *vp = dv + (r - r0), *xp = x + r + off0;
+        for (long d = 0; d < nd; d++, vp += nr, xp++)
+            a0 = _mm512_fmadd_pd(_mm512_loadu_pd(vp), _mm512_loadu_pd(xp), a0);
+        _mm512_storeu_pd(y + r, _mm512_add_pd(_mm512_loadu_pd(y + r), a0));
+    }
+    if (r < hi) {
+        __mmask8 k = (__mmask8)((1u << (hi - r)) - 1u);
+        __m512d a0 = _mm512_setzero_pd();
+        const double *vp = dv + (r - r0), *xp = x + r + off0;
+        for (long d = 0; d < nd; d++, vp += nr, xp++)
+            a0 = _mm512_fmadd_pd(_mm512_maskz_loadu_pd(k, vp), _mm512_maskz_loadu_pd(k, xp), a0);
+        _mm512_mask_storeu_pd(y + r, k, _mm512_add_pd(_mm512_maskz_loadu_pd(k, y + r), a0));
+    }
+    sable_vdia_spmv_guarded(dv, r0, nr, off0, nd, hi, e, m, x, y);
+}
+#endif
+
+static const long vdia_val_seg_row0[] = {0};
+static const long vdia_val_seg_nrows[] = {3};
+static const long vdia_val_seg_off0[] = {-2};
+static const long vdia_val_seg_nd[] = {5};
+static const long vdia_val_seg_voff[] = {0};
+
+static void vdia_val_spmv(double *y, const double *x, const double *val) {
+    for (long s = 0; s < 1; s++)
+        sable_vdia_spmv_segment(val + vdia_val_seg_voff[s], vdia_val_seg_row0[s], vdia_val_seg_nrows[s], vdia_val_seg_off0[s],
+                                vdia_val_seg_nd[s], 14, x, y);
 }
 
 static void vbr_val_spmv_naive_block(double *y, const double *x, const double *vbr_val, int r0, int r1, int c0, int c1, int offset) {
@@ -129,7 +186,7 @@ int main(void) {
     for (int iter = 0; iter < 1; iter++) {
         memset(y, 0, 14 * sizeof(double));
         clock_gettime(CLOCK_MONOTONIC, &t1);
-vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 0, 3, 5, 0, 0);
+vdia_val_spmv(y, x, vdia_val);
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);

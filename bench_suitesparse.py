@@ -22,7 +22,6 @@ from scipy.sparse import csr_matrix
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent / "find-submatrices"))
 from find_matrices import cleanup_matrix_files, get_matrix_info
-from find_vdia import find_vdia_regions
 
 from sable import Matrix, Operation, Plan
 from sable.build_config import CSRKernel, VBRKernel, VDIAKernel
@@ -32,12 +31,12 @@ from sable.extractors import (
     BlockDetector,
     BlockDetectorSkip,
     CSRConvertor,
+    SpMMBandExtractor,
+    SpMVBandExtractor,
 )
-from sable.extractors.band_extractor import pack_bands_as_vdia
 from sable.kernels import (
     MKLCSRSpmm,
     MKLCSRSpmv,
-    MKLDIASpmv,
     MKLVBRSpmm,
     MKLVBRSpmv,
     MixedVBRSpmm,
@@ -55,7 +54,7 @@ from sable.kernels import (
 from sable.formats import CSR, VBR, VDIA
 from sable.kernels.vbr import vbr_blocks
 from sable.tensor import DenseInput, DenseLayout
-from utils.fileio import parse_yaml_bands, parse_yaml_blocks, write_dense_matrix, write_dense_vector
+from utils.fileio import check_values, parse_yaml_bands, parse_yaml_blocks, write_check_matrix, write_check_vector
 
 
 FILEPATH = pathlib.Path(__file__).resolve().parent
@@ -63,36 +62,44 @@ FILEPATH = pathlib.Path(__file__).resolve().parent
 COMPILE_TIMEOUT = 60 * 60 * 4
 DEFAULT_BENCH_ITERATIONS = {Operation.SPMV: 30, Operation.SPMM: 10}
 PHYSICAL_CORES = list(range(os.cpu_count() or 20))
+# Timed binaries run on cores FIRST_CORE .. FIRST_CORE + threads - 1 (outside SLURM, which places them).
+FIRST_CORE = int(os.environ.get("SABLE_FIRST_CORE", "0"))
 SPMM_NRHS = 512
 
 SPMV_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPV8, CSRKernel.UZP)
 SPMM_CSR_KERNELS = (CSRKernel.NAIVE, CSRKernel.MKL, CSRKernel.SPREG)
 
-SPMV_VDIA_KERNELS = (VDIAKernel.NAIVE, VDIAKernel.MKL_DIA)
-SPMM_VDIA_KERNELS = (VDIAKernel.NAIVE,)
 KINDS = ("vbr", "vdia")
 FORMAT_LABELS = {VBR: "vbr", VDIA: "vdia", CSR: "csr"}
 
 SUITESPARSE_DIR = pathlib.Path(os.environ.get("SABLE_SUITESPARSE_DIR") or str(FILEPATH / "Suitesparse"))
 RESULTS_DIR = FILEPATH / "find-submatrices" / "results"
-BANDS_RESULTS_DIR = FILEPATH / "find-submatrices" / "results_bands_075"
 BASELINE_TIME_KEY = "csr_baseline_time_ns"
+# Each operation's band extractor. Keys are the band entries of the densities dict.
+BAND_EXTRACTORS = {Operation.SPMV.value: SpMVBandExtractor, Operation.SPMM.value: SpMMBandExtractor}
+# An output value passes the check when it is within this fraction of
+# sum_j |A_ij| |X_jk| of the SciPy product; reordered sums stay far below it.
+CHECK_RTOL = 1e-9
 _RESULTS_JSON_CACHE: dict[pathlib.Path, list[dict[str, Any]]] = {}
 
 # Result file names are <op>_<format token>_csr-<csr kernel>.json, where a
-# format token is <kind><density>-<kernel>: spmv_vbr050-blockmixed_csr-naive.json,
-# spmm_vdia075-bandnaive_csr-spreg.json.
+# format token is <format_token(kind)>-<kernel>: spmv_vbr050-blockmixed_csr-naive.json,
+# spmm_vdia-bandnaive_csr-spreg.json.
 
 
-def band_density_from_dir(path: pathlib.Path) -> Optional[float]:
-    """0.75 for results_bands_075; None when the name carries no density."""
-    match = re.search(r"_(\d{3})$", path.name)
-    return int(match.group(1)) / 100 if match else None
-
-
-def density_token(kind: str, density: float) -> str:
-    """'vbr050' for blocks at 0.5, 'vdia075' for bands at 0.75."""
+def density_token(kind: str, density: float | str) -> str:
+    """'vbr050' for blocks at 0.5; 'vdiaspmv' / 'vdiaspmm' for bands, whose
+    entry in the densities dict names the operation whose extractor found them.
+    Names the stored extractions, which are per operation once bands are in."""
+    if isinstance(density, str):
+        return f"{kind}{density}"
     return f"{kind}{int(round(density * 100)):03d}"
+
+
+def format_token(kind: str, density: float | str) -> str:
+    """'vbr050' for blocks at 0.5, 'vdia' for bands: names result files, whose
+    operation prefix already says which extractor found the bands."""
+    return "vdia" if kind == "vdia" else density_token(kind, density)
 
 
 # ---------------------------------------------------------------------------
@@ -269,12 +276,22 @@ def eval_frontend_executor_timings(
     bench_freq: int,
     threads: int = 1,
     extract_parts: bool = True,
-) -> Tuple[Dict[int, float], Dict[str, float], float]:
-    cores_to_use = PHYSICAL_CORES[:threads]
+    max_run_seconds: float | None = None,
+    run_timeout: float | None = None,
+) -> Tuple[Dict[int, float], Dict[str, float], float, int, Optional[bytes]]:
+    """Run the program up to `bench_freq` times and average its timings.
+
+    No new invocation starts once `max_run_seconds` have passed (the first
+    always runs), and an invocation longer than `run_timeout` is killed and
+    ends the runs. Returns the averages, the compile time, the number of
+    completed invocations, and the last invocation's raw output, which holds
+    the computed values the output check reads.
+    """
+    cores_to_use = PHYSICAL_CORES[FIRST_CORE:FIRST_CORE + threads]
     compile_result = compile_frontend_executor(executor)
     if compile_result is None:
         print(f"Failed to compile {executor.filename}, skipping evaluation")
-        return {}, {}, 0.0
+        return {}, {}, 0.0, 0, None
 
     executable_path, compile_time_ns = compile_result
     dispatch_times: dict[int, list[float]] = {}
@@ -286,18 +303,32 @@ def eval_frontend_executor_timings(
         run_cmd = ["taskset", "-a", "-c", ",".join(str(x) for x in cores_to_use), executable_path]
 
     print(f"  Executing benchmark binary: {executable_path}")
+    invocations = 0
+    last_output = None
+    start = time.monotonic()
     for _ in range(bench_freq):
+        if invocations and max_run_seconds is not None and time.monotonic() - start >= max_run_seconds:
+            print(f"  Run budget of {max_run_seconds:.0f}s reached after {invocations} invocation(s)")
+            break
         try:
-            output = subprocess.check_output(
+            raw = subprocess.check_output(
                 run_cmd,
                 cwd=executor.runtime_cwd or executor.artifact_dir,
                 env=_executor_env(executor.compile_command or [], executor.runtime_env),
                 preexec_fn=set_ulimit,
-            ).decode("utf-8").split("\n")
+                timeout=run_timeout,
+            )
         except subprocess.CalledProcessError as exc:
             print(f"Error running {executor.filename}: {exc}")
             continue
-        _parse_timing_output(output, dispatch_times, dispatch_part_times, extract_parts)
+        except subprocess.TimeoutExpired:
+            print(f"  An invocation of {executor.filename} exceeded {run_timeout:.0f}s; no further invocations")
+            break
+        invocations += 1
+        last_output = raw
+        # The timings come before the first blank line, the computed values after it.
+        timing_text = raw.partition(b"\n\n")[0].decode("utf-8")
+        _parse_timing_output(timing_text.split("\n"), dispatch_times, dispatch_part_times, extract_parts)
 
     avg_dispatch_times = {}
     for dispatch_id, times in dispatch_times.items():
@@ -311,7 +342,49 @@ def eval_frontend_executor_timings(
             key = f"dispatch_{dispatch_id}_part_{part_id}"
             avg_dispatch_part_times[key] = statistics.mean(times_clean) if times_clean else 0
 
-    return avg_dispatch_times, avg_dispatch_part_times, compile_time_ns
+    return avg_dispatch_times, avg_dispatch_part_times, compile_time_ns, invocations, last_output
+
+
+def check_output_values(operation: Operation, mat: scipy.sparse.spmatrix, output: Optional[bytes]) -> Optional[dict[str, Any]]:
+    """Compare a program's computed values with SciPy's product of the same check input.
+
+    The program prints its output after the first blank line, row-major for
+    SpMM. None when there is no output to check.
+    """
+    if output is None:
+        return None
+    computed = numpy.fromstring(output[output.find(b"\n\n") + 2:], sep="\n")
+    nrows, ncols = mat.shape
+    if operation == Operation.SPMV:
+        rhs = check_values(ncols)
+    else:
+        rhs = check_values(ncols * SPMM_NRHS).reshape(ncols, SPMM_NRHS)
+    expected = numpy.asarray(mat @ rhs)
+    if computed.size != expected.size:
+        return {"values_match": False, "error": f"{computed.size} values printed, {expected.size} expected"}
+    error = numpy.abs(computed.reshape(expected.shape) - expected)
+    del computed, expected
+    # The check input is positive, so |A| |X| is |A| X.
+    scale = numpy.asarray(abs(mat) @ rhs)
+    del rhs
+    values_match = bool(numpy.all(error <= CHECK_RTOL * scale))
+    max_abs_diff = float(error.max()) if error.size else 0.0
+    numpy.divide(error, numpy.maximum(scale, numpy.finfo(float).tiny, out=scale), out=error)
+    return {
+        "values_match": values_match,
+        "max_abs_diff": max_abs_diff,
+        "max_rel_err": float(error.max()) if error.size else 0.0,
+        "rtol": CHECK_RTOL,
+    }
+
+
+def _report_check(label: str, check: Optional[dict[str, Any]]) -> None:
+    if check is None:
+        return
+    if check["values_match"]:
+        print(f"  [{label}] Output check passed (max relative error {check['max_rel_err']:.2e})")
+    else:
+        print(f"  [{label}] VALUES MISMATCH: {check}")
 
 
 # ---------------------------------------------------------------------------
@@ -320,13 +393,22 @@ def eval_frontend_executor_timings(
 
 
 def download_matrix_from_suitesparse(matrix_name: str) -> Optional[Tuple[str, Any, Optional[str], Optional[str]]]:
+    # A local copy laid out as <dir>/<name>/<name>.mtx (SABLE_LOCAL_SUITESPARSE_DIR) is
+    # used first, read only: no matrix_info is returned, so nothing is cleaned up.
+    local_dir = os.environ.get("SABLE_LOCAL_SUITESPARSE_DIR")
+    if local_dir:
+        local_mtx = pathlib.Path(local_dir) / matrix_name / f"{matrix_name}.mtx"
+        if local_mtx.exists():
+            print(f"  Using local matrix {local_mtx}")
+            return str(local_mtx), None, None, None
+
     SUITESPARSE_DIR.mkdir(exist_ok=True)
 
     matrix_info = get_matrix_info(matrix_name)
     if matrix_info is None:
         return None
 
-    # Prefer the shared ssgetpy cache (~/.ssgetpy), which find_vdia.py and
+    # Prefer the shared ssgetpy cache (~/.ssgetpy), which find-submatrices/scan_bands.py and
     #    other tools populate. If the matrix is already extracted there, reuse it
     #    and return tar_path/matrix_subdir as None so the caller's cleanup step
     #    leaves the shared copy untouched.
@@ -351,21 +433,13 @@ def download_matrix_from_suitesparse(matrix_name: str) -> Optional[Tuple[str, An
     return matrix_path, matrix_info, tar_path, matrix_subdir
 
 
-def _legacy_yaml(kind: str, matrix_name: str) -> pathlib.Path:
-    return (RESULTS_DIR if kind == "vbr" else BANDS_RESULTS_DIR) / f"{matrix_name}.yaml"
-
-
-def _parse_regions(kind: str, path: pathlib.Path) -> list[Any]:
-    return parse_yaml_blocks(str(path)) if kind == "vbr" else parse_yaml_bands(str(path))
-
-
 def extraction_dir(composition: list[str], densities: dict[str, float]) -> pathlib.Path:
     """Where a composition's extractions live: find-submatrices/results_<tokens in order>.
 
     A file there holds every format of one matrix, searched in the recorded
     order with each search confined to what the previous one left, so a
     composition extracted bands-first and one extracted blocks-first are
-    different directories (results_vdia075_vbr050 and results_vbr050_vdia075).
+    different directories (results_vdiaspmv_vbr050 and results_vbr050_vdiaspmv).
     """
     tokens = "_".join(density_token(kind, densities[kind]) for kind in composition)
     return FILEPATH / "find-submatrices" / f"results_{tokens}"
@@ -381,20 +455,19 @@ def load_extraction(path: pathlib.Path) -> tuple[list[str], dict[str, list[Any]]
 def stored_regions(matrix_name: str, composition: list[str], extraction_path: pathlib.Path) -> dict[str, list[Any]] | None:
     """The stored regions of a composition, or None when it is not stored.
 
-    A composition file wins when present. A single format also falls back to
-    the per-kind directories the older extractions were stored in, which were
-    searched on the full matrix.
+    A composition file wins when present. Blocks alone also fall back to
+    find-submatrices/results, where the older block extractions were stored
+    (searched on the full matrix).
     """
     if extraction_path.exists():
         order, regions = load_extraction(extraction_path)
         if order != list(composition):
             raise ValueError(f"{extraction_path} was extracted in the order {order}, not {list(composition)}")
         return {kind: regions[kind] for kind in composition}
-    if len(composition) == 1:
-        kind = composition[0]
-        legacy = _legacy_yaml(kind, matrix_name)
+    if composition == ["vbr"]:
+        legacy = RESULTS_DIR / f"{matrix_name}.yaml"
         if legacy.exists():
-            return {kind: _parse_regions(kind, legacy)}
+            return {"vbr": parse_yaml_blocks(str(legacy))}
     return None
 
 
@@ -402,8 +475,8 @@ def get_available_matrices(composition: list[str], densities: dict[str, float]) 
     """Matrices with stored regions for every format of the composition."""
     directory = extraction_dir(composition, densities)
     names = {path.stem for path in directory.glob("*.yaml")}
-    if len(composition) == 1:
-        names |= {path.stem for path in _legacy_yaml(composition[0], "*").parent.glob("*.yaml")}
+    if composition == ["vbr"]:
+        names |= {path.stem for path in RESULTS_DIR.glob("*.yaml")}
     available = []
     for name in sorted(names):
         try:
@@ -457,11 +530,9 @@ def _vbr_spmv_kernel(vbr_kernel: VBRKernel):
 
 
 def _vdia_spmv_kernel(vdia_kernel: VDIAKernel):
-    if vdia_kernel == VDIAKernel.NAIVE:
-        return NaiveVDIASpmv()
-    if vdia_kernel == VDIAKernel.MKL_DIA:
-        return MKLDIASpmv()
-    raise ValueError(f"Unknown SpMV VDIA kernel: {vdia_kernel}")
+    if vdia_kernel != VDIAKernel.NAIVE:
+        raise ValueError(f"{vdia_kernel.value} is not a frontend SpMV VDIA kernel")
+    return NaiveVDIASpmv()
 
 
 def _csr_spmv_kernel(csr_kernel: CSRKernel):
@@ -490,9 +561,9 @@ def _vbr_spmm_kernel(vbr_kernel: VBRKernel):
 
 
 def _vdia_spmm_kernel(vdia_kernel: VDIAKernel):
-    if vdia_kernel == VDIAKernel.NAIVE:
-        return NaiveVDIASpmm()
-    raise ValueError(f"Unknown SpMM VDIA kernel: {vdia_kernel}")
+    if vdia_kernel != VDIAKernel.NAIVE:
+        raise ValueError(f"{vdia_kernel.value} is not a frontend SpMM VDIA kernel")
+    return NaiveVDIASpmm()
 
 
 def _csr_spmm_kernel(csr_kernel: CSRKernel):
@@ -527,30 +598,6 @@ def _csr_kernel_for(operation: Operation, csr_kernel: CSRKernel):
 # ---------------------------------------------------------------------------
 
 
-class _BandSearch:
-    """The band finder run on the residual, keeping every band it accepts.
-
-    BandExtractor.extract records only a summary of each band, and replaying
-    the search through BandExtractorSkip needs the segments too, so this runs
-    the same finder with the same settings and keeps the complete records.
-    """
-
-    produces = VDIA
-
-    def __init__(self, min_density: float):
-        self.min_density = min_density
-        self.bands: list[dict[str, Any]] = []
-        self.seconds = 0.0
-
-    def extract(self, A):
-        start = time.perf_counter()
-        regions = find_vdia_regions(A.to_csr(), min_density=self.min_density)
-        self.bands = [region.to_dict() for region in regions]
-        fmt = pack_bands_as_vdia(A, self.bands)
-        self.seconds = time.perf_counter() - start
-        return fmt, A.without(fmt)
-
-
 def _plain(value):
     """YAML-safe copy: numpy scalars to Python scalars, tuples to lists."""
     if isinstance(value, dict):
@@ -577,12 +624,15 @@ def extract_regions(
     plan = Plan(Matrix(mat, name=matrix_name), artifact_dir=str(out_path.parent))
     regions: dict[str, list[Any]] = {}
     seconds: dict[str, float] = {}
+    selection: dict[str, Any] = {}
     for kind in composition:
         if kind == "vdia":
-            searcher = _BandSearch(densities["vdia"])
-            plan.extract(searcher)
-            regions["vdia"] = searcher.bands
-            seconds["vdia"] = searcher.seconds
+            extractor = BAND_EXTRACTORS[densities["vdia"]]()
+            start = time.perf_counter()
+            plan.extract(extractor)
+            seconds["vdia"] = time.perf_counter() - start
+            regions["vdia"] = extractor.bands
+            selection = extractor.selection
         else:
             detector = BlockDetector(min_density=densities["vbr"], **block_params)
             start = time.perf_counter()
@@ -598,7 +648,8 @@ def extract_regions(
                        "block_gamma": block_params["gamma"], "block_threads": block_params["threads"],
                        "block_timeout_seconds": block_params["timeout_seconds"]})
     if "vdia" in composition:
-        record["band_density"] = densities["vdia"]
+        record["band_extractor"] = densities["vdia"]
+        record["band_selection"] = selection
     record["extraction_seconds"] = seconds
     record["bands"] = regions.get("vdia", [])
     record["blocks"] = [{"rows": [r0, r1], "cols": [c0, c1]} for r0, r1, c0, c1 in regions.get("vbr", [])]
@@ -657,11 +708,11 @@ def _compile_program(
     matrix = Matrix(mat, name=matrix_name)
     plan = Plan(matrix, artifact_dir=artifact_dir)
     if operation == Operation.SPMV:
-        plan.rhs(DenseInput.vector(write_dense_vector(1.0, matrix.ncols), matrix.ncols))
+        plan.rhs(DenseInput.vector(write_check_vector(matrix.ncols), matrix.ncols))
     else:
         plan.rhs(
             DenseInput.matrix(
-                write_dense_matrix(1.0, matrix.ncols, SPMM_NRHS),
+                write_check_matrix(matrix.ncols, SPMM_NRHS),
                 shape=(matrix.ncols, SPMM_NRHS),
                 layout=DenseLayout.ROW_MAJOR,
             )
@@ -738,7 +789,8 @@ def _dispatch_part_regions(plan: Plan, regions_by_kind: dict[str, list[Any]]) ->
                     "nnz": _nonzeros(fmt.val.values, int(offset), rows * cols),
                     "region": _containing_region(regions_by_kind.get("vbr", []), r0, r1, c0, c1),
                 }
-        elif isinstance(fmt, VDIA):
+        elif isinstance(fmt, VDIA) and hasattr(dispatch.kernel, "emit_timed_calls"):
+            # Only kernels that time each segment as its own part have per-segment parts.
             band_of_segment = [
                 band_index
                 for band_index, band in enumerate(regions_by_kind.get("vdia", []))
@@ -823,15 +875,21 @@ def _timing_record(
     dispatch_times: dict[int, float],
     dispatch_part_times: dict[str, float],
     baseline_time_ns: float,
-    baseline_source: str,
     compile_time_composed_s: float,
     compile_time_csr_baseline_s: float,
     codegen_time_composed_ms: int | None,
     codegen_time_csr_baseline_ms: int | None,
-    staged_data_time_composed_ms: int | None,
-    staged_data_time_csr_baseline_ms: int | None,
+    invocations: int,
+    csr_baseline_invocations: int | None,
+    verification: Optional[dict[str, Any]],
+    csr_baseline_verification: Optional[dict[str, Any]],
 ) -> Dict[str, Any]:
-    """The measurement record for one thread count."""
+    """The measurement record for one thread count.
+
+    `verification` is the output check of the composed program and
+    `csr_baseline_verification` that of the CSR-only program; the latter is
+    None when the baseline was taken from an earlier result file.
+    """
     total_time = sum(dispatch_times.values())
     return {
         "total_time_ns": round(total_time, 2),
@@ -847,14 +905,15 @@ def _timing_record(
             for key, value in sorted(dispatch_part_times.items(), key=lambda item: _part_sort_key(item[0]))
         },
         "csr_baseline_time_ns": round(baseline_time_ns, 2),
-        "csr_baseline_source": baseline_source,
         "speedup": round(baseline_time_ns / total_time, 3) if total_time > 0 else 0,
         "compile_time_composed_s": compile_time_composed_s,
         "compile_time_csr_baseline_s": compile_time_csr_baseline_s,
         "codegen_time_composed_ms": codegen_time_composed_ms,
         "codegen_time_csr_baseline_ms": codegen_time_csr_baseline_ms,
-        "staged_data_time_composed_ms": staged_data_time_composed_ms,
-        "staged_data_time_csr_baseline_ms": staged_data_time_csr_baseline_ms,
+        "invocations": invocations,
+        "csr_baseline_invocations": csr_baseline_invocations,
+        "verification": verification,
+        "csr_baseline_verification": csr_baseline_verification,
     }
 
 
@@ -869,6 +928,8 @@ def _build_matrix_result(
     dispatch_part_times: dict[str, float],
     compile_time_composed_ns: float,
     baseline: dict[str, Any],
+    invocations: int,
+    verification: Optional[dict[str, Any]],
 ) -> Dict[str, Any]:
     plan = composed_executor.plan
     entry = _entry_record(
@@ -884,13 +945,14 @@ def _build_matrix_result(
         dispatch_times,
         dispatch_part_times,
         baseline["time_ns"],
-        baseline["source"],
         compile_time_composed_ns / 1e9 if compile_time_composed_ns else 0.0,
         baseline["compile_time_ns"] / 1e9 if baseline["compile_time_ns"] else 0.0,
         composed_executor.codegen_time_ms,
         baseline["codegen_time_ms"],
-        composed_executor.staged_data_time_ms,
-        baseline["staged_data_time_ms"],
+        invocations,
+        baseline.get("invocations"),
+        verification,
+        baseline.get("verification"),
     )
     return entry
 
@@ -909,16 +971,22 @@ def _csr_baseline(
     baseline_from: str | None,
     staged_data_dir: str,
     label: str,
+    max_run_seconds: float | None = None,
+    run_timeout: float | None = None,
 ) -> Optional[Dict[str, Any]]:
-    """The CSR-only program's time for this matrix, looked up or measured."""
+    """The CSR-only program's time for this matrix, looked up or measured.
+
+    None when it was neither found nor measured, so no result is recorded
+    against a missing baseline.
+    """
     if baseline_source_mode == "existing":
         try:
             time_ns, source = _lookup_existing_baseline(
                 operation, csr_kernel, matrix_name, threads, baseline_results_dir, baseline_from
             )
             print(f"  [{label}] Using existing CSR baseline: {source}")
-            return {"time_ns": time_ns, "source": source, "compile_time_ns": 0.0,
-                    "codegen_time_ms": None, "staged_data_time_ms": None}
+            return {"time_ns": time_ns, "compile_time_ns": 0.0,
+                    "codegen_time_ms": None, "invocations": None, "verification": None}
         except Exception as exc:
             if not allow_baseline_run_on_missing:
                 print(f"  [{label}] Missing existing CSR baseline: {exc}")
@@ -940,15 +1008,21 @@ def _csr_baseline(
         num_threads=threads,
     )
     print(f"  [{label}] Evaluating CSR baseline...")
-    baseline_dispatch_times, _, compile_time_ns = eval_frontend_executor_timings(
-        baseline_executor, bench_iterations, threads=threads
+    baseline_dispatch_times, _, compile_time_ns, invocations, output = eval_frontend_executor_timings(
+        baseline_executor, bench_iterations, threads=threads,
+        max_run_seconds=max_run_seconds, run_timeout=run_timeout,
     )
+    if not baseline_dispatch_times:
+        print(f"  [{label}] CSR baseline produced no timings")
+        return None
+    verification = check_output_values(operation, mat, output)
+    _report_check(f"{label} CSR baseline", verification)
     return {
         "time_ns": sum(baseline_dispatch_times.values()),
-        "source": "measured_in_this_run",
         "compile_time_ns": compile_time_ns,
         "codegen_time_ms": baseline_executor.codegen_time_ms,
-        "staged_data_time_ms": baseline_executor.staged_data_time_ms,
+        "invocations": invocations,
+        "verification": verification,
     }
 
 
@@ -969,8 +1043,18 @@ def _benchmark_variant(
     allow_baseline_run_on_missing: bool = False,
     baseline_from: str | None = None,
     baseline_cache: dict | None = None,
+    max_run_seconds: float | None = None,
+    run_timeout: float | None = None,
+    extraction_key: str = "",
 ) -> Optional[Dict[str, Any]]:
-    """Time one composed program against the CSR baseline and build its record."""
+    """Time one composed program against the CSR baseline and build its record.
+
+    `extraction_key` names the extraction the steps pack (e.g. vdiaspmv,
+    vbr050_vdiaspmm); programs of one matrix share staged data only within it.
+
+    None when either program produced no timings, so a failed compile or run
+    is skipped rather than recorded as zero.
+    """
     csr_label = csr_kernel.value
     codegen_root = pathlib.Path(os.environ.get("SABLE_CODEGEN_DIR") or str(FILEPATH))
     codegen_dir_composed = str(codegen_root / f"Generated_C_{results_key}")
@@ -991,13 +1075,19 @@ def _benchmark_variant(
         csr_kernel,
         bench_iterations,
         data_dir=staged_data_dir,
-        data_key="_".join([matrix_name] + [kind for kind, _kernel, _regions in steps]),
+        data_key=f"{matrix_name}_{extraction_key or '_'.join(kind for kind, _kernel, _regions in steps)}",
         num_threads=threads,
     )
     print(f"  [{results_key}] Evaluating composed version...")
-    dispatch_times, dispatch_part_times, compile_time_composed_ns = eval_frontend_executor_timings(
-        composed_executor, bench_iterations, threads=threads
+    dispatch_times, dispatch_part_times, compile_time_composed_ns, invocations, output = eval_frontend_executor_timings(
+        composed_executor, bench_iterations, threads=threads,
+        max_run_seconds=max_run_seconds, run_timeout=run_timeout,
     )
+    if not dispatch_times:
+        print(f"  [{results_key}] Composed program produced no timings; not recorded")
+        return None
+    verification = check_output_values(operation, mat, output)
+    _report_check(results_key, verification)
 
     baseline_key = (operation.value, csr_label, threads)
     baseline = baseline_cache.get(baseline_key) if baseline_cache is not None else None
@@ -1007,7 +1097,7 @@ def _benchmark_variant(
         baseline = _csr_baseline(
             operation, matrix_name, mat, codegen_dir_baseline, csr_kernel, bench_iterations, threads,
             baseline_source_mode, baseline_results_dir, allow_baseline_run_on_missing, baseline_from,
-            staged_data_dir, results_key,
+            staged_data_dir, results_key, max_run_seconds=max_run_seconds, run_timeout=run_timeout,
         )
         if baseline is None:
             return None
@@ -1025,6 +1115,8 @@ def _benchmark_variant(
         dispatch_part_times,
         compile_time_composed_ns,
         baseline,
+        invocations,
+        verification,
     )
 
 
@@ -1075,6 +1167,30 @@ def _append_result(
     return matrix_entry
 
 
+def _record_verification(
+    output_file: pathlib.Path,
+    results_key: str,
+    matrix_name: str,
+    num_threads: int,
+    verification: Optional[dict[str, Any]],
+    csr_baseline_verification: Optional[dict[str, Any]],
+) -> None:
+    """Store an output check in an existing result entry without touching its timings."""
+    entries = _load_output_entries(output_file)
+    thread_key = _thread_key(num_threads)
+    entry = next((e for e in entries if e["matrix_name"] == matrix_name), None)
+    thread_timing = entry.get("timing", {}).get(thread_key) if entry else None
+    if thread_timing is None:
+        print(f"  [{results_key}] No '{thread_key}' result for {matrix_name} in {output_file}; check not stored")
+        return
+    thread_timing["verification"] = verification
+    if csr_baseline_verification is not None:
+        thread_timing["csr_baseline_verification"] = csr_baseline_verification
+    with open(output_file, "w") as f:
+        json.dump(entries, f, indent=2)
+    print(f"  [{results_key}] Output check stored for {matrix_name} in {output_file}")
+
+
 # ---------------------------------------------------------------------------
 # Kernel resolution per operation
 # ---------------------------------------------------------------------------
@@ -1120,33 +1236,6 @@ def _resolve_vbr_kernels(arg: str, parser: argparse.ArgumentParser) -> list[VBRK
     return [VBRKernel(name) for name in names]
 
 
-def _resolve_vdia_kernels(operation: Operation, arg: str,
-                          parser: argparse.ArgumentParser) -> list[VDIAKernel]:
-    """The VDIA kernels to run for one operation.
-
-    Unlike VBR, which kernels exist depends on the operation, so this takes
-    the operation the way _resolve_csr_kernels does. "all" is every kernel the
-    operation offers. A name the operation does not offer is an error, so
-    "--vdia-kernels bandmkl --operation spmv,spmm" is refused rather than run
-    for the SpMV half only. "none" selects nothing: VDIA is optional.
-    """
-    available = SPMV_VDIA_KERNELS if operation == Operation.SPMV else SPMM_VDIA_KERNELS
-    if arg == "none":
-        return []
-    if arg == "all":
-        return list(available)
-    names = [name.strip() for name in arg.split(",")]
-    invalid = set(names) - {kernel.value for kernel in VDIAKernel}
-    if invalid:
-        parser.error(f"Invalid VDIA kernel(s): {invalid}. Valid options: "
-                     f"{ {kernel.value for kernel in VDIAKernel} }")
-    unavailable = [name for name in names if name not in {kernel.value for kernel in available}]
-    if unavailable:
-        parser.error(f"VDIA kernel(s) not available for {operation.value.upper()}: {unavailable}. "
-                     f"{operation.value.upper()} offers: {', '.join(kernel.value for kernel in available)}")
-    return [VDIAKernel(name) for name in names]
-
-
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -1157,8 +1246,8 @@ def main() -> int:
         description="Benchmark SABLE sparse matrix operations (SpMV / SpMM)",
         epilog=(
             "Examples:\n"
-            "  %(prog)s --operation spmv --vbr-kernels blockmixed --vdia-kernels none --csr-kernels naive heart1\n"
-            "  %(prog)s --operation spmv --vdia-kernels bandmkl --vbr-kernels none --csr-kernels mkl,spv8 ohne2\n"
+            "  %(prog)s --operation spmv --vbr-kernels blockmixed --no-vdia --csr-kernels naive heart1\n"
+            "  %(prog)s --operation spmv --vbr-kernels none --csr-kernels mkl,spv8 ohne2   # SpMV band extractor + NaiveVDIASpmv\n"
             "  %(prog)s --operation spmv,spmm --order vdia,vbr --extract heart1 nemeth22   # bands, then blocks in the residual\n"
             "  %(prog)s --operation spmv --order vbr,vdia --extract heart1                  # blocks first\n"
         ),
@@ -1177,25 +1266,29 @@ def main() -> int:
                         help="SpMV: naive,spv8,mkl,uzp. SpMM: naive,mkl,spreg. Names not available for an operation are skipped for it with a note.")
     parser.add_argument("--vbr-kernels", type=str, default="all",
                         help="blocknaive, blockmixed, blockmkl, all, none, or comma-separated")
-    parser.add_argument("--vdia-kernels", type=str, default="all",
-                        help="bandnaive, bandmkl, all, none, or comma-separated. "
-                             "SpMV offers both; SpMM offers bandnaive only. Naming a "
-                             "kernel an operation in --operation does not offer is an error.")
+    parser.add_argument("--no-vdia", action="store_true",
+                        help="Leave VDIA out. Otherwise each operation packs the bands select_bands finds "
+                             "with its kernel's slot cost into its VDIA kernel -- SpMV 0.90 at every width "
+                             "(>= 35%% of the nonzeros) into NaiveVDIASpmv, SpMM the measured spmm_slot_cost "
+                             "(>= 60%% of the nonzeros) into NaiveVDIASpmm; stored under results_vdiaspmv / "
+                             "results_vdiaspmm, results named <op>_vdia-bandnaive_csr-<csr>. A matrix "
+                             "an extractor declines runs CSR only and is skipped for that operation.")
     parser.add_argument("--order", type=str, default=None, metavar="KIND,KIND",
                         help="Extraction order when both VBR and VDIA kernels are requested: "
                              "vdia,vbr (bands first, blocks in what is left) or vbr,vdia. The "
                              "formats are composed into one program in this order.")
     parser.add_argument("--extract", action="store_true",
-                        help="Search the formats from scratch in --order (BlockDetector and the band "
-                             "finder, each on the residual of the previous one) instead of replaying "
+                        help="Search the formats from scratch in --order (BlockDetector and the operation's "
+                             "band extractor, each on the residual of the previous one) instead of replaying "
                              "stored regions, and record what was found under --extraction-dir. A "
                              "matrix already recorded there is reused unless --re-extract is given. "
                              "Requires an explicit matrix list.")
     parser.add_argument("--re-extract", action="store_true",
                         help="With --extract, search again even when a recording exists")
     parser.add_argument("--extraction-dir", type=str, default=None,
-                        help="Where a composition's extractions are stored (default: "
-                             "find-submatrices/results_<format tokens in order>, e.g. results_vdia075_vbr050)")
+                        help="Parent of the directories a composition's extractions are stored in, "
+                             "results_<format tokens in order>, one per operation when bands are extracted "
+                             "(default: find-submatrices, e.g. find-submatrices/results_vdiaspmv_vbr050)")
     parser.add_argument("--threads", type=str, default="1",
                         help="Comma-separated thread counts; each count is a separate run pinned to "
                              "that many cores, recorded under its own '<n> thread' key (default: 1)")
@@ -1213,36 +1306,30 @@ def main() -> int:
                              "canonical file (by default results merge into the canonical one)")
     parser.add_argument("--allow-baseline-run-on-missing", action="store_true",
                         help="If --baseline-source existing is missing an entry, run the CSR baseline instead")
-    parser.add_argument("--bands-results-dir", type=str, default=None,
-                        help="Override directory for the stored single-format band YAML files "
-                             "(default: find-submatrices/results_bands_075/)")
     # The block YAMLs under find-submatrices/results were produced by partition_matrix
     # with --min-density 0.5 --min-area 2500. The YAMLs do not record the threshold,
     # so it is stated here; pass --block-density for a directory produced
-    # differently. Band directories carry their density in the name (results_bands_075).
+    # differently.
     parser.add_argument("--block-density", type=float, default=0.5,
                         help="Minimum block density: what the stored block YAMLs were extracted with, "
                              "and what --extract searches with (default: %(default)s)")
-    parser.add_argument("--band-density", type=float, default=None,
-                        help="Minimum band density: what the stored band YAMLs were extracted with, and "
-                             "what --extract searches with (default: read from the band directory's _NNN suffix)")
     parser.add_argument("--block-area", type=int, default=2500, help="--extract: minimum block area (default: 2500)")
     parser.add_argument("--block-gamma", type=float, default=1.5, help="--extract: partitioner gamma (default: 1.5)")
     parser.add_argument("--block-timeout", type=float, default=4.0 * 60.0 * 60.0,
                         help="--extract: partitioner time budget in seconds per matrix (default: 4 hours)")
     parser.add_argument("--block-threads", type=int, default=20, help="--extract: partitioner threads (default: 20)")
+    parser.add_argument("--max-run-seconds", type=float, default=None,
+                        help="Start no new invocation of a program once this many seconds of its runs have "
+                             "passed; at least one always runs. The record notes how many completed.")
+    parser.add_argument("--run-timeout", type=float, default=None,
+                        help="Kill an invocation that runs longer than this many seconds and stop that program")
+    parser.add_argument("--verify-only", action="store_true",
+                        help="Check the output of each program against SciPy and store the check in the "
+                             "existing result entry, leaving its timings untouched (one invocation, one "
+                             "iteration per program)")
     args = parser.parse_args()
 
-    global BANDS_RESULTS_DIR
-    if args.bands_results_dir:
-        _bands_path = pathlib.Path(args.bands_results_dir)
-        if not _bands_path.is_absolute():
-            _bands_path = FILEPATH / _bands_path
-        BANDS_RESULTS_DIR = _bands_path
-    band_density = args.band_density if args.band_density is not None else band_density_from_dir(BANDS_RESULTS_DIR)
-    if band_density is None:
-        parser.error(f"Cannot read a band density from {BANDS_RESULTS_DIR.name}; pass --band-density")
-    densities = {"vbr": args.block_density, "vdia": band_density}
+    densities = {"vbr": args.block_density}
     block_params = {"min_area": args.block_area, "gamma": args.block_gamma,
                     "timeout_seconds": args.block_timeout, "threads": args.block_threads}
 
@@ -1252,21 +1339,22 @@ def main() -> int:
         if given is not None and operation not in operations:
             parser.error(f"--{operation.value}-bench given but {operation.value} is not in --operation")
     bench_iterations = {
-        operation: given if given is not None else DEFAULT_BENCH_ITERATIONS[operation]
+        operation: 1 if args.verify_only else given if given is not None else DEFAULT_BENCH_ITERATIONS[operation]
         for operation, given in bench_flags.items()
     }
     thread_counts = [int(t.strip()) for t in args.threads.split(",")]
     if any(thread_count < 1 for thread_count in thread_counts):
         parser.error("--threads counts must be at least 1")
+    if FIRST_CORE < 0 or FIRST_CORE + max(thread_counts) > len(PHYSICAL_CORES):
+        parser.error(f"SABLE_FIRST_CORE={FIRST_CORE} with {max(thread_counts)} threads needs cores beyond "
+                     f"the {len(PHYSICAL_CORES)} available")
 
     vbr_kernels = _resolve_vbr_kernels(args.vbr_kernels, parser)
-    # Which VDIA kernels exist depends on the operation, so they are resolved
-    # per requested operation; a name an operation does not offer is an error.
-    vdia_kernels_by_op = {op: _resolve_vdia_kernels(op, args.vdia_kernels, parser) for op in operations}
+    vdia_kernels = [] if args.no_vdia else [VDIAKernel.NAIVE]
     want_blocks = bool(vbr_kernels)
-    want_bands = any(vdia_kernels_by_op.values())
+    want_bands = bool(vdia_kernels)
     if not want_blocks and not want_bands:
-        parser.error("At least one VBR or VDIA kernel must be selected")
+        parser.error("Nothing to compose: --vbr-kernels none with --no-vdia")
 
     # The composition: which formats one program holds, in extraction order.
     if want_blocks and want_bands:
@@ -1278,20 +1366,24 @@ def main() -> int:
             parser.error(f"--order must list each of {', '.join(KINDS)} exactly once, got {args.order}")
     else:
         composition = ["vbr"] if want_blocks else ["vdia"]
-    if args.extraction_dir:
-        extraction_path = pathlib.Path(args.extraction_dir)
-        if not extraction_path.is_absolute():
-            extraction_path = FILEPATH / extraction_path
-    else:
-        extraction_path = extraction_dir(composition, densities)
+    densities_by_op = {op: {**densities, "vdia": op.value} for op in operations}
+    extraction_paths = {}
+    for op, dens in densities_by_op.items():
+        path = extraction_dir(composition, dens)
+        if args.extraction_dir:
+            root = pathlib.Path(args.extraction_dir)
+            path = (root if root.is_absolute() else FILEPATH / root) / path.name
+        extraction_paths[op] = path
 
     matrices = args.matrices or args.matrices_flag
     if args.extract:
         if not matrices:
             parser.error("--extract searches each matrix from scratch; pass the matrices explicitly")
     elif not matrices:
-        matrices = get_available_matrices(composition, densities)
-    else:
+        matrices = sorted({m for dens in densities_by_op.values() for m in get_available_matrices(composition, dens)})
+    elif "vdia" not in composition:
+        # With bands, an operation's extractor may decline a matrix, which then
+        # runs CSR only and is skipped for that operation rather than refused.
         check_batch(list(matrices), composition, densities, parser)
 
     # Results go to the canonical <op>_<format token>_csr-<csr>.json whatever
@@ -1329,30 +1421,51 @@ def main() -> int:
         try:
             print(f"  Loading matrix from {mtx_path}...")
             A = csr_matrix(mmread(mtx_path))
+            if numpy.iscomplexobj(A):
+                # The kernels are real-valued; casting would drop the imaginary parts.
+                print(f"  {matrix_name} is complex; not benchmarked")
+                continue
+            # Explicit zeros would be computed by the CSR-only baseline but dropped from
+            # every residual (ResidualMatrix.without), inflating speedups; drop them here.
+            A.eliminate_zeros()
             matrix_rows, matrix_cols = A.shape
             matrix_nnz = A.nnz
             print(f"  Matrix shape: {matrix_rows} x {matrix_cols}, NNZ: {matrix_nnz}")
 
-            regions = regions_for(matrix_name, A, composition, densities, block_params,
-                                  args.extract, args.re_extract, extraction_path)
-            for kind in composition:
-                print(f"  {len(regions[kind])} {kind.upper()} regions")
-            empty = [kind for kind in composition if not regions[kind]]
-            if empty:
-                # A format that found nothing would leave a program without its
-                # dispatch, recorded under the format's name; refuse instead.
-                print(f"  No {', '.join(kind.upper() for kind in empty)} regions for {matrix_name}; not benchmarked")
-                empty_extractions.append(matrix_name)
-                continue
-
+            regions_cache: dict[pathlib.Path, dict[str, list[Any]]] = {}
             for operation in operations:
+                dens = densities_by_op[operation]
+                path = extraction_paths[operation]
+                try:
+                    if path not in regions_cache:
+                        regions_cache[path] = regions_for(matrix_name, A, composition, dens, block_params,
+                                                          args.extract, args.re_extract, path)
+                except FileNotFoundError as exc:
+                    print(f"  [{operation.value}] {exc}; skipped")
+                    continue
+                regions = regions_cache[path]
+                for kind in composition:
+                    print(f"  [{operation.value}] {len(regions[kind])} {kind.upper()} regions")
+                empty = [kind for kind in composition if not regions[kind]]
+                if empty:
+                    if empty == ["vdia"]:
+                        # The extractor declined the matrix for this operation: SABLE runs it as CSR only.
+                        print(f"  [{operation.value}] the band extractor selected no bands for "
+                              f"{matrix_name}; not benchmarked for {operation.value}")
+                        continue
+                    # A format that found nothing would leave a program without its
+                    # dispatch, recorded under the format's name; refuse instead.
+                    print(f"  No {', '.join(kind.upper() for kind in empty)} regions for {matrix_name}; not benchmarked")
+                    if matrix_name not in empty_extractions:
+                        empty_extractions.append(matrix_name)
+                    continue
                 csr_kernels = _resolve_csr_kernels(operation, args.csr_kernels, parser)
-                kernels_by_kind = {"vbr": vbr_kernels, "vdia": vdia_kernels_by_op[operation]}
+                kernels_by_kind = {"vbr": vbr_kernels, "vdia": vdia_kernels}
                 for num_threads in thread_counts:
                     for kernels in itertools.product(*(kernels_by_kind[kind] for kind in composition)):
                         steps = [(kind, kernel, regions[kind]) for kind, kernel in zip(composition, kernels)]
                         format_tokens = "_".join(
-                            f"{density_token(kind, densities[kind])}-{kernel.value}" for kind, kernel in zip(composition, kernels)
+                            f"{format_token(kind, dens[kind])}-{kernel.value}" for kind, kernel in zip(composition, kernels)
                         )
                         for csr_kernel in csr_kernels:
                             results_key = f"{operation.value}_{format_tokens}_csr-{csr_kernel.value}"
@@ -1375,9 +1488,19 @@ def main() -> int:
                                 allow_baseline_run_on_missing=args.allow_baseline_run_on_missing,
                                 baseline_from=args.baseline_from,
                                 baseline_cache=baseline_cache,
+                                max_run_seconds=args.max_run_seconds,
+                                run_timeout=args.run_timeout,
+                                extraction_key=path.name.removeprefix("results_"),
                             )
 
-                            if result:
+                            if result and args.verify_only:
+                                thread_timing = result["timing"]
+                                _record_verification(
+                                    output_dir / f"{results_key}{output_suffix}.json", results_key, matrix_name,
+                                    num_threads, thread_timing["verification"],
+                                    thread_timing["csr_baseline_verification"],
+                                )
+                            elif result:
                                 output_file = output_dir / f"{results_key}{output_suffix}.json"
                                 entry = _append_result(all_results, results_key, matrix_name, result, num_threads, output_file)
                                 # The merged entry carries every thread count, so list it once.

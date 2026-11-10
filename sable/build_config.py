@@ -62,4 +62,3 @@ class VBRKernel(str, Enum):
 
 class VDIAKernel(str, Enum):
     NAIVE = "bandnaive"
-    MKL_DIA = "bandmkl"

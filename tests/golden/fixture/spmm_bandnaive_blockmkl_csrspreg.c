@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <immintrin.h>
 #include <mkl.h>
 #include <mkl_cblas.h>
 #ifdef __cplusplus
@@ -79,18 +80,76 @@ static void read_dense_input(FILE *file, double *out, int size) {
     }
 }
 
-static void vdia_val_spmm_naive_segment(double *y, const double *x, const double *vdia_val, const int *vdia_idiag, int row0, int nrows, int ndiags, int idiag_off, int val_off, int nrhs) {
-for (int row = 0; row < nrows; row++) {
-    for (int d = 0; d < ndiags; d++) {
-        int col = row0 + row + vdia_idiag[idiag_off + d];
-        if (0 <= col && col < 14) {
-            double a = vdia_val[val_off + d * nrows + row];
-            for (int rhs_col = 0; rhs_col < nrhs; rhs_col++) {
-                y[(row0 + row) * nrhs + rhs_col] += a * x[col * nrhs + rhs_col];
-            }
+
+#ifndef SABLE_VDIA_SPMM
+#define SABLE_VDIA_SPMM
+static void sable_vdia_tile_reuse4(const double *dv, const double *dvp, long stride, long rloc,
+        long off0, long nd, long r0, long m, const double *x, double *y, long N, long NC) {
+    for (long cb = 0; cb < NC; cb += 32) {
+        __m512d a00 = _mm512_loadu_pd(y + (r0 + 0) * N + cb + 0), a01 = _mm512_loadu_pd(y + (r0 + 0) * N + cb + 8), a02 = _mm512_loadu_pd(y + (r0 + 0) * N + cb + 16), a03 = _mm512_loadu_pd(y + (r0 + 0) * N + cb + 24);
+        __m512d a10 = _mm512_loadu_pd(y + (r0 + 1) * N + cb + 0), a11 = _mm512_loadu_pd(y + (r0 + 1) * N + cb + 8), a12 = _mm512_loadu_pd(y + (r0 + 1) * N + cb + 16), a13 = _mm512_loadu_pd(y + (r0 + 1) * N + cb + 24);
+        __m512d a20 = _mm512_loadu_pd(y + (r0 + 2) * N + cb + 0), a21 = _mm512_loadu_pd(y + (r0 + 2) * N + cb + 8), a22 = _mm512_loadu_pd(y + (r0 + 2) * N + cb + 16), a23 = _mm512_loadu_pd(y + (r0 + 2) * N + cb + 24);
+        __m512d a30 = _mm512_loadu_pd(y + (r0 + 3) * N + cb + 0), a31 = _mm512_loadu_pd(y + (r0 + 3) * N + cb + 8), a32 = _mm512_loadu_pd(y + (r0 + 3) * N + cb + 16), a33 = _mm512_loadu_pd(y + (r0 + 3) * N + cb + 24);
+        long jlo = r0 + off0, jhi = r0 + 3 + off0 + nd - 1;
+        if (jlo < 0) jlo = 0;
+        if (jhi > m - 1) jhi = m - 1;
+        for (long j = jlo; j <= jhi; j++) {
+            const double *xr = x + j * N + cb;
+            __m512d x0 = _mm512_loadu_pd(xr), x1 = _mm512_loadu_pd(xr + 8), x2 = _mm512_loadu_pd(xr + 16), x3 = _mm512_loadu_pd(xr + 24);
+            const double *d0 = dvp + (j - r0 - off0 + 3) * stride + rloc;
+            __m512d b;
+            b = _mm512_set1_pd(d0[0 - 0 * stride]); a00 = _mm512_fmadd_pd(b, x0, a00); a01 = _mm512_fmadd_pd(b, x1, a01); a02 = _mm512_fmadd_pd(b, x2, a02); a03 = _mm512_fmadd_pd(b, x3, a03);
+            b = _mm512_set1_pd(d0[1 - 1 * stride]); a10 = _mm512_fmadd_pd(b, x0, a10); a11 = _mm512_fmadd_pd(b, x1, a11); a12 = _mm512_fmadd_pd(b, x2, a12); a13 = _mm512_fmadd_pd(b, x3, a13);
+            b = _mm512_set1_pd(d0[2 - 2 * stride]); a20 = _mm512_fmadd_pd(b, x0, a20); a21 = _mm512_fmadd_pd(b, x1, a21); a22 = _mm512_fmadd_pd(b, x2, a22); a23 = _mm512_fmadd_pd(b, x3, a23);
+            b = _mm512_set1_pd(d0[3 - 3 * stride]); a30 = _mm512_fmadd_pd(b, x0, a30); a31 = _mm512_fmadd_pd(b, x1, a31); a32 = _mm512_fmadd_pd(b, x2, a32); a33 = _mm512_fmadd_pd(b, x3, a33);
         }
+        _mm512_storeu_pd(y + (r0 + 0) * N + cb + 0, a00); _mm512_storeu_pd(y + (r0 + 0) * N + cb + 8, a01); _mm512_storeu_pd(y + (r0 + 0) * N + cb + 16, a02); _mm512_storeu_pd(y + (r0 + 0) * N + cb + 24, a03); _mm512_storeu_pd(y + (r0 + 1) * N + cb + 0, a10); _mm512_storeu_pd(y + (r0 + 1) * N + cb + 8, a11); _mm512_storeu_pd(y + (r0 + 1) * N + cb + 16, a12); _mm512_storeu_pd(y + (r0 + 1) * N + cb + 24, a13); _mm512_storeu_pd(y + (r0 + 2) * N + cb + 0, a20); _mm512_storeu_pd(y + (r0 + 2) * N + cb + 8, a21); _mm512_storeu_pd(y + (r0 + 2) * N + cb + 16, a22); _mm512_storeu_pd(y + (r0 + 2) * N + cb + 24, a23); _mm512_storeu_pd(y + (r0 + 3) * N + cb + 0, a30); _mm512_storeu_pd(y + (r0 + 3) * N + cb + 8, a31); _mm512_storeu_pd(y + (r0 + 3) * N + cb + 16, a32); _mm512_storeu_pd(y + (r0 + 3) * N + cb + 24, a33);
     }
 }
+
+static void sable_vdia_tile_direct1(const double *dv, const double *dvp, long stride, long rloc,
+        long off0, long nd, long r0, long m, const double *x, double *y, long N, long NC) {
+    for (long cb = 0; cb < NC; cb += 32) {
+        __m512d a00 = _mm512_loadu_pd(y + (r0 + 0) * N + cb + 0), a01 = _mm512_loadu_pd(y + (r0 + 0) * N + cb + 8), a02 = _mm512_loadu_pd(y + (r0 + 0) * N + cb + 16), a03 = _mm512_loadu_pd(y + (r0 + 0) * N + cb + 24);
+        for (long d = 0; d < nd; d++) {
+            const double *d0 = dv + d * stride + rloc;
+            long j0 = r0 + off0 + d;
+            if (j0 + 0 >= 0 && j0 + 0 < m) { const double *xr = x + (j0 + 0) * N + cb; __m512d b = _mm512_set1_pd(d0[0]); a00 = _mm512_fmadd_pd(b, _mm512_loadu_pd(xr + 0), a00); a01 = _mm512_fmadd_pd(b, _mm512_loadu_pd(xr + 8), a01); a02 = _mm512_fmadd_pd(b, _mm512_loadu_pd(xr + 16), a02); a03 = _mm512_fmadd_pd(b, _mm512_loadu_pd(xr + 24), a03); }
+        }
+        _mm512_storeu_pd(y + (r0 + 0) * N + cb + 0, a00); _mm512_storeu_pd(y + (r0 + 0) * N + cb + 8, a01); _mm512_storeu_pd(y + (r0 + 0) * N + cb + 16, a02); _mm512_storeu_pd(y + (r0 + 0) * N + cb + 24, a03);
+    }
+}
+
+static void sable_vdia_spmm_segment(const double *dv, const double *dvp, long r0, long nr, long off0, long nd,
+        long m, const double *x, double *y, long N) {
+    long NC = N - N % 32, r = r0;
+    if (NC) {
+        for (; r + 4 <= r0 + nr; r += 4)
+            sable_vdia_tile_reuse4(dv, dvp, nr, r - r0, off0, nd, r, m, x, y, N, NC);
+        for (; r < r0 + nr; r++)
+            sable_vdia_tile_direct1(dv, dvp, nr, r - r0, off0, nd, r, m, x, y, N, NC);
+    }
+    if (NC < N)
+        for (long row = 0; row < nr; row++)
+            for (long d = 0; d < nd; d++) {
+                long col = r0 + row + off0 + d;
+                if (col < 0 || col >= m) continue;
+                double a = dv[d * nr + row];
+                for (long c = NC; c < N; c++) y[(r0 + row) * N + c] += a * x[col * N + c];
+            }
+}
+#endif
+
+static const long vdia_val_seg_row0[] = {0};
+static const long vdia_val_seg_nrows[] = {3};
+static const long vdia_val_seg_off0[] = {-2};
+static const long vdia_val_seg_nd[] = {5};
+static const long vdia_val_seg_voff[] = {0};
+
+static void vdia_val_spmm(double *y, const double *x, const double *val, double *const *pad, long N) {
+    for (long s = 0; s < 1; s++)
+        sable_vdia_spmm_segment(val + vdia_val_seg_voff[s], pad[s], vdia_val_seg_row0[s], vdia_val_seg_nrows[s], vdia_val_seg_off0[s],
+                                vdia_val_seg_nd[s], 14, x, y, N);
 }
 
 
@@ -125,6 +184,16 @@ int main(void) {
     read_dense_input(rhs_file, x, 7168);
     fclose(rhs_file);
 
+double **vdia_val_pad = (double **)malloc(sizeof(double *) * 2);
+assert(vdia_val_pad != NULL);
+for (long s = 0; s < 1; s++) {
+    size_t cells = (size_t)(vdia_val_seg_nd[s] + 6) * vdia_val_seg_nrows[s];
+    vdia_val_pad[s] = (double *)aligned_alloc(64, (cells * sizeof(double) + 63) / 64 * 64);
+    assert(vdia_val_pad[s] != NULL);
+    memset(vdia_val_pad[s], 0, cells * sizeof(double));
+    memcpy(vdia_val_pad[s] + 3 * vdia_val_seg_nrows[s], vdia_val + vdia_val_seg_voff[s],
+           (size_t)vdia_val_seg_nd[s] * vdia_val_seg_nrows[s] * sizeof(double));
+}
 void *csr_indptr_spreg_handle = spmm_spreg_init(csr_val, csr_indices, csr_indptr,
     14, 14, 512, 1);
 if (csr_indptr_spreg_handle == NULL) {
@@ -139,7 +208,7 @@ assert(csr_indptr_spreg_y != NULL);
     for (int iter = 0; iter < 1; iter++) {
         memset(y, 0, 7168 * sizeof(double));
         clock_gettime(CLOCK_MONOTONIC, &t1);
-vdia_val_spmm_naive_segment(y, x, vdia_val, vdia_idiag, 0, 3, 5, 0, 0, 512);
+vdia_val_spmm(y, x, vdia_val, vdia_val_pad, 512);
         clock_gettime(CLOCK_MONOTONIC, &t2);
         dispatch_part_times[0][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
         clock_gettime(CLOCK_MONOTONIC, &t1);
@@ -171,6 +240,8 @@ for (int i = 0; i < 7168; i++) {
         dispatch_part_times[3][iter] = (t2.tv_sec - t1.tv_sec) * 1000000000.0 + (t2.tv_nsec - t1.tv_nsec);
     }
 
+for (long s = 0; s < 1; s++) free(vdia_val_pad[s]);
+free(vdia_val_pad);
 spmm_spreg_cleanup(csr_indptr_spreg_handle);
 free(csr_indptr_spreg_y);
     printf("Dispatch 1: ");

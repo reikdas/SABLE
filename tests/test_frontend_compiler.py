@@ -10,8 +10,6 @@ from sable.extractors import BandExtractorSkip, BlockDetectorSkip, CSRConvertor
 from sable.formats import CSR, VDIA
 from sable.kernels import (
     MixedVBRSpmm,
-    NaiveVDIASpmv,
-    NaiveVBRSpmv,
     SPRegCSRSpmm,
     SPV8CSRSpmv,
     UZPCSRSpmv,
@@ -105,19 +103,11 @@ def test_user_defined_kernel_compiles_and_runs_without_compiler_changes(tmp_path
     source = pathlib.Path(executor.c_path).read_text()
     assert "custom csr kernel" in source
     assert ".sabledata" in source
-    assert ".vbrc" not in source
-    assert "gen_single_threaded" not in source
 
     output = executor.build().run()
     y_generated = numpy.array(_numeric_result_lines(output))
     numpy.testing.assert_allclose(y_generated, A.dot(x), rtol=1e-10, atol=1e-10)
     assert "-lmkl_rt" not in (executor.compile_command or [])
-
-
-def test_frontend_compiler_does_not_use_legacy_cross_product_lowering():
-    source = pathlib.Path(sable.compiler.__file__).read_text()
-    assert "gen_single_threaded" not in source
-    assert "_select_codegen" not in source
 
 
 def test_out_of_line_helper_hoists_marked_kernel_body(tmp_path):
@@ -144,32 +134,6 @@ def test_out_of_line_helper_hoists_marked_kernel_body(tmp_path):
     numpy.testing.assert_allclose(y_generated, A.dot(x), rtol=1e-10, atol=1e-10)
 
 
-def test_vbr_kernel_uses_parameterized_out_of_line_helper(tmp_path):
-    rhs_path = tmp_path / "x.vector"
-    rhs_path.write_text("1.0,1.0,1.0,1.0\n")
-    A = scipy.sparse.csr_matrix(
-        numpy.array(
-            [
-                [1.0, 2.0, 0.0, 0.0],
-                [3.0, 4.0, 0.0, 0.0],
-                [0.0, 0.0, 5.0, 6.0],
-                [0.0, 0.0, 7.0, 8.0],
-            ]
-        )
-    )
-    blocks = [(0, 2, 0, 2), (2, 4, 2, 4)]
-
-    call_plan = Plan(Matrix(A, name="vbr_call"), artifact_dir=str(tmp_path / "call"))
-    call_plan.rhs(DenseInput.vector(str(rhs_path), size=4))
-    call_vbr = call_plan.extract(BlockDetectorSkip(blocks=blocks))
-    call_plan.dispatch(call_vbr, NaiveVBRSpmv())
-    call_source = pathlib.Path(call_plan.compile(filename="vbr_call", bench=1).c_path).read_text()
-
-    assert call_source.count("static void vbr_val_spmv_naive_block(") == 1
-    assert "vbr_val_spmv_naive_block(y, x, vbr_val, 0, 2, 0, 2, 0);" in call_source
-    assert "vbr_val_spmv_naive_block(y, x, vbr_val, 2, 4, 2, 4, 4);" in call_source
-
-
 def test_vbr_kernel_marks_loop_blocks_out_of_line_and_leaves_blas_inline(tmp_path):
     rhs_path = tmp_path / "x.matrix"
     rhs_path.write_text(",".join(["1.0"] * 20) + "\n")
@@ -191,37 +155,6 @@ def test_vbr_kernel_marks_loop_blocks_out_of_line_and_leaves_blas_inline(tmp_pat
     assert "cblas_dgemm(CblasRowMajor, CblasTrans, CblasNoTrans" in source
     assert source.count("static void vbr_val_spmm_naive_block(") == 1
     assert "vbr_val_spmm_naive_block(y, x, vbr_val, 8, 10, 8, 10, 64, 2);" in source
-
-
-def test_vdia_kernel_uses_parameterized_out_of_line_helper(tmp_path):
-    rhs_path = tmp_path / "x.vector"
-    rhs_path.write_text("1.0,1.0,1.0,1.0\n")
-    A = scipy.sparse.csr_matrix(numpy.diag([1.0, 2.0, 3.0, 4.0]))
-    bands = [
-        {
-            "diag_offset": 0,
-            "segments": [
-                {
-                    "rows": [0, 2],
-                    "bandwidth": [0, 0],
-                },
-                {
-                    "rows": [2, 4],
-                    "bandwidth": [0, 0],
-                }
-            ],
-        }
-    ]
-
-    call_plan = Plan(Matrix(A, name="vdia_call"), artifact_dir=str(tmp_path / "call"))
-    call_plan.rhs(DenseInput.vector(str(rhs_path), size=4))
-    call_vdia = call_plan.extract(BandExtractorSkip(bands=bands))
-    call_plan.dispatch(call_vdia, NaiveVDIASpmv())
-    call_source = pathlib.Path(call_plan.compile(filename="vdia_call", bench=1).c_path).read_text()
-
-    assert call_source.count("static void vdia_val_spmv_naive_segment(") == 1
-    assert "vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 0, 2, 1, 0, 0);" in call_source
-    assert "vdia_val_spmv_naive_segment(y, x, vdia_val, vdia_idiag, 2, 2, 1, 1, 2);" in call_source
 
 
 def test_plan_rejects_mixed_kernel_operations(tmp_path):

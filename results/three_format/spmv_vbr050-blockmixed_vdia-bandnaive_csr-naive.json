@@ -1,0 +1,377 @@
+[
+  {
+    "matrix_name": "TSC_OPF_1047",
+    "matrix_dimensions": {
+      "rows": 8140,
+      "cols": 8140,
+      "nnz": 2012833,
+      "density": 0.03
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "vdia",
+      "dispatch_3": "csr"
+    },
+    "dispatch_part_regions": {
+      "dispatch_1_part_1": {
+        "rows": 152,
+        "cols": 152,
+        "nnz": 23104,
+        "region": 2
+      },
+      "dispatch_1_part_2": {
+        "rows": 152,
+        "cols": 1520,
+        "nnz": 231040,
+        "region": 1
+      },
+      "dispatch_1_part_3": {
+        "rows": 1520,
+        "cols": 152,
+        "nnz": 231040,
+        "region": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 1676864,
+      "residual_nnz": 335969,
+      "format_area": 1806640,
+      "extra_values": 129776,
+      "format_claimed_nnz_perc": 83.31,
+      "residual_nnz_perc": 16.69
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 902044.45,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 140998.18,
+            "percentage_of_total_time": 15.631
+          },
+          "dispatch_2": {
+            "time_ns": 599101.53,
+            "percentage_of_total_time": 66.416
+          },
+          "dispatch_3": {
+            "time_ns": 161944.74,
+            "percentage_of_total_time": 17.953
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 7290.04,
+          "dispatch_1_part_2": 65006.66,
+          "dispatch_1_part_3": 68697.45
+        },
+        "csr_baseline_time_ns": 889868.1,
+        "speedup": 0.987,
+        "compile_time_composed_s": 0.770063189,
+        "compile_time_csr_baseline_s": 0.117678034,
+        "codegen_time_composed_ms": 21,
+        "codegen_time_csr_baseline_ms": 109,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 8.640199666842818e-12,
+          "max_rel_err": 4.338043011078487e-15,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 8.640199666842818e-12,
+          "max_rel_err": 4.18311290353997e-15,
+          "rtol": 1e-09
+        }
+      }
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b2383",
+    "matrix_dimensions": {
+      "rows": 38120,
+      "cols": 38120,
+      "nnz": 16171169,
+      "density": 0.011
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "vdia",
+      "dispatch_3": "csr"
+    },
+    "dispatch_part_regions": {
+      "dispatch_1_part_1": {
+        "rows": 16350,
+        "cols": 327,
+        "nnz": 5346450,
+        "region": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 16039350,
+      "residual_nnz": 131819,
+      "format_area": 17150050,
+      "extra_values": 1110700,
+      "format_claimed_nnz_perc": 99.18,
+      "residual_nnz_perc": 0.82
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 10099322.4,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 2552351.22,
+            "percentage_of_total_time": 25.272
+          },
+          "dispatch_2": {
+            "time_ns": 7386814.14,
+            "percentage_of_total_time": 73.142
+          },
+          "dispatch_3": {
+            "time_ns": 160157.04,
+            "percentage_of_total_time": 1.586
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 14597280.02,
+        "speedup": 1.445,
+        "compile_time_composed_s": 0.768448919,
+        "compile_time_csr_baseline_s": 0.12116567,
+        "codegen_time_composed_ms": 24,
+        "codegen_time_csr_baseline_ms": 873,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 3.637978807091713e-12,
+          "max_rel_err": 2.0818301053625853e-16,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 3.637978807091713e-12,
+          "max_rel_err": 2.0818301053625853e-16,
+          "rtol": 1e-09
+        }
+      }
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b678_c1",
+    "matrix_dimensions": {
+      "rows": 18696,
+      "cols": 18696,
+      "nnz": 4396289,
+      "density": 0.013
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "vdia",
+      "dispatch_3": "csr"
+    },
+    "dispatch_part_regions": {
+      "dispatch_1_part_1": {
+        "rows": 8500,
+        "cols": 170,
+        "nnz": 1445000,
+        "region": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 4029000,
+      "residual_nnz": 367289,
+      "format_area": 4310200,
+      "extra_values": 281200,
+      "format_claimed_nnz_perc": 91.65,
+      "residual_nnz_perc": 8.35
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 1609802.22,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 436171.93,
+            "percentage_of_total_time": 27.095
+          },
+          "dispatch_2": {
+            "time_ns": 967756.51,
+            "percentage_of_total_time": 60.116
+          },
+          "dispatch_3": {
+            "time_ns": 205873.78,
+            "percentage_of_total_time": 12.789
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 2217312.82,
+        "speedup": 1.377,
+        "compile_time_composed_s": 0.763289655,
+        "compile_time_csr_baseline_s": 0.11829183,
+        "codegen_time_composed_ms": 28,
+        "codegen_time_csr_baseline_ms": 239,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 7.275957614183426e-12,
+          "max_rel_err": 2.0369750285182922e-16,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 7.275957614183426e-12,
+          "max_rel_err": 2.732747167558011e-16,
+          "rtol": 1e-09
+        }
+      }
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b678_c2",
+    "matrix_dimensions": {
+      "rows": 35696,
+      "cols": 35696,
+      "nnz": 8781949,
+      "density": 0.007
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "vdia",
+      "dispatch_3": "csr"
+    },
+    "dispatch_part_regions": {
+      "dispatch_1_part_1": {
+        "rows": 17000,
+        "cols": 170,
+        "nnz": 2890000,
+        "region": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 8006320,
+      "residual_nnz": 775629,
+      "format_area": 8563096,
+      "extra_values": 556776,
+      "format_claimed_nnz_perc": 91.17,
+      "residual_nnz_perc": 8.83
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 4228979.33,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 1035342.09,
+            "percentage_of_total_time": 24.482
+          },
+          "dispatch_2": {
+            "time_ns": 2596130.64,
+            "percentage_of_total_time": 61.389
+          },
+          "dispatch_3": {
+            "time_ns": 597506.6,
+            "percentage_of_total_time": 14.129
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 7208819.12,
+        "speedup": 1.705,
+        "compile_time_composed_s": 0.764502963,
+        "compile_time_csr_baseline_s": 0.118429202,
+        "codegen_time_composed_ms": 67,
+        "codegen_time_csr_baseline_ms": 472,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 7.275957614183426e-12,
+          "max_rel_err": 2.0369750285182922e-16,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 7.275957614183426e-12,
+          "max_rel_err": 2.8801489580953343e-16,
+          "rtol": 1e-09
+        }
+      }
+    }
+  },
+  {
+    "matrix_name": "brainpc2",
+    "matrix_dimensions": {
+      "rows": 27607,
+      "cols": 27607,
+      "nnz": 179395,
+      "density": 0.0
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "vdia",
+      "dispatch_3": "csr"
+    },
+    "dispatch_part_regions": {
+      "dispatch_1_part_1": {
+        "rows": 4,
+        "cols": 6899,
+        "nnz": 27596,
+        "region": 1
+      },
+      "dispatch_1_part_2": {
+        "rows": 6899,
+        "cols": 4,
+        "nnz": 27596,
+        "region": 0
+      }
+    },
+    "nnz": {
+      "format_claimed_nnz": 110388,
+      "residual_nnz": 69007,
+      "format_area": 110388,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 61.53,
+      "residual_nnz_perc": 38.47
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 107354.26,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 14204.8,
+            "percentage_of_total_time": 13.232
+          },
+          "dispatch_2": {
+            "time_ns": 15437.38,
+            "percentage_of_total_time": 14.38
+          },
+          "dispatch_3": {
+            "time_ns": 77712.08,
+            "percentage_of_total_time": 72.388
+          }
+        },
+        "dispatch_part_times": {
+          "dispatch_1_part_1": 7096.35,
+          "dispatch_1_part_2": 7130.34
+        },
+        "csr_baseline_time_ns": 117680.33,
+        "speedup": 1.096,
+        "compile_time_composed_s": 0.724215833,
+        "compile_time_csr_baseline_s": 0.116473032,
+        "codegen_time_composed_ms": 6,
+        "codegen_time_csr_baseline_ms": 12,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 2.3646862246096134e-11,
+          "max_rel_err": 3.3153878696668558e-15,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 2.546585164964199e-11,
+          "max_rel_err": 3.570417705795075e-15,
+          "rtol": 1e-09
+        }
+      }
+    }
+  }
+]

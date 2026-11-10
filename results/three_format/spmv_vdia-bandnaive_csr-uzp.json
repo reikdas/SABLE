@@ -1,0 +1,292 @@
+[
+  {
+    "matrix_name": "TSC_OPF_1047",
+    "matrix_dimensions": {
+      "rows": 8140,
+      "cols": 8140,
+      "nnz": 2012833,
+      "density": 0.03
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": {},
+    "nnz": {
+      "format_claimed_nnz": 1320423,
+      "residual_nnz": 692410,
+      "format_area": 1462983,
+      "extra_values": 142560,
+      "format_claimed_nnz_perc": 65.6,
+      "residual_nnz_perc": 34.4
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 1071316.89,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 657665.93,
+            "percentage_of_total_time": 61.389
+          },
+          "dispatch_2": {
+            "time_ns": 413650.96,
+            "percentage_of_total_time": 38.611
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 1183178.88,
+        "speedup": 1.104,
+        "compile_time_composed_s": 3.11346026,
+        "compile_time_csr_baseline_s": 2.93798344,
+        "codegen_time_composed_ms": 1071,
+        "codegen_time_csr_baseline_ms": 3392,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 1.0913936421275139e-11,
+          "max_rel_err": 4.338043011078487e-15,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 1.0913936421275139e-11,
+          "max_rel_err": 3.7183225809244176e-15,
+          "rtol": 1e-09
+        }
+      }
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b2383",
+    "matrix_dimensions": {
+      "rows": 38120,
+      "cols": 38120,
+      "nnz": 16171169,
+      "density": 0.011
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": {},
+    "nnz": {
+      "format_claimed_nnz": 10510195,
+      "residual_nnz": 5660974,
+      "format_area": 11602197,
+      "extra_values": 1092002,
+      "format_claimed_nnz_perc": 64.99,
+      "residual_nnz_perc": 35.01
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 12639903.45,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 7573214.32,
+            "percentage_of_total_time": 59.915
+          },
+          "dispatch_2": {
+            "time_ns": 5066689.13,
+            "percentage_of_total_time": 40.085
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 14794209.6,
+        "speedup": 1.17,
+        "compile_time_composed_s": 3.122071847,
+        "compile_time_csr_baseline_s": 2.939147643,
+        "codegen_time_composed_ms": 10124,
+        "codegen_time_csr_baseline_ms": 29061,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 4.547473508864641e-12,
+          "max_rel_err": 3.538444343816839e-15,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 4.547473508864641e-12,
+          "max_rel_err": 3.177378448246102e-15,
+          "rtol": 1e-09
+        }
+      }
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b678_c1",
+    "matrix_dimensions": {
+      "rows": 18696,
+      "cols": 18696,
+      "nnz": 4396289,
+      "density": 0.013
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": {},
+    "nnz": {
+      "format_claimed_nnz": 2599602,
+      "residual_nnz": 1796687,
+      "format_area": 2882542,
+      "extra_values": 282940,
+      "format_claimed_nnz_perc": 59.13,
+      "residual_nnz_perc": 40.87
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 2139700.06,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 981649.8,
+            "percentage_of_total_time": 45.878
+          },
+          "dispatch_2": {
+            "time_ns": 1158050.26,
+            "percentage_of_total_time": 54.122
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 2741577.11,
+        "speedup": 1.281,
+        "compile_time_composed_s": 3.121689178,
+        "compile_time_csr_baseline_s": 2.942904108,
+        "codegen_time_composed_ms": 3160,
+        "codegen_time_csr_baseline_ms": 7905,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 7.275957614183426e-12,
+          "max_rel_err": 9.512364275681877e-16,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 7.275957614183426e-12,
+          "max_rel_err": 2.563646185863437e-15,
+          "rtol": 1e-09
+        }
+      }
+    }
+  },
+  {
+    "matrix_name": "TSOPF_RS_b678_c2",
+    "matrix_dimensions": {
+      "rows": 35696,
+      "cols": 35696,
+      "nnz": 8781949,
+      "density": 0.007
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": {},
+    "nnz": {
+      "format_claimed_nnz": 5203020,
+      "residual_nnz": 3578929,
+      "format_area": 5769260,
+      "extra_values": 566240,
+      "format_claimed_nnz_perc": 59.25,
+      "residual_nnz_perc": 40.75
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 5515214.83,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 2549125.07,
+            "percentage_of_total_time": 46.22
+          },
+          "dispatch_2": {
+            "time_ns": 2966089.76,
+            "percentage_of_total_time": 53.78
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 6946167.45,
+        "speedup": 1.259,
+        "compile_time_composed_s": 3.124085915,
+        "compile_time_csr_baseline_s": 2.943975504,
+        "codegen_time_composed_ms": 6343,
+        "codegen_time_csr_baseline_ms": 15633,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 7.275957614183426e-12,
+          "max_rel_err": 1.7760999253742494e-15,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 7.275957614183426e-12,
+          "max_rel_err": 2.9254657122098808e-15,
+          "rtol": 1e-09
+        }
+      }
+    }
+  },
+  {
+    "matrix_name": "brainpc2",
+    "matrix_dimensions": {
+      "rows": 27607,
+      "cols": 27607,
+      "nnz": 179395,
+      "density": 0.0
+    },
+    "dispatch_labels": {
+      "dispatch_1": "vdia",
+      "dispatch_2": "csr"
+    },
+    "dispatch_part_regions": {},
+    "nnz": {
+      "format_claimed_nnz": 55196,
+      "residual_nnz": 124199,
+      "format_area": 55196,
+      "extra_values": 0,
+      "format_claimed_nnz_perc": 30.77,
+      "residual_nnz_perc": 69.23
+    },
+    "timing": {
+      "1 thread": {
+        "total_time_ns": 212335.96,
+        "dispatch_times": {
+          "dispatch_1": {
+            "time_ns": 14656.0,
+            "percentage_of_total_time": 6.902
+          },
+          "dispatch_2": {
+            "time_ns": 197679.96,
+            "percentage_of_total_time": 93.098
+          }
+        },
+        "dispatch_part_times": {},
+        "csr_baseline_time_ns": 232203.81,
+        "speedup": 1.094,
+        "compile_time_composed_s": 3.114532534,
+        "compile_time_csr_baseline_s": 2.938838961,
+        "codegen_time_composed_ms": 84,
+        "codegen_time_csr_baseline_ms": 129,
+        "invocations": 30,
+        "csr_baseline_invocations": 30,
+        "verification": {
+          "values_match": true,
+          "max_abs_diff": 9.094947017729282e-13,
+          "max_rel_err": 1.5178377882945709e-16,
+          "rtol": 1e-09
+        },
+        "csr_baseline_verification": {
+          "values_match": true,
+          "max_abs_diff": 9.094947017729282e-13,
+          "max_rel_err": 1.7345192691250638e-16,
+          "rtol": 1e-09
+        }
+      }
+    }
+  }
+]

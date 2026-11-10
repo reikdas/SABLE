@@ -1,21 +1,7 @@
 [
   {
     "matrix_name": "FX_March2010",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 1319,
-    "cols": 9498,
-    "nnz": 301899,
     "load_seconds": 0.04261895455420017,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -25,9 +11,7 @@
       "vbr": {
         "wall_seconds": 13.300753493793309,
         "claimed_nnz": 33713,
-        "residual_nnz_after": 268186,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.114163,
         "partitioner_search_seconds": 12.98,
         "blocks": [
@@ -53,52 +37,20 @@
       "csr": {
         "wall_seconds": 0.006788519211113453,
         "claimed_nnz": 268186,
-        "convert_seconds": 0.006723889149725437,
-        "nnz": 268186
+        "convert_seconds": 0.006723889149725437
       },
       "codegen": {
         "wall_seconds": 0.05113970302045345,
         "codegen_time_ms": 51
       },
       "gcc": {
-        "wall_seconds": 0.10317883361130953,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/FX_March2010.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/FX_March2010",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10317883361130953
       }
-    },
-    "recorded_at": "2026-08-11 00:50:59"
+    }
   },
   {
     "matrix_name": "TSC_OPF_1047",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 8140,
-    "cols": 8140,
-    "nnz": 2016902,
     "load_seconds": 0.05806360300630331,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -108,9 +60,7 @@
       "vbr": {
         "wall_seconds": 132.9320207796991,
         "claimed_nnz": 489253,
-        "residual_nnz_after": 1527649,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.956525,
         "partitioner_search_seconds": 130.983,
         "blocks": [
@@ -162,52 +112,20 @@
       "csr": {
         "wall_seconds": 0.042841218411922455,
         "claimed_nnz": 1527649,
-        "convert_seconds": 0.042718345299363136,
-        "nnz": 1527649
+        "convert_seconds": 0.042718345299363136
       },
       "codegen": {
         "wall_seconds": 0.9502263264730573,
         "codegen_time_ms": 950
       },
       "gcc": {
-        "wall_seconds": 0.13307551946491003,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSC_OPF_1047.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSC_OPF_1047",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.13307551946491003
       }
-    },
-    "recorded_at": "2026-08-11 00:53:13"
+    }
   },
   {
     "matrix_name": "TSC_OPF_300",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 9774,
-    "cols": 9774,
-    "nnz": 820804,
     "load_seconds": 0.019561050459742546,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -217,9 +135,7 @@
       "vbr": {
         "wall_seconds": 171.7967637721449,
         "claimed_nnz": 176421,
-        "residual_nnz_after": 644383,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.387473,
         "partitioner_search_seconds": 170.614,
         "blocks": [
@@ -258,52 +174,20 @@
       "csr": {
         "wall_seconds": 0.017391864210367203,
         "claimed_nnz": 644383,
-        "convert_seconds": 0.017285168170928955,
-        "nnz": 644383
+        "convert_seconds": 0.017285168170928955
       },
       "codegen": {
         "wall_seconds": 0.39009270817041397,
         "codegen_time_ms": 390
       },
       "gcc": {
-        "wall_seconds": 0.11047093197703362,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSC_OPF_300.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSC_OPF_300",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11047093197703362
       }
-    },
-    "recorded_at": "2026-08-11 00:57:55"
+    }
   },
   {
     "matrix_name": "TSOPF_FS_b162_c1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 10798,
-    "cols": 10798,
-    "nnz": 608540,
     "load_seconds": 0.013231929391622543,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -313,9 +197,7 @@
       "vbr": {
         "wall_seconds": 272.48552674613893,
         "claimed_nnz": 125000,
-        "residual_nnz_after": 483540,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.297149,
         "partitioner_search_seconds": 271.433,
         "blocks": [
@@ -354,52 +236,20 @@
       "csr": {
         "wall_seconds": 0.009791295975446701,
         "claimed_nnz": 483540,
-        "convert_seconds": 0.009695255197584629,
-        "nnz": 483540
+        "convert_seconds": 0.009695255197584629
       },
       "codegen": {
         "wall_seconds": 0.28862006310373545,
         "codegen_time_ms": 289
       },
       "gcc": {
-        "wall_seconds": 0.12334815226495266,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_FS_b162_c1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_FS_b162_c1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.12334815226495266
       }
-    },
-    "recorded_at": "2026-08-11 01:03:17"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b162_c1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 5374,
-    "cols": 5374,
-    "nnz": 205399,
     "load_seconds": 0.008511084131896496,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -409,9 +259,7 @@
       "vbr": {
         "wall_seconds": 22.87446037400514,
         "claimed_nnz": 62500,
-        "residual_nnz_after": 142899,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.107434,
         "partitioner_search_seconds": 22.5564,
         "blocks": [
@@ -437,52 +285,20 @@
       "csr": {
         "wall_seconds": 0.0020309649407863617,
         "claimed_nnz": 142899,
-        "convert_seconds": 0.0019700052216649055,
-        "nnz": 142899
+        "convert_seconds": 0.0019700052216649055
       },
       "codegen": {
         "wall_seconds": 0.0866994671523571,
         "codegen_time_ms": 86
       },
       "gcc": {
-        "wall_seconds": 0.10188291873782873,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b162_c1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b162_c1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10188291873782873
       }
-    },
-    "recorded_at": "2026-08-11 01:04:15"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b162_c3",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 15374,
-    "cols": 15374,
-    "nnz": 610299,
     "load_seconds": 0.015210991725325584,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -492,9 +308,7 @@
       "vbr": {
         "wall_seconds": 559.6025096746162,
         "claimed_nnz": 187500,
-        "residual_nnz_after": 422799,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.294108,
         "partitioner_search_seconds": 557.879,
         "blocks": [
@@ -520,52 +334,20 @@
       "csr": {
         "wall_seconds": 0.009799927473068237,
         "claimed_nnz": 422799,
-        "convert_seconds": 0.009679754264652729,
-        "nnz": 422799
+        "convert_seconds": 0.009679754264652729
       },
       "codegen": {
         "wall_seconds": 0.31003450229763985,
         "codegen_time_ms": 309
       },
       "gcc": {
-        "wall_seconds": 0.10804699826985598,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b162_c3.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b162_c3",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10804699826985598
       }
-    },
-    "recorded_at": "2026-08-11 01:15:14"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b162_c4",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 20374,
-    "cols": 20374,
-    "nnz": 812749,
     "load_seconds": 0.018476705066859722,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -575,9 +357,7 @@
       "vbr": {
         "wall_seconds": 1309.657479644753,
         "claimed_nnz": 250000,
-        "residual_nnz_after": 562749,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.379164,
         "partitioner_search_seconds": 1306.88,
         "blocks": [
@@ -603,52 +383,20 @@
       "csr": {
         "wall_seconds": 0.014622447080910206,
         "claimed_nnz": 562749,
-        "convert_seconds": 0.01449927780777216,
-        "nnz": 562749
+        "convert_seconds": 0.01449927780777216
       },
       "codegen": {
         "wall_seconds": 0.3698540944606066,
         "codegen_time_ms": 370
       },
       "gcc": {
-        "wall_seconds": 0.10506045538932085,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b162_c4.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b162_c4",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10506045538932085
       }
-    },
-    "recorded_at": "2026-08-11 01:39:14"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b2383",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 38120,
-    "cols": 38120,
-    "nnz": 16171169,
     "load_seconds": 0.3126049777492881,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -658,9 +406,7 @@
       "vbr": {
         "wall_seconds": 8660.738623622805,
         "claimed_nnz": 5346450,
-        "residual_nnz_after": 10824719,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 7.7752,
         "partitioner_search_seconds": 8637.68,
         "blocks": [
@@ -686,52 +432,20 @@
       "csr": {
         "wall_seconds": 0.39895894285291433,
         "claimed_nnz": 10824719,
-        "convert_seconds": 0.38844303879886866,
-        "nnz": 10824719
+        "convert_seconds": 0.38844303879886866
       },
       "codegen": {
         "wall_seconds": 9.671169735491276,
         "codegen_time_ms": 9671
       },
       "gcc": {
-        "wall_seconds": 0.11617295257747173,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b2383.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b2383",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11617295257747173
       }
-    },
-    "recorded_at": "2026-08-11 04:58:01"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b300_c1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 14538,
-    "cols": 14538,
-    "nnz": 1474325,
     "load_seconds": 0.03402613289654255,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -741,9 +455,7 @@
       "vbr": {
         "wall_seconds": 474.79708336666226,
         "claimed_nnz": 476100,
-        "residual_nnz_after": 998225,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.705182,
         "partitioner_search_seconds": 472.535,
         "blocks": [
@@ -769,52 +481,20 @@
       "csr": {
         "wall_seconds": 0.027561694383621216,
         "claimed_nnz": 998225,
-        "convert_seconds": 0.027427283115684986,
-        "nnz": 998225
+        "convert_seconds": 0.027427283115684986
       },
       "codegen": {
         "wall_seconds": 0.7259030444547534,
         "codegen_time_ms": 726
       },
       "gcc": {
-        "wall_seconds": 0.09917160868644714,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b300_c1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b300_c1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.09917160868644714
       }
-    },
-    "recorded_at": "2026-08-11 05:10:37"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b300_c2",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 28338,
-    "cols": 28338,
-    "nnz": 2943887,
     "load_seconds": 0.07216050010174513,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -824,9 +504,7 @@
       "vbr": {
         "wall_seconds": 3552.2967850090936,
         "claimed_nnz": 952200,
-        "residual_nnz_after": 1991687,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 1.41207,
         "partitioner_search_seconds": 3545.63,
         "blocks": [
@@ -852,52 +530,20 @@
       "csr": {
         "wall_seconds": 0.06542551517486572,
         "claimed_nnz": 1991687,
-        "convert_seconds": 0.06530612986534834,
-        "nnz": 1991687
+        "convert_seconds": 0.06530612986534834
       },
       "codegen": {
         "wall_seconds": 1.4305762341246009,
         "codegen_time_ms": 1431
       },
       "gcc": {
-        "wall_seconds": 0.10757435765117407,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b300_c2.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b300_c2",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10757435765117407
       }
-    },
-    "recorded_at": "2026-08-11 06:19:10"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b300_c3",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 42138,
-    "cols": 42138,
-    "nnz": 4413449,
     "load_seconds": 0.10196423064917326,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -907,9 +553,7 @@
       "vbr": {
         "wall_seconds": 11701.477345232852,
         "claimed_nnz": 1428300,
-        "residual_nnz_after": 2985149,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 2.12189,
         "partitioner_search_seconds": 11687.1,
         "blocks": [
@@ -935,52 +579,20 @@
       "csr": {
         "wall_seconds": 0.09251213446259499,
         "claimed_nnz": 2985149,
-        "convert_seconds": 0.0923812985420227,
-        "nnz": 2985149
+        "convert_seconds": 0.0923812985420227
       },
       "codegen": {
         "wall_seconds": 2.1177709149196744,
         "codegen_time_ms": 2117
       },
       "gcc": {
-        "wall_seconds": 0.10864271502941847,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b300_c3.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b300_c3",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10864271502941847
       }
-    },
-    "recorded_at": "2026-08-11 09:48:12"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b39_c19",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 38098,
-    "cols": 38098,
-    "nnz": 684206,
     "load_seconds": 0.02175190858542919,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -990,9 +602,7 @@
       "vbr": {
         "wall_seconds": 8640.101302525029,
         "claimed_nnz": 190000,
-        "residual_nnz_after": 494206,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.312631,
         "partitioner_search_seconds": 8631.44,
         "blocks": [
@@ -1018,52 +628,20 @@
       "csr": {
         "wall_seconds": 0.010155890136957169,
         "claimed_nnz": 494206,
-        "convert_seconds": 0.01002571266144514,
-        "nnz": 494206
+        "convert_seconds": 0.01002571266144514
       },
       "codegen": {
         "wall_seconds": 0.26652245968580246,
         "codegen_time_ms": 267
       },
       "gcc": {
-        "wall_seconds": 0.11505678202956915,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b39_c19.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b39_c19",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11505678202956915
       }
-    },
-    "recorded_at": "2026-08-11 12:13:03"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b39_c7",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 14098,
-    "cols": 14098,
-    "nnz": 252446,
     "load_seconds": 0.008824764750897884,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -1073,9 +651,7 @@
       "vbr": {
         "wall_seconds": 431.55168558843434,
         "claimed_nnz": 70000,
-        "residual_nnz_after": 182446,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.121926,
         "partitioner_search_seconds": 430.29,
         "blocks": [
@@ -1101,52 +677,20 @@
       "csr": {
         "wall_seconds": 0.002940564416348934,
         "claimed_nnz": 182446,
-        "convert_seconds": 0.002870318479835987,
-        "nnz": 182446
+        "convert_seconds": 0.002870318479835987
       },
       "codegen": {
         "wall_seconds": 0.09916094038635492,
         "codegen_time_ms": 99
       },
       "gcc": {
-        "wall_seconds": 0.09964721370488405,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b39_c7.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b39_c7",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.09964721370488405
       }
-    },
-    "recorded_at": "2026-08-11 12:20:34"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b678_c1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 18696,
-    "cols": 18696,
-    "nnz": 4396289,
     "load_seconds": 0.11032413970679045,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -1156,9 +700,7 @@
       "vbr": {
         "wall_seconds": 1023.7622084524482,
         "claimed_nnz": 1445000,
-        "residual_nnz_after": 2951289,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 2.11094,
         "partitioner_search_seconds": 1018.42,
         "blocks": [
@@ -1184,52 +726,20 @@
       "csr": {
         "wall_seconds": 0.092886365018785,
         "claimed_nnz": 2951289,
-        "convert_seconds": 0.09275215864181519,
-        "nnz": 2951289
+        "convert_seconds": 0.09275215864181519
       },
       "codegen": {
         "wall_seconds": 2.2347596790641546,
         "codegen_time_ms": 2235
       },
       "gcc": {
-        "wall_seconds": 0.1130450963973999,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b678_c1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b678_c1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.1130450963973999
       }
-    },
-    "recorded_at": "2026-08-11 12:48:38"
+    }
   },
   {
     "matrix_name": "TSOPF_RS_b678_c2",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 35696,
-    "cols": 35696,
-    "nnz": 8781949,
     "load_seconds": 0.21783074084669352,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -1239,9 +749,7 @@
       "vbr": {
         "wall_seconds": 7117.633321752772,
         "claimed_nnz": 2890000,
-        "residual_nnz_after": 5891949,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 4.21702,
         "partitioner_search_seconds": 7103.55,
         "blocks": [
@@ -1267,52 +775,20 @@
       "csr": {
         "wall_seconds": 0.18640577513724566,
         "claimed_nnz": 5891949,
-        "convert_seconds": 0.18127696588635445,
-        "nnz": 5891949
+        "convert_seconds": 0.18127696588635445
       },
       "codegen": {
         "wall_seconds": 4.2989478493109345,
         "codegen_time_ms": 4299
       },
       "gcc": {
-        "wall_seconds": 0.09677152335643768,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b678_c2.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/TSOPF_RS_b678_c2",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.09677152335643768
       }
-    },
-    "recorded_at": "2026-08-11 15:09:10"
+    }
   },
   {
     "matrix_name": "Zd_Jac2",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 22835,
-    "cols": 22835,
-    "nnz": 1642833,
     "load_seconds": 0.04796286206692457,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -1322,9 +798,7 @@
       "vbr": {
         "wall_seconds": 4293.229557969607,
         "claimed_nnz": 205238,
-        "residual_nnz_after": 1437595,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.778483,
         "partitioner_search_seconds": 4291.26,
         "blocks": [
@@ -1779,52 +1253,20 @@
       "csr": {
         "wall_seconds": 0.038272686302661896,
         "claimed_nnz": 1437595,
-        "convert_seconds": 0.038167499005794525,
-        "nnz": 1437595
+        "convert_seconds": 0.038167499005794525
       },
       "codegen": {
         "wall_seconds": 0.7852095775306225,
         "codegen_time_ms": 785
       },
       "gcc": {
-        "wall_seconds": 0.735276130028069,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/Zd_Jac2.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/Zd_Jac2",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.735276130028069
       }
-    },
-    "recorded_at": "2026-08-11 16:28:07"
+    }
   },
   {
     "matrix_name": "Zd_Jac3",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 22835,
-    "cols": 22835,
-    "nnz": 1916152,
     "load_seconds": 0.05115190055221319,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -1834,9 +1276,7 @@
       "vbr": {
         "wall_seconds": 3910.714286603965,
         "claimed_nnz": 217958,
-        "residual_nnz_after": 1698194,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.88583,
         "partitioner_search_seconds": 3908.51,
         "blocks": [
@@ -2291,52 +1731,20 @@
       "csr": {
         "wall_seconds": 0.04683929029852152,
         "claimed_nnz": 1698194,
-        "convert_seconds": 0.04673040099442005,
-        "nnz": 1698194
+        "convert_seconds": 0.04673040099442005
       },
       "codegen": {
         "wall_seconds": 0.916845359839499,
         "codegen_time_ms": 917
       },
       "gcc": {
-        "wall_seconds": 0.7358887493610382,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/Zd_Jac3.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/Zd_Jac3",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.7358887493610382
       }
-    },
-    "recorded_at": "2026-08-11 17:41:52"
+    }
   },
   {
     "matrix_name": "Zd_Jac6",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 22835,
-    "cols": 22835,
-    "nnz": 1711983,
     "load_seconds": 0.04715188965201378,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -2346,9 +1754,7 @@
       "vbr": {
         "wall_seconds": 4318.86060851533,
         "claimed_nnz": 217964,
-        "residual_nnz_after": 1494019,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.790075,
         "partitioner_search_seconds": 4316.84,
         "blocks": [
@@ -2803,52 +2209,20 @@
       "csr": {
         "wall_seconds": 0.03936697822064161,
         "claimed_nnz": 1494019,
-        "convert_seconds": 0.039249930530786514,
-        "nnz": 1494019
+        "convert_seconds": 0.039249930530786514
       },
       "codegen": {
         "wall_seconds": 0.7497236607596278,
         "codegen_time_ms": 750
       },
       "gcc": {
-        "wall_seconds": 0.740344537422061,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/Zd_Jac6.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/Zd_Jac6",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.740344537422061
       }
-    },
-    "recorded_at": "2026-08-11 19:01:24"
+    }
   },
   {
     "matrix_name": "brainpc2",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 27607,
-    "cols": 27607,
-    "nnz": 179395,
     "load_seconds": 0.007821181789040565,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -2858,9 +2232,7 @@
       "vbr": {
         "wall_seconds": 3541.237472001463,
         "claimed_nnz": 55192,
-        "residual_nnz_after": 124203,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0761425,
         "partitioner_search_seconds": 3538.04,
         "blocks": [
@@ -2899,52 +2271,20 @@
       "csr": {
         "wall_seconds": 0.002065095119178295,
         "claimed_nnz": 124203,
-        "convert_seconds": 0.002004002220928669,
-        "nnz": 124203
+        "convert_seconds": 0.002004002220928669
       },
       "codegen": {
         "wall_seconds": 0.03607208747416735,
         "codegen_time_ms": 36
       },
       "gcc": {
-        "wall_seconds": 0.11484233010560274,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/brainpc2.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/brainpc2",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11484233010560274
       }
-    },
-    "recorded_at": "2026-08-11 20:00:33"
+    }
   },
   {
     "matrix_name": "bundle1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 10581,
-    "cols": 10581,
-    "nnz": 770901,
     "load_seconds": 0.018493961542844772,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -2954,9 +2294,7 @@
       "vbr": {
         "wall_seconds": 269.68301788531244,
         "claimed_nnz": 93764,
-        "residual_nnz_after": 677137,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.316639,
         "partitioner_search_seconds": 268.981,
         "blocks": [
@@ -3190,52 +2528,20 @@
       "csr": {
         "wall_seconds": 0.016659241169691086,
         "claimed_nnz": 677137,
-        "convert_seconds": 0.016577275469899178,
-        "nnz": 677137
+        "convert_seconds": 0.016577275469899178
       },
       "codegen": {
         "wall_seconds": 0.15293762553483248,
         "codegen_time_ms": 152
       },
       "gcc": {
-        "wall_seconds": 0.30249224230647087,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/bundle1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/bundle1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.30249224230647087
       }
-    },
-    "recorded_at": "2026-08-11 20:06:08"
+    }
   },
   {
     "matrix_name": "c-30",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 5321,
-    "cols": 5321,
-    "nnz": 65693,
     "load_seconds": 0.0037337467074394226,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -3245,9 +2551,7 @@
       "vbr": {
         "wall_seconds": 29.80033686198294,
         "claimed_nnz": 27532,
-        "residual_nnz_after": 38161,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0349793,
         "partitioner_search_seconds": 29.5907,
         "blocks": [
@@ -3286,52 +2590,20 @@
       "csr": {
         "wall_seconds": 0.0006413701921701431,
         "claimed_nnz": 38161,
-        "convert_seconds": 0.0005849013105034828,
-        "nnz": 38161
+        "convert_seconds": 0.0005849013105034828
       },
       "codegen": {
         "wall_seconds": 0.019695390947163105,
         "codegen_time_ms": 20
       },
       "gcc": {
-        "wall_seconds": 0.11085581593215466,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/c-30.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/c-30",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11085581593215466
       }
-    },
-    "recorded_at": "2026-08-11 20:06:44"
+    }
   },
   {
     "matrix_name": "c-45",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 13206,
-    "cols": 13206,
-    "nnz": 174452,
     "load_seconds": 0.007968340069055557,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -3341,9 +2613,7 @@
       "vbr": {
         "wall_seconds": 524.1121094645932,
         "claimed_nnz": 45009,
-        "residual_nnz_after": 129443,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0862342,
         "partitioner_search_seconds": 523.197,
         "blocks": [
@@ -3421,52 +2691,20 @@
       "csr": {
         "wall_seconds": 0.0018686521798372269,
         "claimed_nnz": 129443,
-        "convert_seconds": 0.0018049897626042366,
-        "nnz": 129443
+        "convert_seconds": 0.0018049897626042366
       },
       "codegen": {
         "wall_seconds": 0.055848730728030205,
         "codegen_time_ms": 56
       },
       "gcc": {
-        "wall_seconds": 0.14012891426682472,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/c-45.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/c-45",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.14012891426682472
       }
-    },
-    "recorded_at": "2026-08-11 20:15:40"
+    }
   },
   {
     "matrix_name": "c-57",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 37833,
-    "cols": 37833,
-    "nnz": 405197,
     "load_seconds": 0.011114590801298618,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -3476,9 +2714,7 @@
       "vbr": {
         "wall_seconds": 10121.499024150893,
         "claimed_nnz": 42048,
-        "residual_nnz_after": 363149,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.180986,
         "partitioner_search_seconds": 10112.9,
         "blocks": [
@@ -3517,52 +2753,20 @@
       "csr": {
         "wall_seconds": 0.005684184841811657,
         "claimed_nnz": 363149,
-        "convert_seconds": 0.005599222145974636,
-        "nnz": 363149
+        "convert_seconds": 0.005599222145974636
       },
       "codegen": {
         "wall_seconds": 0.13276017364114523,
         "codegen_time_ms": 133
       },
       "gcc": {
-        "wall_seconds": 0.11091988068073988,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/c-57.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/c-57",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11091988068073988
       }
-    },
-    "recorded_at": "2026-08-11 23:05:04"
+    }
   },
   {
     "matrix_name": "cari",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 400,
-    "cols": 1200,
-    "nnz": 152800,
     "load_seconds": 0.009343007579445839,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -3572,9 +2776,7 @@
       "vbr": {
         "wall_seconds": 0.2140864934772253,
         "claimed_nnz": 152000,
-        "residual_nnz_after": 800,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0723741,
         "partitioner_search_seconds": 0.100132,
         "blocks": [
@@ -3600,52 +2802,20 @@
       "csr": {
         "wall_seconds": 0.00011583138257265091,
         "claimed_nnz": 800,
-        "convert_seconds": 7.61132687330246e-05,
-        "nnz": 800
+        "convert_seconds": 7.61132687330246e-05
       },
       "codegen": {
         "wall_seconds": 0.029133308678865433,
         "codegen_time_ms": 29
       },
       "gcc": {
-        "wall_seconds": 0.09703810699284077,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/cari.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/cari",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.09703810699284077
       }
-    },
-    "recorded_at": "2026-08-11 23:05:13"
+    }
   },
   {
     "matrix_name": "case39",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 40216,
-    "cols": 40216,
-    "nnz": 1042160,
     "load_seconds": 0.021529804915189743,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -3655,9 +2825,7 @@
       "vbr": {
         "wall_seconds": 10517.797351712361,
         "claimed_nnz": 100200,
-        "residual_nnz_after": 941960,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.492275,
         "partitioner_search_seconds": 10504.3,
         "blocks": [
@@ -3683,52 +2851,20 @@
       "csr": {
         "wall_seconds": 0.02424665540456772,
         "claimed_nnz": 941960,
-        "convert_seconds": 0.02412736974656582,
-        "nnz": 941960
+        "convert_seconds": 0.02412736974656582
       },
       "codegen": {
         "wall_seconds": 0.45550388377159834,
         "codegen_time_ms": 456
       },
       "gcc": {
-        "wall_seconds": 0.10477229114621878,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/case39.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/case39",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10477229114621878
       }
-    },
-    "recorded_at": "2026-08-12 02:29:26"
+    }
   },
   {
     "matrix_name": "connectus",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 512,
-    "cols": 394792,
-    "nnz": 1127525,
     "load_seconds": 0.018999729305505753,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -3738,9 +2874,7 @@
       "vbr": {
         "wall_seconds": 14402.208390374668,
         "claimed_nnz": 248849,
-        "residual_nnz_after": 878676,
         "timeout": true,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.348493,
         "partitioner_search_seconds": 14400.0,
         "blocks": [
@@ -3974,52 +3108,20 @@
       "csr": {
         "wall_seconds": 0.01938541606068611,
         "claimed_nnz": 878676,
-        "convert_seconds": 0.019289149902760983,
-        "nnz": 878676
+        "convert_seconds": 0.019289149902760983
       },
       "codegen": {
         "wall_seconds": 0.15648250747472048,
         "codegen_time_ms": 157
       },
       "gcc": {
-        "wall_seconds": 0.18101115804165602,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/connectus.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/connectus",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.18101115804165602
       }
-    },
-    "recorded_at": "2026-08-12 06:30:36"
+    }
   },
   {
     "matrix_name": "eris1176",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 1176,
-    "cols": 1176,
-    "nnz": 18552,
     "load_seconds": 0.001655513420701027,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -4029,9 +3131,7 @@
       "vbr": {
         "wall_seconds": 0.3833608003333211,
         "claimed_nnz": 8960,
-        "residual_nnz_after": 9592,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.00700015,
         "partitioner_search_seconds": 0.355122,
         "blocks": [
@@ -4083,52 +3183,20 @@
       "csr": {
         "wall_seconds": 0.00027447566390037537,
         "claimed_nnz": 9592,
-        "convert_seconds": 0.00022568460553884506,
-        "nnz": 9592
+        "convert_seconds": 0.00022568460553884506
       },
       "codegen": {
         "wall_seconds": 0.003890909254550934,
         "codegen_time_ms": 4
       },
       "gcc": {
-        "wall_seconds": 0.1354623707011342,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/eris1176.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/eris1176",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.1354623707011342
       }
-    },
-    "recorded_at": "2026-08-12 06:30:37"
+    }
   },
   {
     "matrix_name": "exdata_1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 6001,
-    "cols": 6001,
-    "nnz": 2269501,
     "load_seconds": 0.046248567290604115,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -4138,9 +3206,7 @@
       "vbr": {
         "wall_seconds": 43.7468333914876,
         "claimed_nnz": 2253001,
-        "residual_nnz_after": 16500,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.970588,
         "partitioner_search_seconds": 41.9202,
         "blocks": [
@@ -4166,52 +3232,20 @@
       "csr": {
         "wall_seconds": 0.0005017640069127083,
         "claimed_nnz": 16500,
-        "convert_seconds": 0.0004418669268488884,
-        "nnz": 16500
+        "convert_seconds": 0.0004418669268488884
       },
       "codegen": {
         "wall_seconds": 0.5055121248587966,
         "codegen_time_ms": 506
       },
       "gcc": {
-        "wall_seconds": 0.101537992246449,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/exdata_1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/exdata_1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.101537992246449
       }
-    },
-    "recorded_at": "2026-08-12 06:34:29"
+    }
   },
   {
     "matrix_name": "gupta1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 31802,
-    "cols": 31802,
-    "nnz": 2164210,
     "load_seconds": 0.046175734139978886,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -4221,9 +3255,7 @@
       "vbr": {
         "wall_seconds": 8736.378822294064,
         "claimed_nnz": 633326,
-        "residual_nnz_after": 1530884,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.696494,
         "partitioner_search_seconds": 8730.85,
         "blocks": [
@@ -4314,52 +3346,20 @@
       "csr": {
         "wall_seconds": 0.039303709752857685,
         "claimed_nnz": 1530884,
-        "convert_seconds": 0.03916602861136198,
-        "nnz": 1530884
+        "convert_seconds": 0.03916602861136198
       },
       "codegen": {
         "wall_seconds": 0.3619762361049652,
         "codegen_time_ms": 362
       },
       "gcc": {
-        "wall_seconds": 0.19046068657189608,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/gupta1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/gupta1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.19046068657189608
       }
-    },
-    "recorded_at": "2026-08-12 09:01:17"
+    }
   },
   {
     "matrix_name": "heart1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 3557,
-    "cols": 3557,
-    "nnz": 1387773,
     "load_seconds": 0.03881849069148302,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -4369,9 +3369,7 @@
       "vbr": {
         "wall_seconds": 15.636566437780857,
         "claimed_nnz": 171788,
-        "residual_nnz_after": 1215985,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.679427,
         "partitioner_search_seconds": 14.3643,
         "blocks": [
@@ -4527,52 +3525,20 @@
       "csr": {
         "wall_seconds": 0.033773974515497684,
         "claimed_nnz": 1215985,
-        "convert_seconds": 0.03367017116397619,
-        "nnz": 1215985
+        "convert_seconds": 0.03367017116397619
       },
       "codegen": {
         "wall_seconds": 0.5186263108626008,
         "codegen_time_ms": 519
       },
       "gcc": {
-        "wall_seconds": 0.2615058021619916,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/heart1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/heart1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.2615058021619916
       }
-    },
-    "recorded_at": "2026-08-12 09:01:33"
+    }
   },
   {
     "matrix_name": "heart2",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 2339,
-    "cols": 2339,
-    "nnz": 682797,
     "load_seconds": 0.023013061843812466,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -4582,9 +3548,7 @@
       "vbr": {
         "wall_seconds": 5.594175981357694,
         "claimed_nnz": 229499,
-        "residual_nnz_after": 453298,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.33512,
         "partitioner_search_seconds": 4.99305,
         "blocks": [
@@ -4753,52 +3717,20 @@
       "csr": {
         "wall_seconds": 0.008896821178495884,
         "claimed_nnz": 453298,
-        "convert_seconds": 0.008788728155195713,
-        "nnz": 453298
+        "convert_seconds": 0.008788728155195713
       },
       "codegen": {
         "wall_seconds": 0.24540087301284075,
         "codegen_time_ms": 245
       },
       "gcc": {
-        "wall_seconds": 0.2684302432462573,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/heart2.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/heart2",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.2684302432462573
       }
-    },
-    "recorded_at": "2026-08-12 09:01:39"
+    }
   },
   {
     "matrix_name": "heart3",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 2339,
-    "cols": 2339,
-    "nnz": 682797,
     "load_seconds": 0.01837205048650503,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -4808,9 +3740,7 @@
       "vbr": {
         "wall_seconds": 5.598592639900744,
         "claimed_nnz": 231650,
-        "residual_nnz_after": 451147,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.333942,
         "partitioner_search_seconds": 5.01037,
         "blocks": [
@@ -4992,52 +3922,20 @@
       "csr": {
         "wall_seconds": 0.00841959472745657,
         "claimed_nnz": 451147,
-        "convert_seconds": 0.008326543495059013,
-        "nnz": 451147
+        "convert_seconds": 0.008326543495059013
       },
       "codegen": {
         "wall_seconds": 0.250632188282907,
         "codegen_time_ms": 251
       },
       "gcc": {
-        "wall_seconds": 0.28788854368031025,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/heart3.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/heart3",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.28788854368031025
       }
-    },
-    "recorded_at": "2026-08-12 09:01:46"
+    }
   },
   {
     "matrix_name": "jendrec1",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 2109,
-    "cols": 4228,
-    "nnz": 89608,
     "load_seconds": 0.007081087678670883,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5047,9 +3945,7 @@
       "vbr": {
         "wall_seconds": 4.358926597982645,
         "claimed_nnz": 51932,
-        "residual_nnz_after": 37676,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0477593,
         "partitioner_search_seconds": 4.24112,
         "blocks": [
@@ -5075,52 +3971,20 @@
       "csr": {
         "wall_seconds": 0.0006844848394393921,
         "claimed_nnz": 37676,
-        "convert_seconds": 0.0006189867854118347,
-        "nnz": 37676
+        "convert_seconds": 0.0006189867854118347
       },
       "codegen": {
         "wall_seconds": 0.02412307169288397,
         "codegen_time_ms": 24
       },
       "gcc": {
-        "wall_seconds": 0.10665850713849068,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/jendrec1.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/jendrec1",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10665850713849068
       }
-    },
-    "recorded_at": "2026-08-12 09:02:03"
+    }
   },
   {
     "matrix_name": "lowThrust_10",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 18260,
-    "cols": 18260,
-    "nnz": 222005,
     "load_seconds": 0.008914711885154247,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5130,9 +3994,7 @@
       "vbr": {
         "wall_seconds": 1066.0248568831012,
         "claimed_nnz": 28392,
-        "residual_nnz_after": 193613,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.11947,
         "partitioner_search_seconds": 1064.28,
         "blocks": [
@@ -5171,52 +4033,20 @@
       "csr": {
         "wall_seconds": 0.002970202825963497,
         "claimed_nnz": 193613,
-        "convert_seconds": 0.002906546927988529,
-        "nnz": 193613
+        "convert_seconds": 0.002906546927988529
       },
       "codegen": {
         "wall_seconds": 0.09389246255159378,
         "codegen_time_ms": 94
       },
       "gcc": {
-        "wall_seconds": 0.11801603529602289,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_10.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_10",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11801603529602289
       }
-    },
-    "recorded_at": "2026-08-12 09:20:26"
+    }
   },
   {
     "matrix_name": "lowThrust_11",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 18368,
-    "cols": 18368,
-    "nnz": 223801,
     "load_seconds": 0.009168261662125587,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5226,9 +4056,7 @@
       "vbr": {
         "wall_seconds": 1085.6766867255792,
         "claimed_nnz": 28560,
-        "residual_nnz_after": 195241,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.122068,
         "partitioner_search_seconds": 1083.84,
         "blocks": [
@@ -5267,52 +4095,20 @@
       "csr": {
         "wall_seconds": 0.003426244482398033,
         "claimed_nnz": 195241,
-        "convert_seconds": 0.00335738155990839,
-        "nnz": 195241
+        "convert_seconds": 0.00335738155990839
       },
       "codegen": {
         "wall_seconds": 0.09624854661524296,
         "codegen_time_ms": 96
       },
       "gcc": {
-        "wall_seconds": 0.1068139374256134,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_11.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_11",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.1068139374256134
       }
-    },
-    "recorded_at": "2026-08-12 09:39:08"
+    }
   },
   {
     "matrix_name": "lowThrust_12",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 18458,
-    "cols": 18458,
-    "nnz": 224593,
     "load_seconds": 0.009274717420339584,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5322,9 +4118,7 @@
       "vbr": {
         "wall_seconds": 1101.3474519802257,
         "claimed_nnz": 28700,
-        "residual_nnz_after": 195893,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.130597,
         "partitioner_search_seconds": 1099.61,
         "blocks": [
@@ -5363,52 +4157,20 @@
       "csr": {
         "wall_seconds": 0.003132677637040615,
         "claimed_nnz": 195893,
-        "convert_seconds": 0.0030693011358380318,
-        "nnz": 195893
+        "convert_seconds": 0.0030693011358380318
       },
       "codegen": {
         "wall_seconds": 0.09654510021209717,
         "codegen_time_ms": 97
       },
       "gcc": {
-        "wall_seconds": 0.11820263043045998,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_12.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_12",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11820263043045998
       }
-    },
-    "recorded_at": "2026-08-12 09:58:06"
+    }
   },
   {
     "matrix_name": "lowThrust_13",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 18476,
-    "cols": 18476,
-    "nnz": 224897,
     "load_seconds": 0.009126398712396622,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5418,9 +4180,7 @@
       "vbr": {
         "wall_seconds": 1102.3869344936684,
         "claimed_nnz": 28728,
-        "residual_nnz_after": 196169,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.119558,
         "partitioner_search_seconds": 1100.62,
         "blocks": [
@@ -5459,52 +4219,20 @@
       "csr": {
         "wall_seconds": 0.0033675115555524826,
         "claimed_nnz": 196169,
-        "convert_seconds": 0.0033034803345799446,
-        "nnz": 196169
+        "convert_seconds": 0.0033034803345799446
       },
       "codegen": {
         "wall_seconds": 0.09156249836087227,
         "codegen_time_ms": 92
       },
       "gcc": {
-        "wall_seconds": 0.11514003109186888,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_13.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_13",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11514003109186888
       }
-    },
-    "recorded_at": "2026-08-12 10:17:05"
+    }
   },
   {
     "matrix_name": "lowThrust_3",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 7064,
-    "cols": 7064,
-    "nnz": 80645,
     "load_seconds": 0.005318613722920418,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5514,9 +4242,7 @@
       "vbr": {
         "wall_seconds": 59.14912472944707,
         "claimed_nnz": 10976,
-        "residual_nnz_after": 69669,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0475353,
         "partitioner_search_seconds": 58.8063,
         "blocks": [
@@ -5555,52 +4281,20 @@
       "csr": {
         "wall_seconds": 0.0014107804745435715,
         "claimed_nnz": 69669,
-        "convert_seconds": 0.0013426290825009346,
-        "nnz": 69669
+        "convert_seconds": 0.0013426290825009346
       },
       "codegen": {
         "wall_seconds": 0.03643681388348341,
         "codegen_time_ms": 36
       },
       "gcc": {
-        "wall_seconds": 0.10645614191889763,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_3.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_3",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10645614191889763
       }
-    },
-    "recorded_at": "2026-08-12 10:18:18"
+    }
   },
   {
     "matrix_name": "lowThrust_4",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 13562,
-    "cols": 13562,
-    "nnz": 160947,
     "load_seconds": 0.008860228583216667,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5610,9 +4304,7 @@
       "vbr": {
         "wall_seconds": 433.1883269920945,
         "claimed_nnz": 21084,
-        "residual_nnz_after": 139863,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0913495,
         "partitioner_search_seconds": 432.18,
         "blocks": [
@@ -5651,52 +4343,20 @@
       "csr": {
         "wall_seconds": 0.0022977925837039948,
         "claimed_nnz": 139863,
-        "convert_seconds": 0.0022357311099767685,
-        "nnz": 139863
+        "convert_seconds": 0.0022357311099767685
       },
       "codegen": {
         "wall_seconds": 0.06440404802560806,
         "codegen_time_ms": 64
       },
       "gcc": {
-        "wall_seconds": 0.11620985064655542,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_4.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_4",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11620985064655542
       }
-    },
-    "recorded_at": "2026-08-12 10:25:58"
+    }
   },
   {
     "matrix_name": "lowThrust_5",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 16262,
-    "cols": 16262,
-    "nnz": 198369,
     "load_seconds": 0.013681909069418907,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5706,9 +4366,7 @@
       "vbr": {
         "wall_seconds": 749.6115027498454,
         "claimed_nnz": 25284,
-        "residual_nnz_after": 173085,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.106981,
         "partitioner_search_seconds": 748.22,
         "blocks": [
@@ -5747,52 +4405,20 @@
       "csr": {
         "wall_seconds": 0.003038776107132435,
         "claimed_nnz": 173085,
-        "convert_seconds": 0.0029755523428320885,
-        "nnz": 173085
+        "convert_seconds": 0.0029755523428320885
       },
       "codegen": {
         "wall_seconds": 0.08545317873358727,
         "codegen_time_ms": 86
       },
       "gcc": {
-        "wall_seconds": 0.11143409367650747,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_5.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_5",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11143409367650747
       }
-    },
-    "recorded_at": "2026-08-17 00:16:57"
+    }
   },
   {
     "matrix_name": "lowThrust_6",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 16928,
-    "cols": 16928,
-    "nnz": 207349,
     "load_seconds": 0.011191983707249165,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5802,9 +4428,7 @@
       "vbr": {
         "wall_seconds": 848.5232051154599,
         "claimed_nnz": 26320,
-        "residual_nnz_after": 181029,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.112893,
         "partitioner_search_seconds": 847.026,
         "blocks": [
@@ -5843,52 +4467,20 @@
       "csr": {
         "wall_seconds": 0.003713528625667095,
         "claimed_nnz": 181029,
-        "convert_seconds": 0.003647884353995323,
-        "nnz": 181029
+        "convert_seconds": 0.003647884353995323
       },
       "codegen": {
         "wall_seconds": 0.08520549070090055,
         "codegen_time_ms": 85
       },
       "gcc": {
-        "wall_seconds": 0.10997734125703573,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_6.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_6",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10997734125703573
       }
-    },
-    "recorded_at": "2026-08-17 00:31:39"
+    }
   },
   {
     "matrix_name": "lowThrust_7",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 17378,
-    "cols": 17378,
-    "nnz": 211561,
     "load_seconds": 0.01095759030431509,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5898,9 +4490,7 @@
       "vbr": {
         "wall_seconds": 915.1562763676047,
         "claimed_nnz": 27020,
-        "residual_nnz_after": 184541,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.117984,
         "partitioner_search_seconds": 913.573,
         "blocks": [
@@ -5939,52 +4529,20 @@
       "csr": {
         "wall_seconds": 0.0035535087808966637,
         "claimed_nnz": 184541,
-        "convert_seconds": 0.0034891609102487564,
-        "nnz": 184541
+        "convert_seconds": 0.0034891609102487564
       },
       "codegen": {
         "wall_seconds": 0.08234568312764168,
         "codegen_time_ms": 82
       },
       "gcc": {
-        "wall_seconds": 0.11560203973203897,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_7.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_7",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11560203973203897
       }
-    },
-    "recorded_at": "2026-08-17 00:47:29"
+    }
   },
   {
     "matrix_name": "lowThrust_8",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 17702,
-    "cols": 17702,
-    "nnz": 216445,
     "load_seconds": 0.011348742991685867,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -5994,9 +4552,7 @@
       "vbr": {
         "wall_seconds": 968.3204172337428,
         "claimed_nnz": 27524,
-        "residual_nnz_after": 188921,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.1166,
         "partitioner_search_seconds": 966.706,
         "blocks": [
@@ -6035,52 +4591,20 @@
       "csr": {
         "wall_seconds": 0.004189575091004372,
         "claimed_nnz": 188921,
-        "convert_seconds": 0.004122885875403881,
-        "nnz": 188921
+        "convert_seconds": 0.004122885875403881
       },
       "codegen": {
         "wall_seconds": 0.09474291373044252,
         "codegen_time_ms": 94
       },
       "gcc": {
-        "wall_seconds": 0.1093487972393632,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_8.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_8",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.1093487972393632
       }
-    },
-    "recorded_at": "2026-08-17 01:04:12"
+    }
   },
   {
     "matrix_name": "lowThrust_9",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 18044,
-    "cols": 18044,
-    "nnz": 219589,
     "load_seconds": 0.010922868736088276,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -6090,9 +4614,7 @@
       "vbr": {
         "wall_seconds": 1025.9141088249162,
         "claimed_nnz": 28056,
-        "residual_nnz_after": 191533,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.119998,
         "partitioner_search_seconds": 1024.25,
         "blocks": [
@@ -6131,52 +4653,20 @@
       "csr": {
         "wall_seconds": 0.004040420055389404,
         "claimed_nnz": 191533,
-        "convert_seconds": 0.003975751809775829,
-        "nnz": 191533
+        "convert_seconds": 0.003975751809775829
       },
       "codegen": {
         "wall_seconds": 0.08650769107043743,
         "codegen_time_ms": 86
       },
       "gcc": {
-        "wall_seconds": 0.10859094932675362,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_9.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lowThrust_9",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10859094932675362
       }
-    },
-    "recorded_at": "2026-08-17 01:22:17"
+    }
   },
   {
     "matrix_name": "lp_fit2d",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 25,
-    "cols": 10524,
-    "nnz": 129042,
     "load_seconds": 0.008817833848297596,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -6186,9 +4676,7 @@
       "vbr": {
         "wall_seconds": 1.7103433404117823,
         "claimed_nnz": 10500,
-        "residual_nnz_after": 118542,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0497106,
         "partitioner_search_seconds": 1.58982,
         "blocks": [
@@ -6214,52 +4702,20 @@
       "csr": {
         "wall_seconds": 0.0027011707425117493,
         "claimed_nnz": 118542,
-        "convert_seconds": 0.0026346324011683464,
-        "nnz": 118542
+        "convert_seconds": 0.0026346324011683464
       },
       "codegen": {
         "wall_seconds": 0.02393401972949505,
         "codegen_time_ms": 24
       },
       "gcc": {
-        "wall_seconds": 0.09241480473428965,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lp_fit2d.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lp_fit2d",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.09241480473428965
       }
-    },
-    "recorded_at": "2026-08-17 01:22:27"
+    }
   },
   {
     "matrix_name": "lp_osa_07",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 1118,
-    "cols": 25067,
-    "nnz": 144812,
     "load_seconds": 0.009880168363451958,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -6269,9 +4725,7 @@
       "vbr": {
         "wall_seconds": 67.32935754116625,
         "claimed_nnz": 17609,
-        "residual_nnz_after": 127203,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0588889,
         "partitioner_search_seconds": 67.0706,
         "blocks": [
@@ -6297,52 +4751,20 @@
       "csr": {
         "wall_seconds": 0.001878209412097931,
         "claimed_nnz": 127203,
-        "convert_seconds": 0.001820150762796402,
-        "nnz": 127203
+        "convert_seconds": 0.001820150762796402
       },
       "codegen": {
         "wall_seconds": 0.026702262461185455,
         "codegen_time_ms": 27
       },
       "gcc": {
-        "wall_seconds": 0.0997075131163001,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lp_osa_07.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lp_osa_07",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.0997075131163001
       }
-    },
-    "recorded_at": "2026-08-17 01:23:48"
+    }
   },
   {
     "matrix_name": "lp_osa_14",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 2337,
-    "cols": 54797,
-    "nnz": 317097,
     "load_seconds": 0.010290591977536678,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -6352,9 +4774,7 @@
       "vbr": {
         "wall_seconds": 665.0906167468056,
         "claimed_nnz": 38331,
-        "residual_nnz_after": 278766,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.122489,
         "partitioner_search_seconds": 664.094,
         "blocks": [
@@ -6380,52 +4800,20 @@
       "csr": {
         "wall_seconds": 0.006382543593645096,
         "claimed_nnz": 278766,
-        "convert_seconds": 0.006317798979580402,
-        "nnz": 278766
+        "convert_seconds": 0.006317798979580402
       },
       "codegen": {
         "wall_seconds": 0.05791445169597864,
         "codegen_time_ms": 58
       },
       "gcc": {
-        "wall_seconds": 0.0969751626253128,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lp_osa_14.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lp_osa_14",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.0969751626253128
       }
-    },
-    "recorded_at": "2026-08-17 01:35:22"
+    }
   },
   {
     "matrix_name": "lp_osa_30",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 4350,
-    "cols": 104374,
-    "nnz": 604488,
     "load_seconds": 0.012897714972496033,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -6435,9 +4823,7 @@
       "vbr": {
         "wall_seconds": 4462.833661555313,
         "claimed_nnz": 72552,
-        "residual_nnz_after": 531936,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.214094,
         "partitioner_search_seconds": 4459.3,
         "blocks": [
@@ -6463,52 +4849,20 @@
       "csr": {
         "wall_seconds": 0.012442401610314846,
         "claimed_nnz": 531936,
-        "convert_seconds": 0.012348256073892117,
-        "nnz": 531936
+        "convert_seconds": 0.012348256073892117
       },
       "codegen": {
         "wall_seconds": 0.11580887529999018,
         "codegen_time_ms": 116
       },
       "gcc": {
-        "wall_seconds": 0.10103621985763311,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lp_osa_30.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/lp_osa_30",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.10103621985763311
       }
-    },
-    "recorded_at": "2026-08-17 02:50:39"
+    }
   },
   {
     "matrix_name": "net100",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 29920,
-    "cols": 29920,
-    "nnz": 2033200,
     "load_seconds": 0.04116963408887386,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -6518,9 +4872,7 @@
       "vbr": {
         "wall_seconds": 14405.478693166748,
         "claimed_nnz": 492660,
-        "residual_nnz_after": 1540540,
         "timeout": true,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.650414,
         "partitioner_search_seconds": 14400.5,
         "blocks": [
@@ -8639,52 +6991,20 @@
       "csr": {
         "wall_seconds": 0.04287434462457895,
         "claimed_nnz": 1540540,
-        "convert_seconds": 0.042771076783537865,
-        "nnz": 1540540
+        "convert_seconds": 0.042771076783537865
       },
       "codegen": {
         "wall_seconds": 0.33042746130377054,
         "codegen_time_ms": 330
       },
       "gcc": {
-        "wall_seconds": 6.182717463932931,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/net100.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/net100",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 6.182717463932931
       }
-    },
-    "recorded_at": "2026-08-17 06:51:46"
+    }
   },
   {
     "matrix_name": "net125",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 36720,
-    "cols": 36720,
-    "nnz": 2577200,
     "load_seconds": 0.04901724401861429,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -8694,9 +7014,7 @@
       "vbr": {
         "wall_seconds": 14412.108192567714,
         "claimed_nnz": 265995,
-        "residual_nnz_after": 2311205,
         "timeout": true,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.846818,
         "partitioner_search_seconds": 14400.1,
         "blocks": [
@@ -9606,52 +7924,20 @@
       "csr": {
         "wall_seconds": 0.07346441596746445,
         "claimed_nnz": 2311205,
-        "convert_seconds": 0.07333410158753395,
-        "nnz": 2311205
+        "convert_seconds": 0.07333410158753395
       },
       "codegen": {
         "wall_seconds": 0.42572533432394266,
         "codegen_time_ms": 425
       },
       "gcc": {
-        "wall_seconds": 1.455232155509293,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/net125.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/net125",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 1.455232155509293
       }
-    },
-    "recorded_at": "2026-08-17 10:53:13"
+    }
   },
   {
     "matrix_name": "net150",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 43520,
-    "cols": 43520,
-    "nnz": 3121200,
     "load_seconds": 0.05760952364653349,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -9661,9 +7947,7 @@
       "vbr": {
         "wall_seconds": 14414.976941840723,
         "claimed_nnz": 112980,
-        "residual_nnz_after": 3008220,
         "timeout": true,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 1.02521,
         "partitioner_search_seconds": 14400.1,
         "blocks": [
@@ -9988,52 +8272,20 @@
       "csr": {
         "wall_seconds": 0.09130527637898922,
         "claimed_nnz": 3008220,
-        "convert_seconds": 0.09117689356207848,
-        "nnz": 3008220
+        "convert_seconds": 0.09117689356207848
       },
       "codegen": {
         "wall_seconds": 0.5267631812021136,
         "codegen_time_ms": 527
       },
       "gcc": {
-        "wall_seconds": 0.5020020511001348,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/net150.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/net150",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.5020020511001348
       }
-    },
-    "recorded_at": "2026-08-17 14:54:50"
+    }
   },
   {
     "matrix_name": "orani678",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 2529,
-    "cols": 2529,
-    "nnz": 90158,
     "load_seconds": 0.007315788418054581,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -10043,9 +8295,7 @@
       "vbr": {
         "wall_seconds": 2.296354027464986,
         "claimed_nnz": 39081,
-        "residual_nnz_after": 51077,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0470115,
         "partitioner_search_seconds": 2.18624,
         "blocks": [
@@ -10071,52 +8321,20 @@
       "csr": {
         "wall_seconds": 0.0009650187566876411,
         "claimed_nnz": 51077,
-        "convert_seconds": 0.0008936980739235878,
-        "nnz": 51077
+        "convert_seconds": 0.0008936980739235878
       },
       "codegen": {
         "wall_seconds": 0.03271804843097925,
         "codegen_time_ms": 32
       },
       "gcc": {
-        "wall_seconds": 0.09830691106617451,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/orani678.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/orani678",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.09830691106617451
       }
-    },
-    "recorded_at": "2026-08-17 14:55:07"
+    }
   },
   {
     "matrix_name": "std1_Jac2",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 21982,
-    "cols": 21982,
-    "nnz": 1248731,
     "load_seconds": 0.036039240658283234,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -10126,9 +8344,7 @@
       "vbr": {
         "wall_seconds": 2946.29319007881,
         "claimed_nnz": 169186,
-        "residual_nnz_after": 1079545,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.579999,
         "partitioner_search_seconds": 2944.62,
         "blocks": [
@@ -10505,52 +8721,20 @@
       "csr": {
         "wall_seconds": 0.02902735397219658,
         "claimed_nnz": 1079545,
-        "convert_seconds": 0.02892439439892769,
-        "nnz": 1079545
+        "convert_seconds": 0.02892439439892769
       },
       "codegen": {
         "wall_seconds": 0.5834216261282563,
         "codegen_time_ms": 583
       },
       "gcc": {
-        "wall_seconds": 0.6157479900866747,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/std1_Jac2.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/std1_Jac2",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.6157479900866747
       }
-    },
-    "recorded_at": "2026-08-17 15:49:49"
+    }
   },
   {
     "matrix_name": "std1_Jac3",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 21982,
-    "cols": 21982,
-    "nnz": 1455848,
     "load_seconds": 0.044520700350403786,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -10560,9 +8744,7 @@
       "vbr": {
         "wall_seconds": 3182.204826218076,
         "claimed_nnz": 177425,
-        "residual_nnz_after": 1278423,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.699211,
         "partitioner_search_seconds": 3180.35,
         "blocks": [
@@ -10939,52 +9121,20 @@
       "csr": {
         "wall_seconds": 0.03334264177829027,
         "claimed_nnz": 1278423,
-        "convert_seconds": 0.03324062470346689,
-        "nnz": 1278423
+        "convert_seconds": 0.03324062470346689
       },
       "codegen": {
         "wall_seconds": 0.6827774690464139,
         "codegen_time_ms": 682
       },
       "gcc": {
-        "wall_seconds": 0.6013350421562791,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/std1_Jac3.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/std1_Jac3",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.6013350421562791
       }
-    },
-    "recorded_at": "2026-08-17 16:49:20"
+    }
   },
   {
     "matrix_name": "vsp_c-30_data_data",
-    "set": "vbr_csr",
-    "operation": "spmv",
-    "rows": 11023,
-    "cols": 11023,
-    "nnz": 124368,
     "load_seconds": 0.004417188465595245,
-    "params": {
-      "band_min_density": 0.75,
-      "block_min_density": 0.5,
-      "block_min_area": 2500,
-      "block_gamma": 1.5,
-      "block_timeout_seconds": 14400.0,
-      "block_threads": 20,
-      "bench": 5
-    },
     "kernels": {
       "vdia": "bandnaive",
       "vbr": "blocknaive",
@@ -10994,9 +9144,7 @@
       "vbr": {
         "wall_seconds": 204.64860203210264,
         "claimed_nnz": 27532,
-        "residual_nnz_after": 96836,
         "timeout": false,
-        "timeout_seconds_budget": 14400.0,
         "partitioner_read_seconds": 0.0470602,
         "partitioner_search_seconds": 203.954,
         "blocks": [
@@ -11035,33 +9183,15 @@
       "csr": {
         "wall_seconds": 0.0015723509714007378,
         "claimed_nnz": 96836,
-        "convert_seconds": 0.0015075476840138435,
-        "nnz": 96836
+        "convert_seconds": 0.0015075476840138435
       },
       "codegen": {
         "wall_seconds": 0.0183688560500741,
         "codegen_time_ms": 18
       },
       "gcc": {
-        "wall_seconds": 0.11565505061298609,
-        "returncode": 0,
-        "timed_out": false,
-        "command": [
-          "gcc",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/vsp_c-30_data_data.c",
-          "-o",
-          "/local/scratch/a/das160/SABLE-inspection/SABLE/Generated_Inspection_C/spmv_vbr_csr/vsp_c-30_data_data",
-          "-O3",
-          "-march=native",
-          "-funroll-all-loops",
-          "-mprefer-vector-width=512",
-          "-mavx",
-          "-ffast-math",
-          "-fopenmp",
-          "-lpthread"
-        ]
+        "wall_seconds": 0.11565505061298609
       }
-    },
-    "recorded_at": "2026-08-17 16:52:45"
+    }
   }
 ]

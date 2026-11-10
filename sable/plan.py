@@ -11,9 +11,24 @@ from .tensor import DenseInput
 
 @dataclass
 class Dispatch:
-    fmt: Format
+    fmt: Format | None
     kernel: object
     num_threads: int = 1
+
+
+class Accumulation:
+    """The merged result tensor of a plan's dispatches.
+
+    Returned by Plan.accumulate(); dispatching a kernel on it makes the kernel
+    operate over the accumulated result rather than a sparse format.
+    """
+
+    __slots__ = ()
+
+
+@dataclass
+class IterationSpec:
+    max_iterations: int | None = None
 
 
 class Plan:
@@ -24,6 +39,7 @@ class Plan:
         self.dispatches: list[Dispatch] = []
         self._residual: ResidualMatrix = matrix
         self._pending_formats: dict[int, str] = {}
+        self._iteration: IterationSpec | None = None
 
     @property
     def rhs_input(self) -> DenseInput:
@@ -45,6 +61,10 @@ class Plan:
         else:
             raise ValueError(f"Unsupported RHS rank: {len(dense_input.shape)}")
         self._rhs = dense_input
+
+    @property
+    def iteration(self) -> IterationSpec | None:
+        return self._iteration
 
     @property
     def residual(self) -> ResidualMatrix:
@@ -77,8 +97,11 @@ class Plan:
             self._pending_formats[id(fmt)] = type(fmt).__name__
         return fmt
 
-    def dispatch(self, fmt: Format, kernel: object, num_threads: int = 1) -> None:
-        """Bind a kernel to an extracted format.
+    def accumulate(self) -> Accumulation:
+        return Accumulation()
+
+    def dispatch(self, target: Format | Accumulation, kernel: object, num_threads: int = 1) -> None:
+        """Bind a kernel to an extracted format or to plan.accumulate().
 
         num_threads is the OpenMP and MKL thread count the generated program
         sets before this dispatch runs; kernels with a parallel loop read it
@@ -86,9 +109,18 @@ class Plan:
         """
         if num_threads < 1:
             raise ValueError("num_threads must be at least 1")
-        accepts = getattr(kernel, "accepts", None)
-        if accepts is not None and not isinstance(fmt, accepts):
-            raise TypeError(f"{type(kernel).__name__} expects {accepts.__name__}, got {type(fmt).__name__}")
+        if isinstance(target, Accumulation):
+            fmt = None
+        elif isinstance(target, Format):
+            fmt = target
+        else:
+            raise TypeError(
+                f"dispatch(...) takes a Format or plan.accumulate(), got {type(target).__name__}"
+            )
+        if fmt is not None:
+            accepts = getattr(kernel, "accepts", None)
+            if accepts is not None and not isinstance(fmt, accepts):
+                raise TypeError(f"{type(kernel).__name__} expects {accepts.__name__}, got {type(fmt).__name__}")
 
         operation = kernel_operation(kernel)
         if (
@@ -109,7 +141,8 @@ class Plan:
             raise ValueError("All kernels in a plan must agree on operation")
 
         self.dispatches.append(Dispatch(fmt=fmt, kernel=kernel, num_threads=num_threads))
-        self._pending_formats.pop(id(fmt), None)
+        if fmt is not None:
+            self._pending_formats.pop(id(fmt), None)
 
     def ensure_complete(self) -> None:
         if self._residual.nnz != 0:
@@ -132,3 +165,19 @@ class Plan:
             data_dir=data_dir,
             data_key=data_key,
         )
+
+    def compile_loop(
+        self,
+        iters: int | None = None,
+        filename: str | None = None,
+        bench: int = 5,
+        data_dir: str | None = None,
+        data_key: str | None = None,
+    ):
+        """Like compile(), but the generated program runs the dispatch sequence
+        in a loop: up to `iters` times, or until a dispatched kernel's
+        convergence condition is met, whichever comes first."""
+        if iters is not None and iters <= 0:
+            raise ValueError(f"iters must be positive, got {iters}")
+        self._iteration = IterationSpec(max_iterations=iters)
+        return self.compile(filename=filename, bench=bench, data_dir=data_dir, data_key=data_key)

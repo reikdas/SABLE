@@ -33,6 +33,9 @@ FAR_STENCIL_OFFSETS = [-150] + STENCIL_OFFSETS + [120]
 # select_bands' parameters for each operation's kernel.
 SPMV = (find_vdia.spmv_slot_cost, find_vdia.SPMV_MIN_COVERAGE)
 SPMM = (find_vdia.spmm_slot_cost, find_vdia.SPMM_MIN_COVERAGE)
+# The VDIA kernels emit AVX-512 intrinsics, so their programs build and run only on CPUs with AVX-512F.
+HAS_AVX512F = "avx512f" in pathlib.Path("/proc/cpuinfo").read_text().split()
+requires_avx512 = pytest.mark.skipif(not HAS_AVX512F, reason="the VDIA kernels need AVX-512F")
 
 
 def _matrix() -> scipy.sparse.csr_matrix:
@@ -106,6 +109,7 @@ def _run(tmp_path, bands, vdia_kernel, csr_kernel, nrhs, A=None):
     return A, X, source, output
 
 
+@requires_avx512
 def test_vdia_spmv_matches_scipy(tmp_path):
     A, x, source, output = _run(tmp_path, BANDS, NaiveVDIASpmv(), NaiveCSRSpmv(), None)
     assert source.count("vdia_val_spmv(y, x, vdia_val);") == 1          # one call for all segments
@@ -113,6 +117,7 @@ def test_vdia_spmv_matches_scipy(tmp_path):
     numpy.testing.assert_allclose(_result(output, (N_ROWS,)), A @ x, rtol=1e-10, atol=1e-10)
 
 
+@requires_avx512
 @pytest.mark.parametrize("nrhs", [64, 20, 45])      # whole 32-column tiles, none, and a remainder
 def test_vdia_spmm_matches_scipy(tmp_path, nrhs):
     A, X, source, output = _run(tmp_path, BANDS, NaiveVDIASpmm(), NaiveCSRSpmm(), nrhs)
@@ -121,6 +126,7 @@ def test_vdia_spmm_matches_scipy(tmp_path, nrhs):
     numpy.testing.assert_allclose(_result(output, (N_ROWS, nrhs)), A @ X, rtol=1e-10, atol=1e-10)
 
 
+@requires_avx512
 @pytest.mark.parametrize("op", ["spmv", "spmm"])
 def test_vdia_kernels_accept_segments_sharing_rows(tmp_path, op):
     kernel, csr, nrhs = (NaiveVDIASpmv(), NaiveCSRSpmv(), None) if op == "spmv" else (NaiveVDIASpmm(), NaiveCSRSpmm(), 32)
@@ -139,6 +145,7 @@ def _runs_over_all_rows(offsets) -> list[dict]:
             for run in runs]
 
 
+@requires_avx512
 @pytest.mark.parametrize("offsets", [STENCIL_OFFSETS, FAR_STENCIL_OFFSETS])
 def test_spmv_kernel_computes_diagonals_sharing_rows(tmp_path, offsets):
     A = _stencil(offsets)

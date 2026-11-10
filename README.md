@@ -301,6 +301,14 @@ make -j$(nproc)          # produces build/libspreg.a
 cd ../..
 ```
 
+#### uzp-artifact/ (for `UZPCSRSpmv` kernel)
+
+The Makefile defaults to `gcc-11`; override it to use another compiler:
+
+```bash
+make -C uzp-artifact/uzp-tuners spf_aggregator GCC=gcc GCC_OMP="gcc -fopenmp"
+```
+
 ### 6. Configuration
 
 Shared compiler flags, MKL discovery, and kernel-family enum names live in
@@ -310,7 +318,7 @@ grouped by format family: CSR, VBR, and VDIA.
 
 ### 7. Running Benchmarks
 
-Two scripts write under `results/`:
+Three scripts write under `results/`:
 
 - `bench_suitesparse.py` composes stored extractions with a CSR kernel, times
   the program against a CSR-only baseline, and writes one record per matrix
@@ -319,16 +327,38 @@ Two scripts write under `results/`:
   `spmv_vbr050-blockmixed_csr-naive.json`.
 - `bench_inspection.py` runs the extractors themselves and records extraction,
   codegen, and compile times under `results/inspection/`.
+- `bench_iterative.py` times gradient descent and Jacobi iteration to
+  convergence on the matrices in `suitesparse-iter/`, with VBR+CSR plans and
+  with whole-matrix CSR baselines, and appends one record per configuration to
+  `results/iterative_eval.json`.  Every solve is checked against a SciPy
+  reference, or, where that would take too long, against the iteration bounds
+  in `results/suitesparse_iter.json`.  Configurations already in the file are
+  skipped, so an interrupted run can be resumed.
+
+The solver matrices are generated, not downloaded: `suitesparse-iter/generate.py`
+rewrites the values of 12 VBR-suite matrices, keeping their sparsity structure,
+so that both solvers converge and a single solve takes long enough to recover
+SABLE's inspection cost.  It reads per-iteration times from
+`results/iterative_calibration.json` and inspection times from
+`results/inspection/`, writes the `.mtx` files (which are not tracked), and
+records each solver's iteration bounds in `results/suitesparse_iter.json`:
+
+```bash
+python3 suitesparse-iter/generate.py            # all 12 matrices
+python3 suitesparse-iter/generate.py eris1176   # one matrix
+```
+
+Outside SLURM, `bench_suitesparse.py` and `bench_iterative.py` pin each timed
+binary with `taskset`; `SABLE_FIRST_CORE` (default 0) selects the first core.
 
 ## Testing
 
 ### Quick tests (no MKL / hardware dependencies)
 
-These tests verify the benchmarking infrastructure itself — frontend compiler
-assembly and C code generation — without running any actual sparse
-computations.  They run in seconds and need only Python, pytest, and the
-`find-submatrices` submodule checked out (importing `sable` loads its band
-finder):
+These tests verify the frontend compiler and its C code generation, and CI
+runs them on every push.  They run in seconds and need only Python, pytest,
+GCC, and the `find-submatrices` submodule checked out (importing `sable` loads
+its band finder):
 
 ```bash
 # Frontend compiler unit tests, including kernel build requirements
@@ -336,7 +366,16 @@ python3 -m pytest tests/test_frontend_compiler.py -v
 
 # Codegen golden tests (compares generated C against stored references)
 python3 -m pytest tests/test_codegen_golden.py -v
+
+# Iteration-loop codegen tests (plan.compile_loop)
+python3 -m pytest tests/test_iteration_frontend.py -v
+
+# VDIA band selection and packing, and the VDIA kernels against SciPy
+python3 -m pytest tests/test_vdia.py -v
 ```
+
+The VDIA kernel tests compile and run programs that use AVX-512 intrinsics, so
+they are skipped on CPUs without AVX-512F.
 
 After an **intentional** change to codegen output, regenerate the golden
 files:
@@ -353,4 +392,20 @@ built:
 
 ```bash
 python3 -m pytest test.py -v
+```
+
+### Solver tests
+
+`tests/test_gd_pipeline.py` and `tests/test_jacobi_pipeline.py` run each
+solver end to end as a VBR+CSR plan, and `tests_baseline/` runs the same
+solvers with the whole matrix in one CSR dispatch (naive, MKL, or UZP).  Each
+test checks the iteration count and the final iterate against a SciPy
+reference.  The gradient descent tests use SuiteSparse's `bundle1`, which
+ssgetpy downloads if it is not cached; the Jacobi tests use
+`suitesparse-iter/eris1176.mtx`, so run `python3 suitesparse-iter/generate.py
+eris1176` first.  They need MKL and the UZP build, and take about ten minutes
+together:
+
+```bash
+python3 -m pytest tests/test_gd_pipeline.py tests/test_jacobi_pipeline.py tests_baseline/ -v
 ```

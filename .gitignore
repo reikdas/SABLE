@@ -32,3 +32,6 @@ uzp-artifact/**/__pycache__/
 # uzp-artifact binary dependencies (should be in container, not git)
 uzp-artifact/lib/oneapi/*.pkg.tar.zst
 *.pkg.tar.zst
+
+# suitesparse-iter: generated matrices (regenerate with suitesparse-iter/generate.py)
+suitesparse-iter/*.mtx

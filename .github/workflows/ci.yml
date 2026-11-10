@@ -10,7 +10,8 @@ on:
 
 jobs:
   # ── Lightweight tests ─────────────────────────────────────────────────
-  # Compiler-flag unit tests, codegen golden tests, and the VDIA extraction and kernel tests.
+  # Compiler-flag unit tests, codegen golden tests, iteration-loop codegen tests, and the VDIA
+  # extraction and kernel tests (the kernel runs need AVX-512F and skip on runners without it).
   # No MKL, no submodule builds (gcc only) — runs in under a minute.  Submodules are checked
   # out because importing sable loads the band finder in find-submatrices/.
   unit-tests:
@@ -35,7 +36,7 @@ jobs:
 
     - name: Run unit & golden tests
       run: |
-        python3 -m pytest tests/test_frontend_compiler.py tests/test_codegen_golden.py tests/test_vdia.py -v
+        python3 -m pytest tests/test_frontend_compiler.py tests/test_codegen_golden.py tests/test_iteration_frontend.py tests/test_vdia.py -v
 
   # ── Full integration tests ────────────────────────────────────────────
   # Compiles and runs generated C code.  Needs GCC, MKL, built submodules.

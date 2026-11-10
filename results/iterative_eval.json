@@ -1,0 +1,2444 @@
+[
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "vbr_values": 15408,
+      "csr_nnz": 8124
+    },
+    "delta": 0.01,
+    "alpha": 0.41295031678360083,
+    "iterations": 3531715,
+    "reference_iterations": 3531715,
+    "iteration_bounds": [
+      3517345.3930113474,
+      3773104.0620842325
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 5244980200.0,
+      "dispatch_2": 12630608525.0,
+      "dispatch_3": 1015395862.0
+    },
+    "total_time_ns": 18890984587.0,
+    "time_per_iteration_ns": 5349.0
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "vbr_values": 15408,
+      "csr_nnz": 8124
+    },
+    "delta": 0.01,
+    "alpha": 0.41295031678360083,
+    "iterations": 3531715,
+    "reference_iterations": 3531715,
+    "iteration_bounds": [
+      3517345.3930113474,
+      3773104.0620842325
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 5643087309.0,
+      "dispatch_2": 14910001393.0,
+      "dispatch_3": 1088591792.0
+    },
+    "total_time_ns": 21641680494.0,
+    "time_per_iteration_ns": 6127.8
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "vbr_values": 15408,
+      "csr_nnz": 8124
+    },
+    "delta": 0.01,
+    "alpha": 0.41295031678360083,
+    "iterations": 3531715,
+    "reference_iterations": 3531715,
+    "iteration_bounds": [
+      3517345.3930113474,
+      3773104.0620842325
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 5481017618.0,
+      "dispatch_2": 19775099465.0,
+      "dispatch_3": 781134389.0
+    },
+    "total_time_ns": 26037251472.0,
+    "time_per_iteration_ns": 7372.4
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "vbr_values": 15408,
+      "csr_nnz": 8124
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 1483111,
+    "reference_iterations": 1483111,
+    "iteration_bounds": [
+      1452487.5895050534,
+      1558103.1180439354
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 2214201415.0,
+      "dispatch_2": 5125192127.0,
+      "dispatch_3": 496903055.0
+    },
+    "total_time_ns": 7836296597.0,
+    "time_per_iteration_ns": 5283.7
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "vbr_values": 15408,
+      "csr_nnz": 8124
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 1483111,
+    "reference_iterations": 1483111,
+    "iteration_bounds": [
+      1452487.5895050534,
+      1558103.1180439354
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 2442908306.0,
+      "dispatch_2": 6485590372.0,
+      "dispatch_3": 543370351.0
+    },
+    "total_time_ns": 9471869029.0,
+    "time_per_iteration_ns": 6386.5
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "vbr_values": 15408,
+      "csr_nnz": 8124
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 1483111,
+    "reference_iterations": 1483111,
+    "iteration_bounds": [
+      1452487.5895050534,
+      1558103.1180439354
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 2338641623.0,
+      "dispatch_2": 8503408700.0,
+      "dispatch_3": 457798326.0
+    },
+    "total_time_ns": 11299848649.0,
+    "time_per_iteration_ns": 7619.0
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "c-30",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 5321,
+      "cols": 5321,
+      "nnz": 65693
+    },
+    "split": {
+      "vbr_values": 29092,
+      "csr_nnz": 38161
+    },
+    "delta": 0.01,
+    "alpha": 0.4494897775944017,
+    "iterations": 70152899,
+    "reference_iterations": 70152899,
+    "iteration_bounds": [
+      70152568.89595845,
+      75517601.821343
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 217454771472.0,
+      "dispatch_2": 1034066433341.0,
+      "dispatch_3": 95579533811.0
+    },
+    "total_time_ns": 1347100738624.0,
+    "time_per_iteration_ns": 19202.4
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "c-30",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 5321,
+      "cols": 5321,
+      "nnz": 65693
+    },
+    "split": {
+      "vbr_values": 29092,
+      "csr_nnz": 38161
+    },
+    "delta": 0.01,
+    "alpha": 0.4494897775944017,
+    "iterations": 70152899,
+    "reference_iterations": 70152899,
+    "iteration_bounds": [
+      70152568.89595845,
+      75517601.821343
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 229497706640.0,
+      "dispatch_2": 1311862380537.0,
+      "dispatch_3": 100908835401.0
+    },
+    "total_time_ns": 1642268922578.0,
+    "time_per_iteration_ns": 23409.9
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "c-30",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 5321,
+      "cols": 5321,
+      "nnz": 65693
+    },
+    "split": {
+      "vbr_values": 29092,
+      "csr_nnz": 38161
+    },
+    "delta": 0.01,
+    "alpha": 0.4494897775944017,
+    "iterations": 70152899,
+    "reference_iterations": 70152899,
+    "iteration_bounds": [
+      70152568.89595845,
+      75517601.821343
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 202109850184.0,
+      "dispatch_2": 1996993475105.0,
+      "dispatch_3": 92317247284.0
+    },
+    "total_time_ns": 2291420572573.0,
+    "time_per_iteration_ns": 32663.2
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 287496,
+      "csr_nnz": 453361
+    },
+    "delta": 0.01,
+    "alpha": 0.489066631670451,
+    "iterations": 1999767,
+    "reference_iterations": 1999767,
+    "iteration_bounds": [
+      1999767.9359882616,
+      2112665.6751699853
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 133087607186.0,
+      "dispatch_2": 313104521722.0,
+      "dispatch_3": 1991902787.0
+    },
+    "total_time_ns": 448184031695.0,
+    "time_per_iteration_ns": 224118.1
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 287496,
+      "csr_nnz": 453361
+    },
+    "delta": 0.01,
+    "alpha": 0.489066631670451,
+    "iterations": 1999767,
+    "reference_iterations": 1999767,
+    "iteration_bounds": [
+      1999767.9359882616,
+      2112665.6751699853
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 132871285823.0,
+      "dispatch_2": 314153914980.0,
+      "dispatch_3": 1986209805.0
+    },
+    "total_time_ns": 449011410608.0,
+    "time_per_iteration_ns": 224531.9
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 287496,
+      "csr_nnz": 453361
+    },
+    "delta": 0.01,
+    "alpha": 0.489066631670451,
+    "iterations": 1999767,
+    "reference_iterations": 1999767,
+    "iteration_bounds": [
+      1999767.9359882616,
+      2112665.6751699853
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 132708935535.0,
+      "dispatch_2": 542127138204.0,
+      "dispatch_3": 1355133019.0
+    },
+    "total_time_ns": 676191206758.0,
+    "time_per_iteration_ns": 338135.0
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 287496,
+      "csr_nnz": 453361
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 978019,
+    "reference_iterations": 978019,
+    "iteration_bounds": [
+      978018.6286971634,
+      1033233.0813696197
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 64731287940.0,
+      "dispatch_2": 153452550908.0,
+      "dispatch_3": 1336207110.0
+    },
+    "total_time_ns": 219520045958.0,
+    "time_per_iteration_ns": 224453.8
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 287496,
+      "csr_nnz": 453361
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 978019,
+    "reference_iterations": 978019,
+    "iteration_bounds": [
+      978018.6286971634,
+      1033233.0813696197
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 65133024753.0,
+      "dispatch_2": 153460402459.0,
+      "dispatch_3": 1412694351.0
+    },
+    "total_time_ns": 220006121563.0,
+    "time_per_iteration_ns": 224950.8
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 287496,
+      "csr_nnz": 453361
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 978019,
+    "reference_iterations": 978019,
+    "iteration_bounds": [
+      978018.6286971634,
+      1033233.0813696197
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 65028702884.0,
+      "dispatch_2": 268652703724.0,
+      "dispatch_3": 1152146922.0
+    },
+    "total_time_ns": 334833553530.0,
+    "time_per_iteration_ns": 342358.9
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 296592,
+      "csr_nnz": 444797
+    },
+    "delta": 0.01,
+    "alpha": 0.48913015615017236,
+    "iterations": 1950212,
+    "reference_iterations": 1950212,
+    "iteration_bounds": [
+      1950212.9162157266,
+      2060316.7308128537
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 133499729256.0,
+      "dispatch_2": 301119341766.0,
+      "dispatch_3": 1962576833.0
+    },
+    "total_time_ns": 436581647855.0,
+    "time_per_iteration_ns": 223863.7
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 296592,
+      "csr_nnz": 444797
+    },
+    "delta": 0.01,
+    "alpha": 0.48913015615017236,
+    "iterations": 1950212,
+    "reference_iterations": 1950212,
+    "iteration_bounds": [
+      1950212.9162157266,
+      2060316.7308128537
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 134158794963.0,
+      "dispatch_2": 300485570430.0,
+      "dispatch_3": 1842742819.0
+    },
+    "total_time_ns": 436487108212.0,
+    "time_per_iteration_ns": 223815.2
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 296592,
+      "csr_nnz": 444797
+    },
+    "delta": 0.01,
+    "alpha": 0.48913015615017236,
+    "iterations": 1950212,
+    "reference_iterations": 1950212,
+    "iteration_bounds": [
+      1950212.9162157266,
+      2060316.7308128537
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 133672107924.0,
+      "dispatch_2": 522706239549.0,
+      "dispatch_3": 1316266688.0
+    },
+    "total_time_ns": 657694614161.0,
+    "time_per_iteration_ns": 337242.6
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 296592,
+      "csr_nnz": 444797
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 953907,
+    "reference_iterations": 953907,
+    "iteration_bounds": [
+      953906.8084981093,
+      1007761.8401782477
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 66041394272.0,
+      "dispatch_2": 149363321986.0,
+      "dispatch_3": 1394988720.0
+    },
+    "total_time_ns": 216799704978.0,
+    "time_per_iteration_ns": 227275.5
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 296592,
+      "csr_nnz": 444797
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 953907,
+    "reference_iterations": 953907,
+    "iteration_bounds": [
+      953906.8084981093,
+      1007761.8401782477
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 65743968088.0,
+      "dispatch_2": 147158430355.0,
+      "dispatch_3": 1410254088.0
+    },
+    "total_time_ns": 214312652531.0,
+    "time_per_iteration_ns": 224668.3
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "vbr_values": 296592,
+      "csr_nnz": 444797
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 953907,
+    "reference_iterations": 953907,
+    "iteration_bounds": [
+      953906.8084981093,
+      1007761.8401782477
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 65400960038.0,
+      "dispatch_2": 256560637824.0,
+      "dispatch_3": 1101803002.0
+    },
+    "total_time_ns": 323063400864.0,
+    "time_per_iteration_ns": 338673.9
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "vbr_values": 298881,
+      "csr_nnz": 1154052
+    },
+    "delta": 0.01,
+    "alpha": 0.48930789168667305,
+    "iterations": 7187879,
+    "reference_iterations": 7187879,
+    "iteration_bounds": [
+      7187879.598267192,
+      7591551.524896504
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 496434099504.0,
+      "dispatch_2": 2862737680602.0,
+      "dispatch_3": 13321606476.0
+    },
+    "total_time_ns": 3372493386582.0,
+    "time_per_iteration_ns": 469191.7
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "vbr_values": 298881,
+      "csr_nnz": 1154052
+    },
+    "delta": 0.01,
+    "alpha": 0.48930789168667305,
+    "iterations": 7187879,
+    "reference_iterations": 7187879,
+    "iteration_bounds": [
+      7187879.598267192,
+      7591551.524896504
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 495658257210.0,
+      "dispatch_2": 2881645760028.0,
+      "dispatch_3": 13152686930.0
+    },
+    "total_time_ns": 3390456704168.0,
+    "time_per_iteration_ns": 471690.8
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "vbr_values": 298881,
+      "csr_nnz": 1154052
+    },
+    "delta": 0.01,
+    "alpha": 0.48930789168667305,
+    "iterations": 7187879,
+    "reference_iterations": 7187879,
+    "iteration_bounds": [
+      7187879.598267192,
+      7591551.524896504
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 495133812739.0,
+      "dispatch_2": 4908125167414.0,
+      "dispatch_3": 9080544768.0
+    },
+    "total_time_ns": 5412339524921.0,
+    "time_per_iteration_ns": 752981.4
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "vbr_values": 298881,
+      "csr_nnz": 1154052
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 3517086,
+    "reference_iterations": 3517086,
+    "iteration_bounds": [
+      3517085.073333664,
+      3714604.868742321
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 242211395317.0,
+      "dispatch_2": 1393674880532.0,
+      "dispatch_3": 9099370106.0
+    },
+    "total_time_ns": 1644985645955.0,
+    "time_per_iteration_ns": 467712.7
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "vbr_values": 298881,
+      "csr_nnz": 1154052
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 3517086,
+    "reference_iterations": 3517086,
+    "iteration_bounds": [
+      3517085.073333664,
+      3714604.868742321
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 243795882157.0,
+      "dispatch_2": 1418297107299.0,
+      "dispatch_3": 8966744793.0
+    },
+    "total_time_ns": 1671059734249.0,
+    "time_per_iteration_ns": 475126.2
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "vbr_values": 298881,
+      "csr_nnz": 1154052
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 3517086,
+    "reference_iterations": 3517086,
+    "iteration_bounds": [
+      3517085.073333664,
+      3714604.868742321
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 242867707914.0,
+      "dispatch_2": 2395316647259.0,
+      "dispatch_3": 6894736810.0
+    },
+    "total_time_ns": 2645079091983.0,
+    "time_per_iteration_ns": 752065.5
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "vbr_values": 2253001,
+      "csr_nnz": 16500
+    },
+    "delta": 0.01,
+    "alpha": 0.4529160044961372,
+    "iterations": 720087,
+    "reference_iterations": 720087,
+    "iteration_bounds": [
+      720087.5085334268,
+      768140.3789758274
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 353185784384.0,
+      "dispatch_2": 7961845684.0,
+      "dispatch_3": 1255363756.0
+    },
+    "total_time_ns": 362402993824.0,
+    "time_per_iteration_ns": 503276.7
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "vbr_values": 2253001,
+      "csr_nnz": 16500
+    },
+    "delta": 0.01,
+    "alpha": 0.4529160044961372,
+    "iterations": 720087,
+    "reference_iterations": 720087,
+    "iteration_bounds": [
+      720087.5085334268,
+      768140.3789758274
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 356890230065.0,
+      "dispatch_2": 10518331365.0,
+      "dispatch_3": 1294002390.0
+    },
+    "total_time_ns": 368702563820.0,
+    "time_per_iteration_ns": 512025.0
+  },
+  {
+    "algorithm": "gd",
+    "composition": "vbr_csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "vbr_values": 2253001,
+      "csr_nnz": 16500
+    },
+    "delta": 0.01,
+    "alpha": 0.4529160044961372,
+    "iterations": 720087,
+    "reference_iterations": 720087,
+    "iteration_bounds": [
+      720087.5085334268,
+      768140.3789758274
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 354588989567.0,
+      "dispatch_2": 7338826736.0,
+      "dispatch_3": 1271671884.0
+    },
+    "total_time_ns": 363199488187.0,
+    "time_per_iteration_ns": 504382.8
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "vbr_values": 2253001,
+      "csr_nnz": 16500
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 326138,
+    "reference_iterations": 326138,
+    "iteration_bounds": [
+      326137.93763999146,
+      347901.77033816517
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 161143205591.0,
+      "dispatch_2": 4230890680.0,
+      "dispatch_3": 962369050.0
+    },
+    "total_time_ns": 166336465321.0,
+    "time_per_iteration_ns": 510018.7
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "vbr_values": 2253001,
+      "csr_nnz": 16500
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 326138,
+    "reference_iterations": 326138,
+    "iteration_bounds": [
+      326137.93763999146,
+      347901.77033816517
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 167267172005.0,
+      "dispatch_2": 4787355393.0,
+      "dispatch_3": 1009559042.0
+    },
+    "total_time_ns": 173064086440.0,
+    "time_per_iteration_ns": 530646.8
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "vbr_csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "vbr": "blockmixed",
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "vbr_values": 2253001,
+      "csr_nnz": 16500
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 326138,
+    "reference_iterations": 326138,
+    "iteration_bounds": [
+      326137.93763999146,
+      347901.77033816517
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "vbr",
+      "dispatch_2": "csr",
+      "dispatch_3": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 161495629770.0,
+      "dispatch_2": 3463483888.0,
+      "dispatch_3": 991530486.0
+    },
+    "total_time_ns": 165950644144.0,
+    "time_per_iteration_ns": 508835.7
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "csr_nnz": 18552
+    },
+    "delta": 0.01,
+    "alpha": 0.41295031678360083,
+    "iterations": 3531715,
+    "reference_iterations": 3531715,
+    "iteration_bounds": [
+      3517345.3930113474,
+      3773104.0620842325
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 19835927931.0,
+      "dispatch_2": 1090977977.0
+    },
+    "total_time_ns": 20926905908.0,
+    "time_per_iteration_ns": 5925.4
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "csr_nnz": 18552
+    },
+    "delta": 0.01,
+    "alpha": 0.41295031678360083,
+    "iterations": 3531715,
+    "reference_iterations": 3531715,
+    "iteration_bounds": [
+      3517345.3930113474,
+      3773104.0620842325
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 22457872208.0,
+      "dispatch_2": 1093857294.0
+    },
+    "total_time_ns": 23551729502.0,
+    "time_per_iteration_ns": 6668.6
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "csr_nnz": 18552
+    },
+    "delta": 0.01,
+    "alpha": 0.41295031678360083,
+    "iterations": 3531715,
+    "reference_iterations": 3531715,
+    "iteration_bounds": [
+      3517345.3930113474,
+      3773104.0620842325
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 38324143043.0,
+      "dispatch_2": 742281210.0
+    },
+    "total_time_ns": 39066424253.0,
+    "time_per_iteration_ns": 11061.6
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "csr_nnz": 18552
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 1483111,
+    "reference_iterations": 1483111,
+    "iteration_bounds": [
+      1452487.5895050534,
+      1558103.1180439354
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 8436315718.0,
+      "dispatch_2": 485842541.0
+    },
+    "total_time_ns": 8922158259.0,
+    "time_per_iteration_ns": 6015.8
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "csr_nnz": 18552
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 1483111,
+    "reference_iterations": 1483111,
+    "iteration_bounds": [
+      1452487.5895050534,
+      1558103.1180439354
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 9421300417.0,
+      "dispatch_2": 516545361.0
+    },
+    "total_time_ns": 9937845778.0,
+    "time_per_iteration_ns": 6700.7
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "eris1176",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 1176,
+      "cols": 1176,
+      "nnz": 18552
+    },
+    "split": {
+      "csr_nnz": 18552
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 1483111,
+    "reference_iterations": 1483111,
+    "iteration_bounds": [
+      1452487.5895050534,
+      1558103.1180439354
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 16338652410.0,
+      "dispatch_2": 437333746.0
+    },
+    "total_time_ns": 16775986156.0,
+    "time_per_iteration_ns": 11311.3
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "c-30",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 5321,
+      "cols": 5321,
+      "nnz": 65693
+    },
+    "split": {
+      "csr_nnz": 65693
+    },
+    "delta": 0.01,
+    "alpha": 0.4494897775944017,
+    "iterations": 70152899,
+    "reference_iterations": 70152899,
+    "iteration_bounds": [
+      70152568.89595845,
+      75517601.821343
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 1492124385005.0,
+      "dispatch_2": 94578733764.0
+    },
+    "total_time_ns": 1586703118769.0,
+    "time_per_iteration_ns": 22617.8
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "c-30",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 5321,
+      "cols": 5321,
+      "nnz": 65693
+    },
+    "split": {
+      "csr_nnz": 65693
+    },
+    "delta": 0.01,
+    "alpha": 0.4494897775944017,
+    "iterations": 70152899,
+    "reference_iterations": 70152899,
+    "iteration_bounds": [
+      70152568.89595845,
+      75517601.821343
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 1689794656026.0,
+      "dispatch_2": 101427237619.0
+    },
+    "total_time_ns": 1791221893645.0,
+    "time_per_iteration_ns": 25533.1
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "c-30",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 5321,
+      "cols": 5321,
+      "nnz": 65693
+    },
+    "split": {
+      "csr_nnz": 65693
+    },
+    "delta": 0.01,
+    "alpha": 0.4494897775944017,
+    "iterations": 70152899,
+    "reference_iterations": 70152899,
+    "iteration_bounds": [
+      70152568.89595845,
+      75517601.821343
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 3319102178355.0,
+      "dispatch_2": 92153165751.0
+    },
+    "total_time_ns": 3411255344106.0,
+    "time_per_iteration_ns": 48626.0
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": 0.489066631670451,
+    "iterations": 1999767,
+    "reference_iterations": 1999767,
+    "iteration_bounds": [
+      1999767.9359882616,
+      2112665.6751699853
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 467829623041.0,
+      "dispatch_2": 2197818195.0
+    },
+    "total_time_ns": 470027441236.0,
+    "time_per_iteration_ns": 235041.1
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": 0.489066631670451,
+    "iterations": 1999767,
+    "reference_iterations": 1999767,
+    "iteration_bounds": [
+      1999767.9359882616,
+      2112665.6751699853
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 470331935028.0,
+      "dispatch_2": 1948097535.0
+    },
+    "total_time_ns": 472280032563.0,
+    "time_per_iteration_ns": 236167.5
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": 0.489066631670451,
+    "iterations": 1999767,
+    "reference_iterations": 1999767,
+    "iteration_bounds": [
+      1999767.9359882616,
+      2112665.6751699853
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 787734961505.0,
+      "dispatch_2": 1327651243.0
+    },
+    "total_time_ns": 789062612748.0,
+    "time_per_iteration_ns": 394577.3
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 978019,
+    "reference_iterations": 978019,
+    "iteration_bounds": [
+      978018.6286971634,
+      1033233.0813696197
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 229428322525.0,
+      "dispatch_2": 1481672422.0
+    },
+    "total_time_ns": 230909994947.0,
+    "time_per_iteration_ns": 236099.7
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 978019,
+    "reference_iterations": 978019,
+    "iteration_bounds": [
+      978018.6286971634,
+      1033233.0813696197
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 230480066702.0,
+      "dispatch_2": 1443476776.0
+    },
+    "total_time_ns": 231923543478.0,
+    "time_per_iteration_ns": 237136.0
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart2",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 978019,
+    "reference_iterations": 978019,
+    "iteration_bounds": [
+      978018.6286971634,
+      1033233.0813696197
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 384412506608.0,
+      "dispatch_2": 1108316053.0
+    },
+    "total_time_ns": 385520822661.0,
+    "time_per_iteration_ns": 394185.4
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": 0.48913015615017236,
+    "iterations": 1950212,
+    "reference_iterations": 1950212,
+    "iteration_bounds": [
+      1950212.9162157266,
+      2060316.7308128537
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 455955004748.0,
+      "dispatch_2": 1997776306.0
+    },
+    "total_time_ns": 457952781054.0,
+    "time_per_iteration_ns": 234822.1
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": 0.48913015615017236,
+    "iterations": 1950212,
+    "reference_iterations": 1950212,
+    "iteration_bounds": [
+      1950212.9162157266,
+      2060316.7308128537
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 458981143187.0,
+      "dispatch_2": 1923483423.0
+    },
+    "total_time_ns": 460904626610.0,
+    "time_per_iteration_ns": 236335.7
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": 0.48913015615017236,
+    "iterations": 1950212,
+    "reference_iterations": 1950212,
+    "iteration_bounds": [
+      1950212.9162157266,
+      2060316.7308128537
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 766594659831.0,
+      "dispatch_2": 1278318331.0
+    },
+    "total_time_ns": 767872978162.0,
+    "time_per_iteration_ns": 393738.2
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 953907,
+    "reference_iterations": 953907,
+    "iteration_bounds": [
+      953906.8084981093,
+      1007761.8401782477
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 223583501945.0,
+      "dispatch_2": 1395654497.0
+    },
+    "total_time_ns": 224979156442.0,
+    "time_per_iteration_ns": 235850.2
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 953907,
+    "reference_iterations": 953907,
+    "iteration_bounds": [
+      953906.8084981093,
+      1007761.8401782477
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 224366627211.0,
+      "dispatch_2": 1414238822.0
+    },
+    "total_time_ns": 225780866033.0,
+    "time_per_iteration_ns": 236690.6
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart3",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 2339,
+      "cols": 2339,
+      "nnz": 680483
+    },
+    "split": {
+      "csr_nnz": 680483
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 953907,
+    "reference_iterations": 953907,
+    "iteration_bounds": [
+      953906.8084981093,
+      1007761.8401782477
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 375361991806.0,
+      "dispatch_2": 1070683209.0
+    },
+    "total_time_ns": 376432675015.0,
+    "time_per_iteration_ns": 394622.0
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "csr_nnz": 1385459
+    },
+    "delta": 0.01,
+    "alpha": 0.48930789168667305,
+    "iterations": 7187879,
+    "reference_iterations": 7187879,
+    "iteration_bounds": [
+      7187879.598267192,
+      7591551.524896504
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 3413112398685.0,
+      "dispatch_2": 13425626293.0
+    },
+    "total_time_ns": 3426538024978.0,
+    "time_per_iteration_ns": 476710.6
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "csr_nnz": 1385459
+    },
+    "delta": 0.01,
+    "alpha": 0.48930789168667305,
+    "iterations": 7187879,
+    "reference_iterations": 7187879,
+    "iteration_bounds": [
+      7187879.598267192,
+      7591551.524896504
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 3458646820026.0,
+      "dispatch_2": 13168830425.0
+    },
+    "total_time_ns": 3471815650451.0,
+    "time_per_iteration_ns": 483009.8
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "csr_nnz": 1385459
+    },
+    "delta": 0.01,
+    "alpha": 0.48930789168667305,
+    "iterations": 7187879,
+    "reference_iterations": 7187879,
+    "iteration_bounds": [
+      7187879.598267192,
+      7591551.524896504
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 5806113250803.0,
+      "dispatch_2": 8789121962.0
+    },
+    "total_time_ns": 5814902372765.0,
+    "time_per_iteration_ns": 808987.2
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "csr_nnz": 1385459
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 3517086,
+    "reference_iterations": 3517086,
+    "iteration_bounds": [
+      3517085.073333664,
+      3714604.868742321
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 1670361717477.0,
+      "dispatch_2": 9027493190.0
+    },
+    "total_time_ns": 1679389210667.0,
+    "time_per_iteration_ns": 477494.5
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "csr_nnz": 1385459
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 3517086,
+    "reference_iterations": 3517086,
+    "iteration_bounds": [
+      3517085.073333664,
+      3714604.868742321
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 1691977401091.0,
+      "dispatch_2": 9121800053.0
+    },
+    "total_time_ns": 1701099201144.0,
+    "time_per_iteration_ns": 483667.2
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "heart1",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 3557,
+      "cols": 3557,
+      "nnz": 1385459
+    },
+    "split": {
+      "csr_nnz": 1385459
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 3517086,
+    "reference_iterations": 3517086,
+    "iteration_bounds": [
+      3517085.073333664,
+      3714604.868742321
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 2816222588043.0,
+      "dispatch_2": 6749478972.0
+    },
+    "total_time_ns": 2822972067015.0,
+    "time_per_iteration_ns": 802645.2
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "csr_nnz": 2269501
+    },
+    "delta": 0.01,
+    "alpha": 0.4529160044961372,
+    "iterations": 720087,
+    "reference_iterations": 720087,
+    "iteration_bounds": [
+      720087.5085334268,
+      768140.3789758274
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 559693802522.0,
+      "dispatch_2": 1804590022.0
+    },
+    "total_time_ns": 561498392544.0,
+    "time_per_iteration_ns": 779764.7
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "csr_nnz": 2269501
+    },
+    "delta": 0.01,
+    "alpha": 0.4529160044961372,
+    "iterations": 720087,
+    "reference_iterations": 720087,
+    "iteration_bounds": [
+      720087.5085334268,
+      768140.3789758274
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 563355125872.0,
+      "dispatch_2": 1640628207.0
+    },
+    "total_time_ns": 564995754079.0,
+    "time_per_iteration_ns": 784621.5
+  },
+  {
+    "algorithm": "gd",
+    "composition": "csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "csr_nnz": 2269501
+    },
+    "delta": 0.01,
+    "alpha": 0.4529160044961372,
+    "iterations": 720087,
+    "reference_iterations": 720087,
+    "iteration_bounds": [
+      720087.5085334268,
+      768140.3789758274
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 682461585316.0,
+      "dispatch_2": 1297070162.0
+    },
+    "total_time_ns": 683758655478.0,
+    "time_per_iteration_ns": 949550.1
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "csr": "naive"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "csr_nnz": 2269501
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 326138,
+    "reference_iterations": 326138,
+    "iteration_bounds": [
+      326137.93763999146,
+      347901.77033816517
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 252126733797.0,
+      "dispatch_2": 1146110201.0
+    },
+    "total_time_ns": 253272843998.0,
+    "time_per_iteration_ns": 776581.8
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "csr": "mkl"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "csr_nnz": 2269501
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 326138,
+    "reference_iterations": 326138,
+    "iteration_bounds": [
+      326137.93763999146,
+      347901.77033816517
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 254723438525.0,
+      "dispatch_2": 1143485354.0
+    },
+    "total_time_ns": 255866923879.0,
+    "time_per_iteration_ns": 784535.8
+  },
+  {
+    "algorithm": "jacobi",
+    "composition": "csr",
+    "matrix_name": "exdata_1",
+    "kernels": {
+      "csr": "uzp"
+    },
+    "matrix": {
+      "rows": 6001,
+      "cols": 6001,
+      "nnz": 2269501
+    },
+    "split": {
+      "csr_nnz": 2269501
+    },
+    "delta": 0.01,
+    "alpha": null,
+    "iterations": 326138,
+    "reference_iterations": 326138,
+    "iteration_bounds": [
+      326137.93763999146,
+      347901.77033816517
+    ],
+    "verified_against": "scipy reference",
+    "dispatch_labels": {
+      "dispatch_1": "csr",
+      "dispatch_2": "update"
+    },
+    "dispatch_times_ns": {
+      "dispatch_1": 308777977011.0,
+      "dispatch_2": 986257294.0
+    },
+    "total_time_ns": 309764234305.0,
+    "time_per_iteration_ns": 949795.0
+  }
+]

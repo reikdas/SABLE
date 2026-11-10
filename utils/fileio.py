@@ -86,6 +86,25 @@ def write_dense_matrix(val: float, m: int, n: int) -> str:
     return _write_repeated_values(dense_matrix_path(m, n), val, n * m)
 
 
+def write_dense_values(name: str, values) -> str:
+    """Write a dense tensor holding `values`, comma-separated as
+    read_dense_input expects, to `name` in the dense tensors directory;
+    return its path. Unlike the constant writers, this always rewrites.
+    """
+    path = os.path.abspath(os.path.join(dense_tensors_dir(), name))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp_path = f"{path}.tmp.{os.getpid()}"
+    chunk_size = 65536
+    with open(tmp_path, "w") as f:
+        for start in range(0, len(values), chunk_size):
+            if start:
+                f.write(",")
+            f.write(",".join(f"{float(v):.17g}" for v in values[start:start + chunk_size]))
+        f.write("\n")
+    os.replace(tmp_path, path)
+    return path
+
+
 CHECK_MULTIPLIER = 40503
 CHECK_MODULUS = 65521
 CHECK_LEVELS = 16
